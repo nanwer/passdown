@@ -343,6 +343,64 @@ export async function structuredChecks({
     },
   );
   await check(
+    'taxonomy deactivation: current assignments block, a superseded release does not',
+    async () => {
+      const from = await category('Retiring branch');
+      const to = await category('Replacement branch');
+      const draft = await store.createDraft(who, 'public', {
+        document: doc,
+        categoryId: from.id,
+        audience: 'public',
+      });
+      await store.publishDraft(who, 'public', draft.id, {
+        expectedVersion: 1,
+        expectedRelease: null,
+        license: 'all-rights-reserved',
+      });
+
+      // While the current release sits here, the blockers report it and
+      // archiving is refused.
+      const blocked = await store.categoryBlockers(who, 'public', from.id);
+      assert.equal(blocked.currentReleases, 1);
+      assert.equal(blocked.assignedGuides, 1);
+      await denied(edit((await store.getCategory(who, 'public', from.id))!, { archived: true }));
+
+      // Move the draft and republish, so the first release becomes superseded.
+      const current = (await store.getDraft(who, 'public', draft.id))!;
+      await store.saveDraft(who, 'public', draft.id, {
+        expectedVersion: current.version,
+        document: current.document,
+        categoryId: to.id,
+      });
+      const moved = (await store.getDraft(who, 'public', draft.id))!;
+      await store.publishDraft(who, 'public', draft.id, {
+        expectedVersion: moved.version,
+        expectedRelease: 1,
+        license: 'all-rights-reserved',
+      });
+
+      // Only history points at the old branch now, so it can be retired.
+      const after = await store.categoryBlockers(who, 'public', from.id);
+      assert.equal(after.assignedGuides, 0);
+      assert.equal(after.currentReleases, 0);
+      const archived = await edit((await store.getCategory(who, 'public', from.id))!, {
+        archived: true,
+      });
+      assert.equal(archived.archived, true);
+
+      // The superseded release keeps its own frozen reference.
+      const historic = (
+        await owner.query('SELECT category_id FROM app.release WHERE guide_id=$1 AND number=1', [
+          draft.id,
+        ])
+      ).rows[0];
+      assert.equal(historic.category_id, from.id);
+
+      // The branch now holding the current release is still protected.
+      await denied(edit((await store.getCategory(who, 'public', to.id))!, { archived: true }));
+    },
+  );
+  await check(
     'catalog: exact variants, searchable descendant categories, duplicate identifiers and wrong domains',
     async () => {
       const phillips = await category('Phillips', tools.id, 'tool');

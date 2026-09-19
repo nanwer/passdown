@@ -9,9 +9,17 @@ export function GET(request: Request, context: Context) {
     const { workspace, category } = await context.params;
     assertIdentifier(workspace);
     assertIdentifier(category);
-    const result = await getApplication().store.getCategory(actor, workspace, category);
+    const store = getApplication().store;
+    const result = await store.getCategory(actor, workspace, category);
     if (!result) throw new ApplicationError('NOT_FOUND', 'Record not found.', 404);
-    return Response.json({ category: result });
+    if (new URL(request.url).searchParams.get('blockers') !== 'true')
+      return Response.json({ category: result });
+    // Lets the interface explain why deactivation is unavailable, and what to
+    // move first, instead of surfacing a raised database exception.
+    return Response.json({
+      category: result,
+      blockers: await store.categoryBlockers(actor, workspace, category),
+    });
   });
 }
 export function PATCH(request: Request, context: Context) {

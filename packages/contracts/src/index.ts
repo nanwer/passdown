@@ -139,6 +139,17 @@ export type CategoryCounts = {
   publishedDirect: number;
   publishedSubtree: number;
 };
+/**
+ * What currently prevents a category being deactivated. Superseded releases are
+ * deliberately absent: they keep their own frozen category reference, so they
+ * are history rather than a current assignment.
+ */
+export type CategoryBlockers = {
+  activeChildren: number;
+  assignedGuides: number;
+  currentReleases: number;
+  activeItems: number;
+};
 export const catalogFields = {
   categoryId: z.uuid(),
   kind: catalogKindSchema,

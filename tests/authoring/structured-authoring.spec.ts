@@ -554,3 +554,49 @@ test('private legacy preparation links to an inline-created catalog item without
   });
   await reader.close();
 });
+
+test('deactivation explains what still uses a category and only unblocks once those move', async ({
+  page,
+}) => {
+  await login(page.request);
+  const workspace = 'repair-collective';
+  const target = await category(page.request, workspace, `Retiring ${randomUUID().slice(0, 8)}`);
+  const replacement = await category(
+    page.request,
+    workspace,
+    `Replacement ${randomUUID().slice(0, 8)}`,
+  );
+  const guide = await draft(page.request, workspace, target.id, 'Assigned while archiving');
+
+  await page.goto(`/studio/${workspace}/categories`);
+  const row = page.getByRole('button', { name: target.name, exact: true });
+  await expect(row).toBeVisible();
+  await row.click();
+
+  // The code is shown, and describes the row without becoming its name.
+  await expect(page.getByText(target.code, { exact: true }).first()).toBeVisible();
+
+  await page.getByRole('button', { name: 'Archive', exact: true }).click();
+  const blockers = page.locator('.structured-blockers');
+  await expect(blockers).toBeVisible();
+  await expect(blockers).toContainText('guide assigned here');
+  await expect(page.getByRole('button', { name: 'Archive category', exact: true })).toBeDisabled();
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+
+  // Move the guide elsewhere, and the same category becomes retirable.
+  const current = (
+    await api<{ guide: DraftGuide }>(page.request, `/api/studio/${workspace}/guides/${guide.id}`)
+  ).guide;
+  await api(page.request, `/api/studio/${workspace}/guides/${guide.id}`, 'PUT', {
+    expectedVersion: current.version,
+    document: current.document,
+    categoryId: replacement.id,
+  });
+
+  await page.reload();
+  await page.getByRole('button', { name: target.name, exact: true }).click();
+  await page.getByRole('button', { name: 'Archive', exact: true }).click();
+  await expect(page.locator('.structured-blockers')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Archive category', exact: true }).click();
+  await expect(page.getByText('Category archived', { exact: false })).toBeVisible();
+});

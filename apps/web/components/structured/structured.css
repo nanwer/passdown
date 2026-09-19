@@ -809,7 +809,7 @@
 /* Stable short code. Shown beside the name so a renamed category is still
    recognizable by the identifier other records reference. */
 .category-code {
-  font-family: var(--gp-semantic-font-mono);
+  font-family: var(--gp-semantic-font-code);
   font-size: 11px;
   letter-spacing: 0.02em;
   color: var(--gp-semantic-text-secondary);
@@ -826,4 +826,45 @@
   font-size: 11px;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+}
+
+/* What still points at a category, shown before deactivation so the owner can
+   move it rather than meeting a refusal. */
+.structured-blockers {
+  padding: 13px 15px;
+  border: 1px solid var(--gp-semantic-status-warning-border);
+  border-radius: 10px;
+  background: var(--gp-semantic-status-warning-background);
+  color: var(--gp-semantic-status-warning-foreground);
+  font-size: 13px;
+}
+.structured-blockers p {
+  margin: 0 0 9px;
+}
+.structured-blockers ul {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.structured-blockers li {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-wrap: wrap;
+}
+.structured-blockers a {
+  color: inherit;
+  text-decoration: underline;
+}
+.structured-blocker-count {
+  min-width: 22px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--gp-semantic-surface-raised);
+  color: var(--gp-semantic-text-primary);
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+  text-align: center;
 }

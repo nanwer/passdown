@@ -15,7 +15,12 @@ import {
   Globe,
 } from 'lucide-react';
 import { Button, Dialog } from '@guide/ui';
-import type { Category, CatalogItem, StudioWorkspace } from '@guide/contracts';
+import type {
+  Category,
+  CategoryBlockers,
+  CatalogItem,
+  StudioWorkspace,
+} from '@guide/contracts';
 import { SessionGate, ErrorNotice } from '../studio/frame';
 import { studioFetch } from '../studio/transport';
 import { useCategories, useCatalog, announceStructuredChange } from './data';
@@ -34,6 +39,47 @@ const domains = {
   tool: 'Tool categories',
   material: 'Material categories',
 } as const;
+/**
+ * Turns the raw blocker counts into things an owner can act on. Only non-zero
+ * reasons appear, each with somewhere to go and fix it where one exists.
+ * Superseded releases are deliberately not a reason: they keep their own frozen
+ * category reference and never become selectable again.
+ */
+function blockingReasons(blockers: CategoryBlockers, workspaceId: string) {
+  return [
+    {
+      key: 'children',
+      count: blockers.activeChildren,
+      label: blockers.activeChildren === 1 ? 'active subcategory' : 'active subcategories',
+      action: null,
+      href: null,
+    },
+    {
+      key: 'guides',
+      count: blockers.assignedGuides,
+      label: blockers.assignedGuides === 1 ? 'guide assigned here' : 'guides assigned here',
+      action: 'Open guides',
+      href: `/studio/${workspaceId}`,
+    },
+    {
+      key: 'releases',
+      count: blockers.currentReleases,
+      label:
+        blockers.currentReleases === 1
+          ? 'guide whose current release is published from here'
+          : 'guides whose current release is published from here',
+      action: 'Open guides',
+      href: `/studio/${workspaceId}`,
+    },
+    {
+      key: 'items',
+      count: blockers.activeItems,
+      label: blockers.activeItems === 1 ? 'active catalog item' : 'active catalog items',
+      action: 'Open catalog',
+      href: `/studio/${workspaceId}/catalog`,
+    },
+  ].filter((reason) => reason.count > 0);
+}
 function ManagementHeader({
   workspace,
   active,
@@ -94,10 +140,37 @@ function CategoryManagement({ workspace }: { workspace: StudioWorkspace }) {
   const [actionError, setActionError] = useState('');
   const [pending, setPending] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
+  const [blockers, setBlockers] = useState<CategoryBlockers | null>(null);
+  const [blockersLoading, setBlockersLoading] = useState(false);
   const countsById = useMemo(
     () => new Map(counts.map((entry) => [entry.categoryId, entry])),
     [counts],
   );
+  const archiveTargetId = archiveOpen && selectedId ? selectedId : null;
+  useEffect(() => {
+    if (!archiveTargetId) {
+      setBlockers(null);
+      return;
+    }
+    let active = true;
+    setBlockersLoading(true);
+    studioFetch<{ blockers: CategoryBlockers }>(
+      `/api/studio/${workspace.id}/categories/${archiveTargetId}?blockers=true`,
+    )
+      .then((result) => {
+        if (active) setBlockers(result.blockers);
+      })
+      .catch(() => {
+        // Falls back to letting the server refuse and explain.
+        if (active) setBlockers(null);
+      })
+      .finally(() => {
+        if (active) setBlockersLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [archiveTargetId, workspace.id]);
   const inDomain = categories.filter((category) => category.domain === domain);
   // Status counts describe what the current search matches, before the selected
   // status narrows it, so All always equals Active plus Inactive.
@@ -346,7 +419,7 @@ function CategoryManagement({ workspace }: { workspace: StudioWorkspace }) {
                     description={
                       selected.archived
                         ? 'Make this category available for selection again.'
-                        : 'Only unused categories can be archived. Active children, current guide/item assignments and historical release references can block archiving; those records are preserved.'
+                        : 'Archiving keeps every record. Active subcategories, assigned guides, current releases and active catalog items must move first; superseded releases keep their own reference and do not block this.'
                     }
                     open={archiveOpen}
                     onOpenChange={(next) => {
@@ -361,6 +434,28 @@ function CategoryManagement({ workspace }: { workspace: StudioWorkspace }) {
                       <p>
                         <strong>{categoryPath(selected)}</strong>
                       </p>
+                      {!selected.archived && blockersLoading && (
+                        <p role="status">Checking what still uses this category…</p>
+                      )}
+                      {!selected.archived && blockers && blockingReasons(blockers, workspace.id).length > 0 && (
+                        <div className="structured-blockers">
+                          <p>
+                            <strong>Move these first.</strong> Nothing is deleted; each of these
+                            still points at this category.
+                          </p>
+                          <ul>
+                            {blockingReasons(blockers, workspace.id).map((reason) => (
+                              <li key={reason.key}>
+                                <span className="structured-blocker-count">{reason.count}</span>
+                                {reason.label}
+                                {reason.href && (
+                                  <a href={reason.href}>{reason.action}</a>
+                                )}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
                       {actionError && <ErrorNotice error={actionError} />}
                       <div className="structured-form-actions">
                         <Button
@@ -371,7 +466,16 @@ function CategoryManagement({ workspace }: { workspace: StudioWorkspace }) {
                         >
                           Cancel
                         </Button>
-                        <Button type="button" disabled={pending} onClick={() => void archive()}>
+                        <Button
+                          type="button"
+                          disabled={
+                            pending ||
+                            (!selected.archived &&
+                              (blockersLoading ||
+                                (blockers !== null && blockingReasons(blockers, workspace.id).length > 0)))
+                          }
+                          onClick={() => void archive()}
+                        >
                           {pending
                             ? 'Saving…'
                             : selected.archived

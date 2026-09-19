@@ -8,6 +8,7 @@ import {
   createCatalogItemSchema,
   updateCatalogItemSchema,
   type Category,
+  type CategoryBlockers,
   type CategoryCounts,
   type CategoryDomain,
   type CatalogItem,
@@ -245,6 +246,27 @@ export function structuredStore(
         return (
           await c.query('SELECT app.next_category_code($1,$2) AS code', [workspaceId, domain])
         ).rows[0].code;
+      });
+    },
+    /** What currently stops this category being deactivated, so the interface
+     *  can explain it and offer a route rather than surfacing a raised error. */
+    async categoryBlockers(
+      actor: Actor,
+      workspaceId: string,
+      id: string,
+    ): Promise<CategoryBlockers> {
+      return transaction(actor, workspaceId, async (c) => {
+        await owner(c, workspaceId);
+        const row = (
+          await c.query('SELECT * FROM app.category_blockers($1,$2)', [workspaceId, id])
+        ).rows[0];
+        if (!row) throw missing();
+        return {
+          activeChildren: Number(row.active_children),
+          assignedGuides: Number(row.assigned_guides),
+          currentReleases: Number(row.current_releases),
+          activeItems: Number(row.active_items),
+        };
       });
     },
     /**
