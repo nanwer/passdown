@@ -50,13 +50,33 @@ export async function readJSON(request: Request, limit = 1024 * 1024): Promise<u
   }
 }
 
+/**
+ * Whether this is one of our own errors, carrying a status and a code.
+ *
+ * `instanceof` alone is not enough: the bundler can produce more than one copy
+ * of the contracts module, and an error thrown across that boundary fails the
+ * check even though it is the same class. The consequence was silent and bad —
+ * a save conflict degraded into "the service is unavailable, please try again",
+ * which is both wrong and unactionable. Recognising the shape as well keeps a
+ * deliberate error deliberate however it was bundled.
+ */
+function isApplicationError(error: unknown): error is ApplicationError {
+  if (error instanceof ApplicationError) return true;
+  const candidate = error as { name?: unknown; status?: unknown; code?: unknown } | null;
+  return (
+    !!candidate &&
+    candidate.name === 'ApplicationError' &&
+    typeof candidate.status === 'number' &&
+    typeof candidate.code === 'string'
+  );
+}
 export async function apiResponse(run: () => Promise<Response>): Promise<Response> {
   const requestId = randomUUID();
   let response: Response;
   try {
     response = await run();
   } catch (error) {
-    const known = error instanceof ApplicationError;
+    const known = isApplicationError(error);
     const status = known ? error.status : 503;
     response = Response.json(
       {

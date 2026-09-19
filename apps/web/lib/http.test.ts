@@ -55,3 +55,39 @@ describe('mutation transport boundary', () => {
     expect(JSON.stringify(data)).not.toContain('secret');
   });
 });
+
+describe('deliberate errors survive the bundler boundary', () => {
+  it('keeps the status and code of an error that is not instanceof our class', async () => {
+    // The bundler can produce a second copy of the contracts module, so an
+    // error thrown from another copy fails instanceof while being the same
+    // class. Before this was handled, a save conflict reached the author as
+    // "the service is unavailable, please try again".
+    const fromOtherCopy = Object.assign(new Error('This guide changed. Reload it before saving.'), {
+      name: 'ApplicationError',
+      code: 'CONFLICT',
+      status: 409,
+    });
+    const response = await apiResponse(async () => {
+      throw fromOtherCopy;
+    });
+    expect(response.status).toBe(409);
+    const body = await response.json();
+    expect(body.error.code).toBe('CONFLICT');
+    expect(body.error.message).toBe('This guide changed. Reload it before saving.');
+  });
+
+  it('still reports an unexpected failure as unavailable', async () => {
+    const response = await apiResponse(async () => {
+      throw new Error('connection reset');
+    });
+    expect(response.status).toBe(503);
+    expect((await response.json()).error.code).toBe('SERVICE_UNAVAILABLE');
+  });
+
+  it('does not mistake a plain object for one of our errors', async () => {
+    const response = await apiResponse(async () => {
+      throw { name: 'ApplicationError', status: 'nonsense', code: 'CONFLICT' };
+    });
+    expect(response.status).toBe(503);
+  });
+});
