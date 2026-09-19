@@ -49,3 +49,28 @@ These are interface fixes. Saving a catalog entry or publishing a guide still re
 ## Current limitations
 
 Owner-only authoring; manual saves without browser draft backup; category depth 16; tables limited to 10 columns and 51 rows. Uploads/PDF attachments, merged cells, cross-guide prerequisites, approval workflows and simultaneous collaborative editing are unfinished. Demonstration guides are examples, not verified repair instructions. See [development status](status.md) and [roadmap](../../ROADMAP.md).
+
+
+## Category codes, totals and retirement
+
+1. Sign in and open **Studio → a workspace → Categories**. Expect every row to show a short code such as `GC-0001`, and branches holding guides to show a total such as `5 guides`. Hover a total: expect `5 guides: 1 here and 4 in subcategories`.
+2. Switch the domain tabs across Guide, Tool and Material categories. Expect codes prefixed `GC-`, `TC-` and `MC-`, each numbering from 0001 independently.
+3. Use the **All / Active / Inactive** tabs. Expect All to equal Active plus Inactive, and all three to change as you type in the search box.
+4. Select a branch. Expect its code, a `Guides` figure with the direct-plus-nested split, and `Published releases`.
+5. Rename a category, or move it under another parent. Expect its code to stay the same.
+6. Create a category and enter a code already used in that domain. Expect an error on the code field rather than a generic failure.
+7. Select a category that still holds a guide and choose **Archive**. Expect a list naming what still uses it, with a link to those records, and the confirm disabled. Move the guide elsewhere, reopen the dialog, and expect archiving to proceed.
+
+## Catalog usage
+
+1. Open **Studio → a workspace → Tools & materials**. Expect items used by guides to show a total such as `3 guides`, and unused items to show nothing.
+2. Use the **All / Active / Inactive** tabs with the search, kind and category filters. Expect All to equal Active plus Inactive under whatever else is filtered.
+
+## Public and internal sections
+
+1. Sign in as a member of a public workspace and open the public home. Expect a **Public / Internal** switch above the search field.
+2. Stay on Public. Expect only publicly published guides; a members-only guide must not appear here even though you can read it.
+3. Choose **Internal**. Expect the members-only releases of that workspace.
+4. Open the same internal address in a private window. Expect 404, with no sign-in prompt and no hint that the section exists.
+5. As a visitor on the public home, expect no Public/Internal switch at all.
+6. Choose **New guide** in a public workspace. Expect a **Section** choice defaulting to Public, and a note that it cannot be changed later. Repeat in a private workspace and expect no choice, only the members-only note.

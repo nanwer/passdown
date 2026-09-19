@@ -8,8 +8,10 @@ Passdown is an early, working application for public community guides and privat
 - Persistent guide creation, rich-text step editing, preview, manual saves and conflict recovery.
 - Headings, emphasis, links, lists, quotes, six panel types and editable tables with direct row/column insertion.
 - Immutable published releases with explicit content licenses.
-- Nested category management, inline creation, product/category pages, breadcrumbs and descendant search.
-- Reusable tools, materials and replacement-part catalog with exact specifications, archive/restore and reviewed updates.
+- Nested category management with stable short codes, distinct-guide totals per branch, All/Active/Inactive tabs, inline creation, product/category pages, breadcrumbs and descendant search.
+- Deactivation that names what still uses a category and offers a route to it, while superseded releases keep their own references without blocking retirement.
+- Reusable tools, materials and replacement-part catalog with exact specifications, distinct-guide usage per item, archive/restore and reviewed updates.
+- Public and internal sections of one public workspace: members switch between them, visitors and signed-in nonmembers see neither the switch nor the internal route.
 - Guide preparation, per-step requirements and consumption/reuse allocations, preconditions and earlier-step dependencies.
 - Shared reader, live search, keyboard navigation, responsive layouts and light/dark themes.
 - Versioned migrations, scoped repository access, validation, automated tests and public continuous checks.
