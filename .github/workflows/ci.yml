@@ -1,0 +1,32 @@
+name: Passdown checks
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+      - name: Check the commit explanation
+        run: node scripts/check-commit-message.mjs --event
+      - run: npm install --global pnpm@10.33.0
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check
+      - run: pnpm build
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm test:e2e
+      - run: pnpm local:setup
+      - run: pnpm test:database
+      - run: pnpm test:authoring
+      - if: always()
+        run: docker compose --env-file .env.local -f compose.app.yaml down

@@ -1,0 +1,23 @@
+node_modules/
+.next/
+.env*
+!.env.example
+*.tsbuildinfo
+playwright-report/
+test-results/
+.DS_Store
+experiments/rls/results.local.json
+
+LOCAL_ACCESS.md
+.next-*
+
+# Local example publisher identity map (never credentials)
+.local-formatting-examples.json
+
+# Local working notes, credentials and generated evidence are never public source.
+.private/
+apps/web/*.md
+docs/development/published-formatting-examples.md
+*.dump
+*.bundle
+*.bak

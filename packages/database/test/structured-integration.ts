@@ -1,0 +1,546 @@
+import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
+import type pg from 'pg';
+import type { Actor } from '@guide/core';
+import { toStructuredDocument, type GuideDocument, type GuideRequirement } from '@guide/content';
+import type { Category, CatalogItem } from '@guide/contracts';
+import { createApplicationStore } from '../src/store';
+type Store = ReturnType<typeof createApplicationStore>;
+export async function structuredChecks({
+  store,
+  owner,
+  check,
+  scoped,
+  actor,
+  anonymous,
+  doc,
+}: {
+  store: Store;
+  owner: pg.Pool;
+  runtime: pg.Pool;
+  check: (name: string, fn: () => Promise<void>) => Promise<void>;
+  scoped: <T>(who: Actor, w: string, fn: (c: pg.PoolClient) => Promise<T>) => Promise<T>;
+  actor: (id: string, active?: boolean) => Actor;
+  anonymous: Actor;
+  doc: GuideDocument;
+}) {
+  const who = actor('owner');
+  const category = (
+    name: string,
+    parentId: string | null = null,
+    domain: 'guide' | 'tool' | 'material' = 'guide',
+    visibility: 'public' | 'members' = 'public',
+    workspace = 'public',
+  ) =>
+    store.createCategory(who, workspace, {
+      name,
+      parentId,
+      domain,
+      visibility,
+      description: '',
+      sortOrder: 0,
+    });
+  const edit = (c: Category, changes: Partial<Category>) =>
+    store.updateCategory(who, c.workspaceId, c.id, {
+      domain: c.domain,
+      parentId: c.parentId,
+      name: c.name,
+      description: c.description,
+      visibility: c.visibility,
+      sortOrder: c.sortOrder,
+      archived: c.archived,
+      expectedVersion: c.version,
+      ...changes,
+    });
+  const item = (
+    name: string,
+    categoryId: string,
+    kind: 'tool' | 'material' | 'part' = 'tool',
+    workspace = 'public',
+    visibility: 'public' | 'members' = 'public',
+  ) =>
+    store.createCatalogItem(who, workspace, {
+      name,
+      categoryId,
+      kind,
+      visibility,
+      specification: kind === 'tool' ? 'Phillips #00' : 'M2 × 4 mm',
+      description: 'Exact test specification',
+      manufacturer: '',
+      model: '',
+      partNumber: '',
+      defaultUnit: 'each',
+    });
+  const editItem = (i: CatalogItem, changes: Partial<CatalogItem>) =>
+    store.updateCatalogItem(who, i.workspaceId, i.id, {
+      categoryId: i.categoryId,
+      kind: i.kind,
+      name: i.name,
+      visibility: i.visibility,
+      specification: i.specification,
+      description: i.description,
+      manufacturer: i.manufacturer,
+      model: i.model,
+      partNumber: i.partNumber,
+      defaultUnit: i.defaultUnit,
+      archived: i.archived,
+      expectedVersion: i.version,
+      ...changes,
+    });
+  const denied = (promise: Promise<unknown>, status = 422) =>
+    assert.rejects(promise, (e: any) => e.status === status);
+  const requirement = (i: CatalogItem): GuideRequirement => ({
+    id: randomUUID(),
+    itemId: i.id,
+    itemVersion: i.version,
+    kind: i.kind,
+    name: i.name,
+    specification: i.specification,
+    description: i.description,
+    manufacturer: i.manufacturer,
+    model: i.model,
+    partNumber: i.partNumber,
+    quantity: 1,
+    unit: i.defaultUnit,
+    optional: false,
+    notes: '',
+  });
+  let root!: Category,
+    leaf!: Category,
+    other!: Category,
+    restricted!: Category,
+    tools!: Category,
+    materials!: Category,
+    driver!: CatalogItem,
+    part!: CatalogItem;
+  await check(
+    'taxonomy: empty public categories, deep parent paths and restricted names obey actual RLS',
+    async () => {
+      root = await category('Equipment');
+      other = await category('Household equipment');
+      leaf = root;
+      for (const name of ['Computers', 'Laptops', 'Example brand', 'Example model'])
+        leaf = await category(name, leaf.id);
+      restricted = await category('Secret prototype', null, 'guide', 'members');
+      assert.equal(leaf.path.length, 5);
+      assert.deepEqual(
+        leaf.path.map((p) => p.name),
+        ['Equipment', 'Computers', 'Laptops', 'Example brand', 'Example model'],
+      );
+      assert((await store.listCategories(anonymous, 'public')).some((c) => c.id === root.id));
+      assert(
+        !(await store.listCategories(anonymous, 'public')).some((c) => c.id === restricted.id),
+      );
+      assert.deepEqual(await store.listCategories(anonymous, 'private'), []);
+      assert.equal(await store.getCategory(anonymous, 'public', restricted.id), null);
+      for (const outsider of [
+        anonymous,
+        actor('outsider'),
+        actor('suspended'),
+        actor('unverified'),
+      ])
+        await denied(
+          store.createCategory(outsider, 'private', {
+            name: 'No',
+            domain: 'guide',
+            parentId: null,
+            visibility: 'members',
+            description: '',
+            sortOrder: 0,
+          }),
+          404,
+        );
+      await scoped(anonymous, 'public', async (c) => {
+        assert.equal(
+          (await c.query('SELECT * FROM app.category WHERE id=$1', [restricted.id])).rowCount,
+          0,
+        );
+        assert.equal(
+          (await c.query("SELECT * FROM app.category WHERE workspace_id='private'")).rowCount,
+          0,
+        );
+      });
+    },
+  );
+  await check(
+    'taxonomy: normalized sibling duplicates, cross-domain/workspace links and depth bound reject atomically',
+    async () => {
+      await denied(category('  ＥＱＵＩＰＭＥＮＴ  '));
+      await category('Example model', other.id);
+      tools = await category('Hand tools', null, 'tool');
+      materials = await category('Fasteners', null, 'material');
+      await denied(category('Wrong domain', tools.id));
+      const secret = await category('Private machines', null, 'guide', 'members', 'private');
+      await denied(category('Wrong scope', secret.id));
+      await denied(category('Exposed child', restricted.id));
+      let deep = await category('Depth limit');
+      for (let i = 2; i <= 16; i++) deep = await category(`Level ${i}`, deep.id);
+      await denied(category('Level 17', deep.id));
+      assert.equal(deep.path.length, 16);
+      await denied(edit(root, { parentId: leaf.id }));
+      assert.equal((await store.getCategory(who, 'public', root.id))?.parentId, null);
+    },
+  );
+  await check(
+    'taxonomy: competing structural moves serialize and stale edits conflict',
+    async () => {
+      const a = await category('Concurrent branch A'),
+        b = await category('Concurrent branch B');
+      const results = await Promise.allSettled([
+        edit(a, { parentId: b.id }),
+        edit(b, { parentId: a.id }),
+      ]);
+      assert.equal(results.filter((r) => r.status === 'fulfilled').length, 1);
+      const current = (await store.getCategory(who, 'public', root.id))!;
+      await edit(current, { description: 'Changed' });
+      await denied(edit(current, { description: 'Stale' }), 409);
+      root = (await store.getCategory(who, 'public', root.id))!;
+    },
+  );
+  let guideId = '';
+  await check(
+    'taxonomy: publication assignment is frozen until republish; current navigation follows branch moves',
+    async () => {
+      const draft = await store.createDraft(who, 'public', {
+        document: doc,
+        categoryId: leaf.id,
+        audience: 'public',
+      });
+      guideId = draft.id;
+      await store.publishDraft(who, 'public', draft.id, {
+        expectedVersion: 1,
+        expectedRelease: null,
+        license: 'all-rights-reserved',
+      });
+      assert(
+        (await store.listReleases(anonymous, 'public', { categoryId: root.id })).some(
+          (g) => g.id === draft.id,
+        ),
+      );
+      await store.saveDraft(who, 'public', draft.id, {
+        expectedVersion: 1,
+        document: draft.document,
+        categoryId: other.id,
+      });
+      assert.equal((await store.getRelease(anonymous, 'public', draft.id))?.categoryId, leaf.id);
+      leaf = await edit(leaf, { name: 'Renamed model', parentId: other.id });
+      assert(
+        (await store.listReleases(anonymous, 'public', { categoryId: other.id })).some(
+          (g) => g.id === draft.id,
+        ),
+      );
+      const historic = (
+        await owner.query(
+          'SELECT category_path,document FROM app.release WHERE guide_id=$1 AND number=1',
+          [draft.id],
+        )
+      ).rows[0];
+      assert.equal(historic.category_path.at(-1).name, 'Example model');
+      assert.equal(historic.document.title, doc.title);
+      await denied(edit(leaf, { visibility: 'members' }));
+      await denied(edit(leaf, { archived: true }));
+      await denied(edit(other, { archived: true }));
+      const unused = await category('Unused category');
+      await edit(unused, { archived: true });
+      assert(!(await store.listCategories(who, 'public')).some((c) => c.id === unused.id));
+      assert(
+        (await store.listCategories(who, 'public', { includeArchived: true })).some(
+          (c) => c.id === unused.id,
+        ),
+      );
+      const restrictedDraft = await store.createDraft(who, 'public', {
+        document: doc,
+        categoryId: restricted.id,
+        audience: 'public',
+      });
+      await denied(
+        store.publishDraft(who, 'public', restrictedDraft.id, {
+          expectedVersion: 1,
+          expectedRelease: null,
+          license: 'all-rights-reserved',
+        }),
+      );
+    },
+  );
+  await check(
+    'catalog: exact variants, searchable descendant categories, duplicate identifiers and wrong domains',
+    async () => {
+      const phillips = await category('Phillips', tools.id, 'tool');
+      driver = await item('Small screwdriver', phillips.id);
+      part = await item('Replacement screw', materials.id, 'part');
+      const driver0 = await item('Other screwdriver', phillips.id);
+      await editItem(driver0, { specification: 'Phillips #0' });
+      assert.equal(
+        (await store.listCatalogItems(who, 'public', { categoryId: tools.id, search: '#00' }))
+          .length,
+        1,
+      );
+      await denied(item('Wrong item', materials.id, 'tool'));
+      await denied(item('Wrong part', tools.id, 'part'));
+      driver = await editItem(driver, { manufacturer: 'Maker', partNumber: 'DR-00' });
+      const otherDriver = await item('Duplicate identifier candidate', phillips.id);
+      await denied(editItem(otherDriver, { manufacturer: ' maker ', partNumber: 'dr-00' }));
+      await denied(editItem(driver, { defaultUnit: 'ml' }));
+      const stale = driver;
+      driver = await editItem(driver, { description: 'Revision two' });
+      await denied(editItem(stale, { description: 'Overwrite' }), 409);
+    },
+  );
+  let selected: GuideRequirement,
+    selectedDocument: ReturnType<typeof toStructuredDocument>,
+    selectedDraft: any;
+  await check(
+    'catalog: frozen item versions validate snapshots, workspace isolation and forged data',
+    async () => {
+      selected = requirement(driver);
+      selectedDocument = { ...toStructuredDocument(doc), requirements: [selected] };
+      selectedDraft = await store.createDraft(who, 'public', {
+        document: selectedDocument,
+        categoryId: leaf.id,
+        audience: 'public',
+      });
+      await denied(
+        store.createDraft(who, 'public', {
+          document: { ...selectedDocument, requirements: [{ ...selected, name: 'Forged' }] },
+          categoryId: leaf.id,
+          audience: 'public',
+        }),
+      );
+      const privateToolCategory = await category(
+        'Secret tools',
+        null,
+        'tool',
+        'members',
+        'private',
+      );
+      const privateItem = await item(
+        'Secret torque tool',
+        privateToolCategory.id,
+        'tool',
+        'private',
+        'members',
+      );
+      await denied(
+        store.createDraft(who, 'public', {
+          document: { ...selectedDocument, requirements: [requirement(privateItem)] },
+          categoryId: leaf.id,
+          audience: 'public',
+        }),
+      );
+      assert.equal(await store.getCatalogItem(anonymous, 'private', privateItem.id), null);
+      assert.deepEqual(
+        await store.listCatalogItems(anonymous, 'private', { search: 'Secret' }),
+        [],
+      );
+      await denied(store.getCatalogUsage(actor('outsider'), 'public', driver.id), 404);
+      await store.publishDraft(who, 'public', selectedDraft.id, {
+        expectedVersion: 1,
+        expectedRelease: null,
+        license: 'all-rights-reserved',
+      });
+      driver = await editItem(driver, { specification: 'Phillips #00 updated description' });
+      const release = (await store.getRelease(anonymous, 'public', selectedDraft.id))!;
+      assert.equal(release.document.schemaVersion, 4);
+      if (release.document.schemaVersion === 4)
+        assert.equal(release.document.requirements[0]?.specification, selected.specification);
+      await store.saveDraft(who, 'public', selectedDraft.id, {
+        expectedVersion: 1,
+        document: selectedDocument,
+        categoryId: leaf.id,
+      });
+      assert(
+        (await store.getCatalogUsage(who, 'public', driver.id)).guides.some(
+          (g) => g.id === selectedDraft.id,
+        ),
+      );
+    },
+  );
+  await check(
+    'catalog: archive preserves existing references, blocks new selection and public-reference concealment',
+    async () => {
+      driver = await editItem(driver, { archived: true });
+      assert(!(await store.listCatalogItems(who, 'public')).some((i) => i.id === driver.id));
+      assert(
+        (await store.listCatalogItems(who, 'public', { includeArchived: true })).some(
+          (i) => i.id === driver.id,
+        ),
+      );
+      await denied(
+        store.createDraft(who, 'public', {
+          document: selectedDocument,
+          categoryId: leaf.id,
+          audience: 'public',
+        }),
+      );
+      await store.saveDraft(who, 'public', selectedDraft.id, {
+        expectedVersion: 2,
+        document: selectedDocument,
+        categoryId: leaf.id,
+      });
+      await store.publishDraft(who, 'public', selectedDraft.id, {
+        expectedVersion: 3,
+        expectedRelease: 1,
+        license: 'all-rights-reserved',
+      });
+      await denied(editItem(driver, { visibility: 'members' }));
+      const driverCategory = (await store.getCategory(who, 'public', driver.categoryId))!;
+      await denied(edit(driverCategory, { visibility: 'members' }));
+      assert.equal((await store.getRelease(anonymous, 'public', selectedDraft.id))?.release, 2);
+      await scoped(who, 'public', async (c) => {
+        await assert.rejects(
+          c.query("UPDATE app.catalog_item_version SET snapshot='{}' WHERE item_id=$1", [
+            driver.id,
+          ]),
+        );
+      });
+    },
+  );
+  await check(
+    'catalog: making an item public does not expose a previously restricted version',
+    async () => {
+      const privateVersion = await item(
+        'Initially restricted item',
+        tools.id,
+        'tool',
+        'public',
+        'members',
+      );
+      const document = {
+        ...toStructuredDocument(doc),
+        requirements: [requirement(privateVersion)],
+      };
+      const draft = await store.createDraft(who, 'public', {
+        document,
+        categoryId: leaf.id,
+        audience: 'public',
+      });
+      const publicVersion = await editItem(privateVersion, {
+        visibility: 'public',
+        description: 'Deliberately public description',
+      });
+      await denied(
+        store.publishDraft(who, 'public', draft.id, {
+          expectedVersion: 1,
+          expectedRelease: null,
+          license: 'all-rights-reserved',
+        }),
+      );
+      await store.saveDraft(who, 'public', draft.id, {
+        expectedVersion: 1,
+        document: { ...document, requirements: [requirement(publicVersion)] },
+        categoryId: leaf.id,
+      });
+      await store.publishDraft(who, 'public', draft.id, {
+        expectedVersion: 2,
+        expectedRelease: null,
+        license: 'all-rights-reserved',
+      });
+    },
+  );
+  await check(
+    'structured publication: unresolved originals, broken step references and overallocated materials remain repairable drafts',
+    async () => {
+      const legacy = await store.createDraft(who, 'public', {
+        document: { ...doc, tools: ['Original ambiguous preparation label'] },
+        categoryId: leaf.id,
+        audience: 'public',
+      });
+      assert.equal(legacy.document.schemaVersion, 4);
+      if (legacy.document.schemaVersion === 4)
+        assert.equal(
+          legacy.document.unresolvedTools[0]?.label,
+          'Original ambiguous preparation label',
+        );
+      await denied(
+        store.publishDraft(who, 'public', legacy.id, {
+          expectedVersion: 1,
+          expectedRelease: null,
+          license: 'all-rights-reserved',
+        }),
+      );
+      const req = requirement(part),
+        base = toStructuredDocument(doc);
+      const bad = {
+        ...base,
+        requirements: [req],
+        steps: [
+          {
+            ...base.steps[0]!,
+            requirements: [
+              {
+                requirementId: req.id,
+                quantity: 2,
+                unit: req.unit,
+                mode: 'consume' as const,
+                optional: false,
+                notes: '',
+              },
+            ],
+            earlierStepIds: [randomUUID()],
+          },
+        ],
+      };
+      const draft = await store.createDraft(who, 'public', {
+        document: bad,
+        categoryId: leaf.id,
+        audience: 'public',
+      });
+      await denied(
+        store.publishDraft(who, 'public', draft.id, {
+          expectedVersion: 1,
+          expectedRelease: null,
+          license: 'all-rights-reserved',
+        }),
+      );
+      const repaired = {
+        ...bad,
+        requirements: [{ ...req, quantity: 2 }],
+        steps: [{ ...bad.steps[0]!, earlierStepIds: [] }],
+      };
+      await store.saveDraft(who, 'public', draft.id, {
+        expectedVersion: 1,
+        document: repaired,
+        categoryId: leaf.id,
+      });
+      await store.publishDraft(who, 'public', draft.id, {
+        expectedVersion: 2,
+        expectedRelease: null,
+        license: 'all-rights-reserved',
+      });
+    },
+  );
+  await check(
+    'structured database boundary: direct cycles, wrong guide domains and suspended catalog writes cannot bypass service',
+    async () => {
+      await assert.rejects(
+        scoped(who, 'public', (c) =>
+          c.query('UPDATE app.category SET parent_id=id WHERE id=$1', [root.id]),
+        ),
+      );
+      await assert.rejects(
+        scoped(who, 'public', (c) =>
+          c.query('UPDATE app.guide SET category_id=$1 WHERE id=$2', [tools.id, guideId]),
+        ),
+      );
+      await denied(
+        store.createCatalogItem(actor('suspended'), 'private', {
+          name: 'No',
+          categoryId: tools.id,
+          kind: 'tool',
+          visibility: 'members',
+          specification: '',
+          description: '',
+          manufacturer: '',
+          model: '',
+          partNumber: '',
+          defaultUnit: 'each',
+        }),
+        404,
+      );
+      await scoped(anonymous, 'public', async (c) => {
+        assert.equal((await c.query('SELECT * FROM app.catalog_item_version')).rowCount, 0);
+        assert.equal((await c.query('SELECT * FROM app.guide_requirement_reference')).rowCount, 0);
+      });
+    },
+  );
+}

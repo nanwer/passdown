@@ -1,0 +1,14 @@
+pnpm-lock.yaml
+packages/design-tokens/tokens.css
+apps/web/next-env.d.ts
+apps/web/*.md
+.next/
+node_modules/
+test-results/
+playwright-report/
+
+.next-*/
+LOCAL_ACCESS.md
+
+.private/
+LICENSE

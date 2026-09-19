@@ -1,0 +1,49 @@
+{
+  "name": "passdown",
+  "version": "0.0.1",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=22.12.0 <23 || >=24 <25"
+  },
+  "scripts": {
+    "dev": "pnpm tokens:generate && pnpm --filter @guide/web dev",
+    "build": "pnpm tokens:generate && pnpm --filter @guide/web build",
+    "start": "pnpm --filter @guide/web start",
+    "tokens:generate": "node packages/design-tokens/generate.mjs",
+    "tokens:check": "node packages/design-tokens/generate.mjs --check",
+    "lint": "node scripts/check-boundaries.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "check": "pnpm tokens:check && pnpm lint && pnpm typecheck && pnpm test",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "local:setup": "tsx scripts/local-setup.ts",
+    "local:up": "docker compose --env-file .env.local -f compose.app.yaml up -d --wait",
+    "local:down": "docker compose --env-file .env.local -f compose.app.yaml down",
+    "local:migrate": "node scripts/migrate-local.mjs",
+    "test:database": "tsx packages/database/test/integration.ts",
+    "test:authoring": "playwright test --config playwright.authoring.config.ts"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
+    "@playwright/test": "1.63.0",
+    "@testing-library/jest-dom": "7.0.1",
+    "@testing-library/react": "16.3.3",
+    "@types/node": "22.20.3",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "jsdom": "30.1.0",
+    "pg": "8.23.0",
+    "typescript": "5.9.3",
+    "vite": "8.3.0",
+    "vitest": "5.0.1",
+    "prettier": "3.9.8",
+    "tsx": "4.23.13",
+    "@types/pg": "8.23.1"
+  },
+  "type": "module",
+  "description": "Preserve practical knowledge with step-by-step guides for public communities and private teams."
+}

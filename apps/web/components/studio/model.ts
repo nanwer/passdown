@@ -1,0 +1,47 @@
+import type { GuideDocument, GuideDocumentV4, GuideStep } from '@guide/content';
+export function safeReturnTo(value: string | null): string {
+  if (!value || !value.startsWith('/') || value.startsWith('//') || /[\\\r\n]/.test(value))
+    return '/studio';
+  try {
+    const url = new URL(value, 'https://local.invalid');
+    return url.origin === 'https://local.invalid' && !url.pathname.startsWith('/sign-in')
+      ? url.pathname + url.search + url.hash
+      : '/studio';
+  } catch {
+    return '/studio';
+  }
+}
+export function newStep(): GuideDocumentV4['steps'][number] {
+  return {
+    id: crypto.randomUUID(),
+    title: 'New step',
+    body: [{ type: 'paragraph', children: [{ type: 'text', text: '', marks: [] }] }],
+    media: [],
+    callouts: [],
+    requirements: [],
+    preconditions: [],
+    earlierStepIds: [],
+  };
+}
+export function newDocument(): GuideDocument {
+  return {
+    schemaVersion: 4,
+    requirements: [],
+    unresolvedTools: [],
+    title: '',
+    summary: '',
+    locale: 'en',
+    difficulty: 'easy',
+    durationMinutes: 15,
+    tools: [],
+    steps: [newStep()],
+  };
+}
+export function reorder<T extends GuideStep>(steps: T[], id: string, delta: number): T[] {
+  const index = steps.findIndex((step) => step.id === id);
+  const target = index + delta;
+  if (index < 0 || target < 0 || target >= steps.length) return steps;
+  const copy = [...steps];
+  [copy[index], copy[target]] = [copy[target]!, copy[index]!];
+  return copy;
+}

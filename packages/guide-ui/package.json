@@ -1,0 +1,16 @@
+{
+  "name": "@guide/guide-ui",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@guide/content": "workspace:*",
+    "@guide/ui": "workspace:*",
+    "lucide-react": "1.47.0",
+    "react": "19.3.0"
+  },
+  "license": "AGPL-3.0-only"
+}

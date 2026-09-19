@@ -1,0 +1,11 @@
+.search-form {
+  position: relative;
+}
+
+.search-feedback {
+  position: absolute;
+  inset-block-start: calc(100% + 0.35rem);
+  inset-inline-start: 1rem;
+  color: var(--gp-semantic-text-secondary);
+  font-size: 0.75rem;
+}

@@ -1,0 +1,26 @@
+name: Commit notes
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+concurrency:
+  group: commit-notes-main
+  cancel-in-progress: false
+jobs:
+  annotate:
+    if: github.event.repository.fork == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+      - name: Add a readable explanation to each pushed commit
+        run: node scripts/post-commit-notes.mjs
+        env:
+          GH_TOKEN: ${{ github.token }}

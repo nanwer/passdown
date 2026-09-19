@@ -1,0 +1,21 @@
+{
+  "name": "@guide/database",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@guide/content": "workspace:*",
+    "@guide/core": "workspace:*",
+    "@guide/contracts": "workspace:*",
+    "better-auth": "1.7.5",
+    "drizzle-orm": "0.45.2",
+    "pg": "8.23.0"
+  },
+  "devDependencies": {
+    "@types/pg": "8.23.1"
+  },
+  "license": "AGPL-3.0-only"
+}

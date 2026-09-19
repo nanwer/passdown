@@ -1,0 +1,36 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "allowImportingTsExtensions": true,
+    "types": ["node", "vitest/globals"],
+    "paths": {
+      "@guide/core": ["./packages/core/src/index.ts"],
+      "@guide/content": ["./packages/guide-content/src/index.ts"],
+      "@guide/testing": ["./packages/testing/src/index.ts"],
+      "@guide/ui": ["./packages/ui/src/index.ts"],
+      "@guide/guide-ui": ["./packages/guide-ui/src/index.ts"],
+      "@guide/contracts": ["./packages/contracts/src/index.ts"],
+      "@guide/database": ["./packages/database/src/index.ts"]
+    }
+  },
+  "include": [
+    "packages/**/*.ts",
+    "packages/**/*.tsx",
+    "apps/web/**/*.ts",
+    "apps/web/**/*.tsx",
+    "tests/**/*.ts",
+    "vitest.config.ts",
+    "playwright.config.ts",
+    "playwright.authoring.config.ts"
+  ],
+  "exclude": ["node_modules", "apps/web/.next", "apps/web/.next-*"]
+}

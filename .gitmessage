@@ -1,0 +1,10 @@
+# Write a concise subject describing the resulting behavior.
+
+Why:
+# Explain the problem or reason for this change.
+
+Changes:
+# Describe what now works and any user-visible limitations.
+
+Validation:
+# Record the checks actually run and their results, or why checks do not apply.

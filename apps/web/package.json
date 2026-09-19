@@ -1,0 +1,37 @@
+{
+  "name": "@guide/web",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "NEXT_TELEMETRY_DISABLED=1 GUIDE_DEMO_PREVIEW=1 next dev --hostname 127.0.0.1 --port 3100",
+    "build": "NEXT_TELEMETRY_DISABLED=1 next build",
+    "start": "NEXT_TELEMETRY_DISABLED=1 next start --hostname 127.0.0.1 --port 3100"
+  },
+  "dependencies": {
+    "@fontsource/manrope": "5.3.0",
+    "@guide/content": "workspace:*",
+    "@guide/contracts": "workspace:*",
+    "@guide/core": "workspace:*",
+    "@guide/database": "workspace:*",
+    "@guide/design-tokens": "workspace:*",
+    "@guide/guide-ui": "workspace:*",
+    "@guide/testing": "workspace:*",
+    "@guide/ui": "workspace:*",
+    "@radix-ui/react-dropdown-menu": "2.1.24",
+    "@radix-ui/react-tooltip": "1.2.16",
+    "@tailwindcss/postcss": "4.3.3",
+    "@tiptap/core": "3.31.3",
+    "@tiptap/extension-placeholder": "3.31.3",
+    "@tiptap/extension-table": "3.31.3",
+    "@tiptap/pm": "3.31.3",
+    "@tiptap/react": "3.31.3",
+    "@tiptap/starter-kit": "3.31.3",
+    "lucide-react": "1.47.0",
+    "next": "16.3.5",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "server-only": "0.0.1",
+    "tailwindcss": "4.3.3"
+  },
+  "license": "AGPL-3.0-only"
+}

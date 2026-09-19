@@ -1,0 +1,19 @@
+name: guide-platform-app
+services:
+  postgres:
+    image: postgres:17-alpine@sha256:f02121de6f74d30d8a94cd1d9584125e2178d7e6c377d8130112d4e52d867995
+    environment:
+      POSTGRES_DB: guide_app
+      POSTGRES_USER: guide_owner
+      POSTGRES_PASSWORD: ${GUIDE_DB_OWNER_PASSWORD:?Run local setup first}
+    ports:
+      - '127.0.0.1:55439:5432'
+    volumes:
+      - guide_app_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U guide_owner -d guide_app']
+      interval: 2s
+      timeout: 2s
+      retries: 30
+volumes:
+  guide_app_data:

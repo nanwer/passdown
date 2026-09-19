@@ -1,0 +1,126 @@
+# Contributing to Passdown
+
+Passdown helps people keep practical knowledge and pass it on through clear instructions. Bug reports, documentation, accessibility feedback, design improvements and focused code changes all help.
+
+Start with the [README](README.md) for working features and local setup, and the [roadmap](ROADMAP.md) for direction. For a substantial new feature or architectural change, open an issue describing the user need and proposed scope before implementation.
+
+## Development setup
+
+Use Node.js 22.22.2, pnpm 10.33.0 and Docker with Compose. From the repository root:
+
+```sh
+pnpm install --frozen-lockfile
+pnpm local:setup
+pnpm dev
+```
+
+Enable the repository's commit-message checks and template once in your clone:
+
+```sh
+git config core.hooksPath .githooks
+git config commit.template .gitmessage
+```
+
+Read the ignored `LOCAL_ACCESS.md` for the generated local login, then open [the studio](http://127.0.0.1:3100/studio). Setup preserves existing local content when repeated. Use `pnpm local:down` and `pnpm local:up` to stop and restart PostgreSQL without deleting its volume.
+
+Never commit generated credentials, environment files, database dumps, private guide content or personal data. Use synthetic records in tests and bug reports.
+
+## Make changes easy to understand
+
+Keep each change focused on an observable user outcome or a concrete engineering problem. Describe the behavior before and after the change. Preserve unrelated work, and avoid mixing formatting or dependency upgrades into a feature fix.
+
+For shared interfaces, consider both public and private workspaces, keyboard use, narrow screens and light/dark themes. Search should respond while typing; related controls should preserve input and context; saving and publication should clearly communicate what has happened.
+
+Before adding a field, decide whether it is a reusable shared record, a defined choice or text belonging only to one guide. Shared records need create/select/reuse behavior, permissions, duplicate handling and a clear policy for edits, archiving and published history.
+
+Add comments when they explain an invariant, constraint or non-obvious decision. Keep routine code readable without comments that merely repeat it.
+
+## Work in the owning package
+
+| Area                     | Location and expectation                                                                                               |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
+| Document structure       | `packages/guide-content`: pure versioned schemas and transformations; preserve readable older content.                 |
+| Authorization            | `packages/core`: explicit capabilities and scoped reads, independent of the web framework and database implementation. |
+| API contracts            | `packages/contracts`: validate request bodies and keep transport types consistent.                                     |
+| Persistence and identity | `packages/database`: scoped queries and transactional writes. Add migrations rather than editing applied ones.         |
+| Design tokens            | `packages/design-tokens`: edit the token source, then regenerate derived CSS.                                          |
+| Shared controls          | `packages/ui`: accessible native and shared controls without database or policy implementation imports.                |
+| Guide presentation       | `packages/guide-ui`: a shared renderer for public and private content.                                                 |
+| Application interfaces   | `apps/web`: compose the packages through validated, authorized boundaries.                                             |
+| Test fixtures            | `packages/testing`: original synthetic content, isolated from real storage and identities.                             |
+
+Use public package exports. Cross-package relative imports, private deep imports and dependency cycles fail the boundary checks. Keep server-only queries out of client bundles. For framework changes, consult the documentation matching the installed version; Next.js documentation is available under `apps/web/node_modules/next/dist/docs/`.
+
+Public reads do not grant draft-write access. Changes to permissions, membership, visibility, metadata or API responses need tests for unauthorized access as well as successful requests. Cover list and detail endpoints, cross-workspace identifiers, suspended or revoked actors and private drafts. Persistence changes must preserve immutable releases and reject stale writes.
+
+## Validate the behavior
+
+For a bug fix, add a focused regression that fails before the fix and checks the observable behavior. Choose tests that exercise real components or services. Documentation-only and purely decorative changes usually need review rather than new tests.
+
+```sh
+pnpm check
+pnpm build
+pnpm exec playwright install chromium
+pnpm test:e2e
+pnpm test:database
+pnpm test:authoring
+git diff --check
+```
+
+`pnpm check` covers generated tokens, package boundaries, TypeScript and unit/contract tests. Run the browser and database suites relevant to the change. Database and persistent authoring tests require `pnpm local:setup` first.
+
+| Suite                 | Isolation                                                       |
+| --------------------- | --------------------------------------------------------------- |
+| `pnpm test:e2e`       | Sample-data app on port 3102, without the application database. |
+| `pnpm test:database`  | Dedicated `guide_app_test` database; resets its test data.      |
+| `pnpm test:authoring` | Dedicated `guide_app_e2e` database and app on port 3101.        |
+
+Leave the test ports available and run one instance of each database-backed suite at a time. Use these databases only for tests. Set `PLAYWRIGHT_CHANNEL=chrome` to run browser tests with an installed Google Chrome. Do not point test runners at a database containing content you want to keep.
+
+You can run a focused browser file during development:
+
+```sh
+pnpm test:e2e tests/e2e/filter-navigation.spec.ts
+```
+
+Format changed files with `pnpm exec prettier --write <paths>`. After editing design tokens, run `pnpm tokens:generate` and include both the source and generated output. Avoid formatting unrelated files.
+
+Include manual checks for interfaces: the page, exact actions and expected result. State what you actually tested and any remaining gaps. A passing build does not demonstrate that an entire user journey works.
+
+## Write meaningful commits
+
+**Every commit needs a descriptive subject and a body.** Use a specific subject between 12 and 100 characters, followed by meaningful `Why:`, `Changes:` and `Validation:` sections. Explain the problem, what changed, how it was validated and any limitations. Use real details rather than messages such as “updates” or “fix stuff.” If a check was not run, say so and explain why.
+
+For example:
+
+```text
+Preserve guide edits after cancelling catalog creation
+
+Why: A delayed creation response could select an item after its
+dialog closed, replacing newer editing state.
+
+Changes: Ignore callbacks from dismissed forms while still refreshing
+the shared catalog after a successful server response.
+
+Validation: Added delayed-response regressions for Back, Close, Escape
+and Cancel. Structured component tests, typecheck and boundary checks pass.
+
+Limitations: Closing the form does not undo a record already created
+on the server; that record remains available in the catalog.
+```
+
+Keep commits coherent enough to review independently. When revising a change, update its explanation to describe the final behavior.
+
+The local hook checks that each required section has a substantive explanation. The repository's Commit notes workflow is configured to post each commit message pushed to `main` as a GitHub commit comment, so write the message for someone reviewing the change without the surrounding conversation.
+
+## Open a pull request
+
+Explain the problem and resulting behavior, link any related issue, and list the checks you ran. For visual changes, include screenshots at useful desktop and mobile sizes. Provide repeatable manual steps and expected outcomes for new features, along with known limits or unfinished behavior.
+
+Avoid including credentials or sensitive content in screenshots, logs or reports. Security-sensitive reports should not expose working exploit details or private data in a public issue; arrange a private report with a maintainer first.
+
+## License and attribution
+
+Passdown uses the **GNU Affero General Public License v3.0 (AGPL-3.0-only)**. Contributions to the project are provided under the same license; see [LICENSE](LICENSE). Preserve copyright and license notices, and update [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) when incorporating third-party material that requires attribution.
+
+Only contribute code, text and assets you have permission to contribute. The software license is separate from the content license an author selects when publishing a guide.

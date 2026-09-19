@@ -1,0 +1,11 @@
+{
+  "name": "@guide/design-tokens",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./tokens.css": "./tokens.css",
+    "./tokens.json": "./tokens.json"
+  },
+  "license": "AGPL-3.0-only"
+}

@@ -1,0 +1,419 @@
+import { randomUUID } from 'node:crypto';
+import type pg from 'pg';
+import type { Actor } from '@guide/core';
+import {
+  ApplicationError,
+  createCategorySchema,
+  updateCategorySchema,
+  createCatalogItemSchema,
+  updateCatalogItemSchema,
+  type Category,
+  type CategoryDomain,
+  type CatalogItem,
+  type CatalogKind,
+  type CatalogUsage,
+  type CreateCategoryInput,
+  type UpdateCategoryInput,
+  type CreateCatalogItemInput,
+  type UpdateCatalogItemInput,
+} from '@guide/contracts';
+import type { GuideDocument } from '@guide/content';
+
+type Client = pg.PoolClient;
+type Row = Record<string, any>;
+type Transaction = <T>(
+  actor: Actor,
+  workspaceId: string | undefined,
+  run: (client: Client) => Promise<T>,
+) => Promise<T>;
+const missing = () => new ApplicationError('NOT_FOUND', 'Category or catalog item not found.', 404);
+export const validation = (message: string, path?: string) =>
+  new ApplicationError('VALIDATION_ERROR', message, 422, path ? [{ path, message }] : undefined);
+function parse<T>(
+  schema: {
+    safeParse: (
+      input: unknown,
+    ) =>
+      | { success: true; data: T }
+      | { success: false; error: { issues: { path: PropertyKey[]; message: string }[] } };
+  },
+  input: unknown,
+): T {
+  const result = schema.safeParse(input);
+  if (!result.success)
+    throw new ApplicationError(
+      'VALIDATION_ERROR',
+      'Check the highlighted fields.',
+      422,
+      result.error.issues.map((issue) => ({ path: issue.path.join('.'), message: issue.message })),
+    );
+  return result.data;
+}
+export function categoryDTO(row: Row): Category {
+  return {
+    id: row.id,
+    workspaceId: row.workspace_id,
+    domain: row.domain,
+    parentId: row.parent_id,
+    name: row.name,
+    description: row.description,
+    visibility: row.visibility,
+    archived: row.archived,
+    version: row.version,
+    sortOrder: row.sort_order,
+    path: row.path,
+  };
+}
+export function catalogDTO(row: Row): CatalogItem {
+  return {
+    id: row.id,
+    workspaceId: row.workspace_id,
+    categoryId: row.category_id,
+    kind: row.kind,
+    name: row.name,
+    specification: row.specification,
+    description: row.description,
+    manufacturer: row.manufacturer,
+    model: row.model,
+    partNumber: row.part_number,
+    defaultUnit: row.default_unit,
+    visibility: row.visibility,
+    archived: row.archived,
+    version: row.version,
+    categoryPath: row.category_path,
+  };
+}
+export async function lockStructured(client: Client, workspaceId: string) {
+  await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,719821007))', [workspaceId]);
+}
+export async function selectedCategory(
+  client: Client,
+  workspaceId: string,
+  id: string,
+  domain: CategoryDomain,
+  publicOnly = false,
+) {
+  const row = (
+    await client.query(
+      'SELECT c.*,app.category_path(workspace_id,id) AS path FROM app.category c WHERE workspace_id=$1 AND id=$2',
+      [workspaceId, id],
+    )
+  ).rows[0];
+  if (!row || row.archived || row.domain !== domain)
+    throw validation(
+      'Choose an active category in this workspace and category tree.',
+      'categoryId',
+    );
+  if (publicOnly && row.visibility !== 'public')
+    throw validation(
+      'Public guides require a public category. Make the category public or choose another branch.',
+      'categoryId',
+    );
+  return categoryDTO(row);
+}
+export async function validateRequirements(
+  client: Client,
+  workspaceId: string,
+  document: GuideDocument,
+  existing: GuideDocument | undefined,
+  publicOnly = false,
+) {
+  if (document.schemaVersion !== 4) return;
+  const prior = existing?.schemaVersion === 4 ? existing.requirements : [];
+  for (const [index, requirement] of document.requirements.entries()) {
+    const row = (
+      await client.query(
+        'SELECT i.*,v.snapshot FROM app.catalog_item i JOIN app.catalog_item_version v ON v.workspace_id=i.workspace_id AND v.item_id=i.id AND v.version=$3 WHERE i.workspace_id=$1 AND i.id=$2',
+        [workspaceId, requirement.itemId, requirement.itemVersion],
+      )
+    ).rows[0];
+    const path = `document.requirements.${index}`;
+    if (!row)
+      throw validation(
+        'This catalog item or selected version is unavailable in this workspace. Choose another item.',
+        path,
+      );
+    const snapshot = row.snapshot;
+    const expected = {
+      kind: snapshot.kind,
+      name: snapshot.name,
+      specification: snapshot.specification,
+      description: snapshot.description,
+      manufacturer: snapshot.manufacturer,
+      model: snapshot.model,
+      partNumber: snapshot.part_number,
+    };
+    for (const [field, value] of Object.entries(expected))
+      if ((requirement as Record<string, unknown>)[field] !== value)
+        throw validation(
+          'Selected details do not match this catalog version. Review and select the item again.',
+          `${path}.${field}`,
+        );
+    if (
+      row.archived &&
+      !prior.some(
+        (r) => r.itemId === requirement.itemId && r.itemVersion === requirement.itemVersion,
+      )
+    )
+      throw validation(
+        'This item is archived and cannot be added to a guide. Choose an active item.',
+        path,
+      );
+    if (publicOnly) {
+      const category = (
+        await client.query('SELECT visibility FROM app.category WHERE workspace_id=$1 AND id=$2', [
+          workspaceId,
+          row.category_id,
+        ])
+      ).rows[0];
+      if (
+        row.visibility !== 'public' ||
+        snapshot.visibility !== 'public' ||
+        category?.visibility !== 'public'
+      )
+        throw validation(
+          'Public guides require an item and selected version that were both marked public. Review the current item version or choose another public item.',
+          path,
+        );
+    }
+  }
+}
+export async function projectRequirements(
+  client: Client,
+  workspaceId: string,
+  guideId: string,
+  release: number,
+  document: GuideDocument,
+) {
+  if (release === 0)
+    await client.query(
+      'DELETE FROM app.guide_requirement_reference WHERE workspace_id=$1 AND guide_id=$2 AND release_number=0',
+      [workspaceId, guideId],
+    );
+  if (document.schemaVersion !== 4) return;
+  for (const requirement of document.requirements)
+    await client.query(
+      'INSERT INTO app.guide_requirement_reference(workspace_id,guide_id,release_number,requirement_id,item_id,item_version) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING',
+      [workspaceId, guideId, release, requirement.id, requirement.itemId, requirement.itemVersion],
+    );
+}
+export function structuredStore(
+  transaction: Transaction,
+  owner: (c: Client, w: string) => Promise<Row>,
+) {
+  const categoryQuery = 'SELECT c.*,app.category_path(workspace_id,id) AS path FROM app.category c';
+  const itemQuery =
+    'SELECT i.*,app.category_path(workspace_id,category_id) AS category_path FROM app.catalog_item i';
+  async function category(client: Client, w: string, id: string) {
+    const row = (await client.query(`${categoryQuery} WHERE workspace_id=$1 AND id=$2`, [w, id]))
+      .rows[0];
+    return row ? categoryDTO(row) : null;
+  }
+  async function item(client: Client, w: string, id: string) {
+    const row = (await client.query(`${itemQuery} WHERE workspace_id=$1 AND id=$2`, [w, id]))
+      .rows[0];
+    return row ? catalogDTO(row) : null;
+  }
+  return {
+    async listCategories(
+      actor: Actor,
+      workspaceId: string,
+      filter?: { domain?: CategoryDomain; includeArchived?: boolean },
+    ): Promise<Category[]> {
+      return transaction(actor, workspaceId, async (c) =>
+        (
+          await c.query(
+            `${categoryQuery} WHERE workspace_id=$1 AND ($2::text IS NULL OR domain=$2) AND ($3 OR NOT archived) ORDER BY sort_order,app.normalized_name(name),id`,
+            [workspaceId, filter?.domain ?? null, filter?.includeArchived === true],
+          )
+        ).rows.map(categoryDTO),
+      );
+    },
+    async getCategory(actor: Actor, workspaceId: string, id: string) {
+      return transaction(actor, workspaceId, (c) => category(c, workspaceId, id));
+    },
+    async createCategory(actor: Actor, workspaceId: string, input: CreateCategoryInput) {
+      const data = parse(createCategorySchema, input);
+      return transaction(actor, workspaceId, async (c) => {
+        await owner(c, workspaceId);
+        await lockStructured(c, workspaceId);
+        const id = randomUUID();
+        await c.query(
+          'INSERT INTO app.category(id,workspace_id,domain,parent_id,name,description,visibility,sort_order) VALUES($1,$2,$3,$4,$5,$6,$7,$8)',
+          [
+            id,
+            workspaceId,
+            data.domain,
+            data.parentId,
+            data.name,
+            data.description,
+            data.visibility,
+            data.sortOrder,
+          ],
+        );
+        return (await category(c, workspaceId, id))!;
+      });
+    },
+    async updateCategory(
+      actor: Actor,
+      workspaceId: string,
+      id: string,
+      input: UpdateCategoryInput,
+    ) {
+      const data = parse(updateCategorySchema, input);
+      return transaction(actor, workspaceId, async (c) => {
+        await owner(c, workspaceId);
+        await lockStructured(c, workspaceId);
+        const current = await category(c, workspaceId, id);
+        if (!current) throw missing();
+        if (current.version !== data.expectedVersion)
+          throw new ApplicationError(
+            'CONFLICT',
+            'This category changed. Reload it before saving.',
+            409,
+          );
+        await c.query(
+          'UPDATE app.category SET domain=$3,parent_id=$4,name=$5,description=$6,visibility=$7,sort_order=$8,archived=$9,version=version+1 WHERE workspace_id=$1 AND id=$2',
+          [
+            workspaceId,
+            id,
+            data.domain,
+            data.parentId,
+            data.name,
+            data.description,
+            data.visibility,
+            data.sortOrder,
+            data.archived,
+          ],
+        );
+        return (await category(c, workspaceId, id))!;
+      });
+    },
+    async listCatalogItems(
+      actor: Actor,
+      workspaceId: string,
+      filter?: {
+        kind?: CatalogKind;
+        categoryId?: string;
+        search?: string;
+        includeArchived?: boolean;
+      },
+    ): Promise<CatalogItem[]> {
+      return transaction(actor, workspaceId, async (c) => {
+        const rows = (
+          await c.query(
+            `${itemQuery} WHERE workspace_id=$1 AND ($2::text IS NULL OR kind=$2) AND ($3 OR NOT archived) ORDER BY app.normalized_name(name),specification,id`,
+            [workspaceId, filter?.kind ?? null, filter?.includeArchived === true],
+          )
+        ).rows.map(catalogDTO);
+        const q = (filter?.search ?? '')
+          .slice(0, 200)
+          .normalize('NFKC')
+          .toLocaleLowerCase('en')
+          .trim();
+        return rows.filter(
+          (r) =>
+            (!filter?.categoryId || r.categoryPath.some((p) => p.id === filter.categoryId)) &&
+            (!q ||
+              `${r.name} ${r.specification} ${r.manufacturer} ${r.model} ${r.partNumber}`
+                .normalize('NFKC')
+                .toLocaleLowerCase('en')
+                .includes(q)),
+        );
+      });
+    },
+    async getCatalogItem(actor: Actor, workspaceId: string, id: string) {
+      return transaction(actor, workspaceId, (c) => item(c, workspaceId, id));
+    },
+    async createCatalogItem(actor: Actor, workspaceId: string, input: CreateCatalogItemInput) {
+      const data = parse(createCatalogItemSchema, input);
+      return transaction(actor, workspaceId, async (c) => {
+        await owner(c, workspaceId);
+        await lockStructured(c, workspaceId);
+        await selectedCategory(
+          c,
+          workspaceId,
+          data.categoryId,
+          data.kind === 'tool' ? 'tool' : 'material',
+        );
+        const id = randomUUID();
+        await c.query(
+          'INSERT INTO app.catalog_item(id,workspace_id,category_id,kind,name,specification,description,manufacturer,model,part_number,default_unit,visibility) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)',
+          [
+            id,
+            workspaceId,
+            data.categoryId,
+            data.kind,
+            data.name,
+            data.specification,
+            data.description,
+            data.manufacturer,
+            data.model,
+            data.partNumber,
+            data.defaultUnit,
+            data.visibility,
+          ],
+        );
+        return (await item(c, workspaceId, id))!;
+      });
+    },
+    async updateCatalogItem(
+      actor: Actor,
+      workspaceId: string,
+      id: string,
+      input: UpdateCatalogItemInput,
+    ) {
+      const data = parse(updateCatalogItemSchema, input);
+      return transaction(actor, workspaceId, async (c) => {
+        await owner(c, workspaceId);
+        await lockStructured(c, workspaceId);
+        const current = await item(c, workspaceId, id);
+        if (!current) throw missing();
+        if (current.version !== data.expectedVersion)
+          throw new ApplicationError(
+            'CONFLICT',
+            'This catalog item changed. Reload it before saving.',
+            409,
+          );
+        await selectedCategory(
+          c,
+          workspaceId,
+          data.categoryId,
+          data.kind === 'tool' ? 'tool' : 'material',
+        );
+        await c.query(
+          'UPDATE app.catalog_item SET category_id=$3,kind=$4,name=$5,specification=$6,description=$7,manufacturer=$8,model=$9,part_number=$10,default_unit=$11,visibility=$12,archived=$13,version=version+1 WHERE workspace_id=$1 AND id=$2',
+          [
+            workspaceId,
+            id,
+            data.categoryId,
+            data.kind,
+            data.name,
+            data.specification,
+            data.description,
+            data.manufacturer,
+            data.model,
+            data.partNumber,
+            data.defaultUnit,
+            data.visibility,
+            data.archived,
+          ],
+        );
+        return (await item(c, workspaceId, id))!;
+      });
+    },
+    async getCatalogUsage(actor: Actor, workspaceId: string, id: string): Promise<CatalogUsage> {
+      return transaction(actor, workspaceId, async (c) => {
+        await owner(c, workspaceId);
+        if (!(await item(c, workspaceId, id))) throw missing();
+        const guides = (
+          await c.query(
+            'SELECT DISTINCT g.id,g.document->>\'title\' AS title,g.audience,g.current_release AS "currentRelease" FROM app.guide_requirement_reference r JOIN app.guide g ON g.id=r.guide_id AND g.workspace_id=r.workspace_id WHERE r.workspace_id=$1 AND r.item_id=$2 AND (r.release_number=0 OR r.release_number=g.current_release) ORDER BY title,g.id',
+            [workspaceId, id],
+          )
+        ).rows;
+        return { guides };
+      });
+    },
+  };
+}
