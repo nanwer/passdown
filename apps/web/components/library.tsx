@@ -29,6 +29,7 @@ export function Library({
   taxonomy,
   selectedCategory,
   categoryGuides = [],
+  sections,
 }: {
   guides: (DemoGuide | PublishedGuide)[];
   categories: string[];
@@ -41,6 +42,12 @@ export function Library({
   taxonomy?: Category[];
   selectedCategory?: Category;
   categoryGuides?: Pick<PublishedGuide, 'categoryPath'>[];
+  /**
+   * Public and members-only views of one workspace. Omitted entirely for
+   * visitors and signed-in nonmembers, so the internal section is not
+   * advertised to anyone who cannot open it.
+   */
+  sections?: { active: 'public' | 'internal'; publicHref: string; internalHref: string };
 }) {
   const base = basePath ?? (team ? '/preview/workshop' : '/');
   const guideBase = base === '/' ? '' : base;
@@ -179,6 +186,24 @@ export function Library({
                 experience. It contains no real team data and does not sign you in.
               </p>
             </div>
+          )}
+          {sections && (
+            <nav className="section-switch" aria-label="Workspace sections">
+              <a
+                href={sections.publicHref}
+                aria-current={sections.active === 'public' ? 'page' : undefined}
+              >
+                <Globe2 size={15} />
+                Public
+              </a>
+              <a
+                href={sections.internalHref}
+                aria-current={sections.active === 'internal' ? 'page' : undefined}
+              >
+                <LockKeyhole size={15} />
+                Internal
+              </a>
+            </nav>
           )}
           <div
             className={

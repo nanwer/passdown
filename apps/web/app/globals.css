@@ -1522,3 +1522,30 @@ button {
     background: Highlight;
   }
 }
+
+/* Public and Internal views of one workspace. Rendered only for members, so an
+   absent switch is itself the signal that there is nothing else to see. */
+.section-switch {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  margin-bottom: 16px;
+  border: 1px solid var(--gp-semantic-border-subtle);
+  border-radius: 9px;
+  background: var(--gp-semantic-surface-sunken);
+}
+.section-switch a {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 13px;
+  border-radius: 6px;
+  color: var(--gp-semantic-text-secondary);
+  font-size: 13px;
+  text-decoration: none;
+}
+.section-switch a[aria-current='page'] {
+  background: var(--gp-semantic-surface-raised);
+  color: var(--gp-semantic-text-primary);
+  font-weight: 650;
+}

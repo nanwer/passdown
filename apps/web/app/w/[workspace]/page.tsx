@@ -1,5 +1,5 @@
-import { notFound, redirect } from 'next/navigation';
-import { getMemberScope } from '../../../lib/queries';
+import { notFound } from 'next/navigation';
+import { getInternalScope, getSections } from '../../../lib/queries';
 import { Library } from '../../../components/library';
 import { resolveCategoryFilter } from '../../../lib/category-filter';
 export const dynamic = 'force-dynamic';
@@ -11,9 +11,12 @@ export default async function Page({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { workspace } = await params;
-  const scope = await getMemberScope(workspace);
+  // The members-only section of this workspace. Anyone without an active
+  // membership gets a 404 rather than a sign-in prompt, so the section's
+  // existence is not advertised.
+  const scope = await getInternalScope(workspace);
   if (!scope) notFound();
-  if (workspace === 'repair-collective') redirect('/');
+  const sections = await getSections(workspace, 'internal');
   const paramsValue = await searchParams;
   const query = typeof paramsValue.q === 'string' ? paramsValue.q.slice(0, 200) : '';
   const category =
@@ -34,6 +37,7 @@ export default async function Page({
       persistent
       basePath={`/w/${workspace}`}
       workspaceName={scope.workspace.name}
+      sections={sections}
     />
   );
 }

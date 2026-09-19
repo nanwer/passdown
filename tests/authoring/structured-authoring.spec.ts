@@ -646,3 +646,88 @@ test('catalog listing reports how many guides use each item and filters by statu
   await expect(row).toBeVisible();
   await expect(row.locator('.catalog-usage')).toHaveCount(0);
 });
+
+test('one site, two sections: members switch between public and internal, others see neither', async ({
+  page,
+  browser,
+}) => {
+  await login(page.request);
+  const workspace = 'repair-collective';
+  const section = await category(page.request, workspace, `Sections ${randomUUID().slice(0, 8)}`);
+
+  // A members-only guide inside the public workspace: the case the split exists for.
+  const internalTitle = `Internal only ${randomUUID().slice(0, 8)}`;
+  const internal = (
+    await api<{ guide: DraftGuide }>(page.request, `/api/studio/${workspace}/guides`, 'POST', {
+      document: toStructuredDocument(
+        {
+          schemaVersion: 3,
+          title: internalTitle,
+          summary: 'Visible to members of this workspace only.',
+          locale: 'en',
+          difficulty: 'easy',
+          durationMinutes: 5,
+          tools: [],
+          steps: [
+            {
+              id: randomUUID(),
+              title: 'Internal step',
+              body: [
+                {
+                  type: 'paragraph',
+                  children: [{ type: 'text', text: 'Internal instruction.', marks: [] }],
+                },
+              ],
+              media: [],
+              callouts: [],
+            },
+          ],
+        },
+        randomUUID,
+      ),
+      categoryId: section.id,
+      audience: 'members',
+    })
+  ).guide;
+  await api(page.request, `/api/studio/${workspace}/guides/${internal.id}/publish`, 'POST', {
+    expectedVersion: internal.version,
+    expectedRelease: null,
+    license: 'all-rights-reserved',
+  });
+
+  // A member sees the switch, and the public side stays a public-only view.
+  await page.goto('/');
+  const sections = page.getByRole('navigation', { name: 'Workspace sections' });
+  await expect(sections).toBeVisible();
+  await expect(page.getByText(internalTitle, { exact: false })).toHaveCount(0);
+
+  // The internal side shows it.
+  await sections.getByRole('link', { name: 'Internal' }).click();
+  await expect(page).toHaveURL(new RegExp(`/w/${workspace}$`));
+  await expect(page.getByText(internalTitle, { exact: false }).first()).toBeVisible();
+
+  // A visitor gets neither the section nor a hint that it exists.
+  const anonymous = await browser.newContext();
+  const visitor = await anonymous.newPage();
+  await visitor.goto('/');
+  await expect(visitor.getByRole('navigation', { name: 'Workspace sections' })).toHaveCount(0);
+  await expect(visitor.getByText(internalTitle, { exact: false })).toHaveCount(0);
+  expect((await visitor.request.get(`/w/${workspace}`)).status()).toBe(404);
+  await anonymous.close();
+});
+
+test('creating a guide offers a section only where the workspace has both', async ({ page }) => {
+  await login(page.request);
+
+  // A public workspace holds both sections, so the choice is explicit.
+  await page.goto('/studio/repair-collective/new');
+  const choice = page.getByRole('group', { name: 'Section' });
+  await expect(choice).toBeVisible();
+  await expect(choice.getByRole('radio', { name: /Public/ })).toBeChecked();
+  await expect(choice.getByText('cannot move between sections')).toBeVisible();
+
+  // A private workspace has no public side, so there is nothing to choose.
+  await page.goto('/studio/workshop/new');
+  await expect(page.getByRole('group', { name: 'Section' })).toHaveCount(0);
+  await expect(page.getByText('only visible to active workspace members')).toBeVisible();
+});

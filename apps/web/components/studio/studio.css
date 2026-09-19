@@ -664,3 +664,41 @@
     flex-basis: 100%;
   }
 }
+
+/* Section choice at creation. Immutable afterwards, so both options are shown
+   with their consequence rather than hidden behind a default. */
+.studio-fieldset {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 16px;
+  border: 1px solid var(--gp-semantic-border-subtle);
+  border-radius: 10px;
+}
+.studio-fieldset legend {
+  padding: 0 6px;
+  font-size: 13px;
+  font-weight: 650;
+}
+.studio-choice {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  padding: 11px 13px;
+  border: 1px solid var(--gp-semantic-border-subtle);
+  border-radius: 9px;
+  cursor: pointer;
+}
+.studio-choice:has(input:checked) {
+  border-color: var(--gp-semantic-focus-ring);
+  background: var(--gp-semantic-surface-sunken);
+}
+.studio-choice span {
+  display: grid;
+  gap: 3px;
+  font-size: 13px;
+  color: var(--gp-semantic-text-secondary);
+}
+.studio-choice strong {
+  color: var(--gp-semantic-text-primary);
+}

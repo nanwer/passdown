@@ -222,7 +222,12 @@ export function createApplicationStore(options: { connectionString: string }) {
     async listReleases(
       actor: Actor,
       workspaceId: string,
-      filter?: { search?: string; category?: string; categoryId?: string },
+      filter?: {
+        search?: string;
+        category?: string;
+        categoryId?: string;
+        audience?: 'public' | 'members';
+      },
     ): Promise<PublishedGuide[]> {
       return transaction(actor, workspaceId, async (c) => {
         const rows = (
@@ -234,6 +239,9 @@ export function createApplicationStore(options: { connectionString: string }) {
         const search = normalize((filter?.search ?? '').trim().slice(0, 200));
         return rows.filter(
           (r) =>
+            // published_guides already applies the actor's read scope; audience
+            // narrows an authorized set into one section, never widens it.
+            (!filter?.audience || r.audience === filter.audience) &&
             (!filter?.category || r.category === filter.category) &&
             (!filter?.categoryId || r.categoryPath.some((p) => p.id === filter.categoryId)) &&
             (!search || normalize(`${r.title} ${r.summary}`).includes(search)),

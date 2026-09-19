@@ -387,6 +387,11 @@ export function NewGuide({ workspaceId }: { workspaceId: string }) {
 function CreateGuide({ workspace }: { workspace: StudioWorkspace }) {
   const [document, setDocument] = useState<GuideDocument>();
   const [category, setCategory] = useState<string | null>(null);
+  // A private workspace has no public side, so its guides are always internal.
+  // A public workspace holds both, and the choice is immutable after creation.
+  const [audience, setAudience] = useState<'public' | 'members'>(
+    workspace.audience === 'public' ? 'public' : 'members',
+  );
   const created = useRef(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
@@ -421,7 +426,7 @@ function CreateGuide({ workspace }: { workspace: StudioWorkspace }) {
             tools: document.tools.map((tool) => tool.trim()).filter(Boolean),
           },
           categoryId: category,
-          audience: workspace.audience === 'public' ? 'public' : 'members',
+          audience,
         }),
       });
       created.current = true;
@@ -452,11 +457,44 @@ function CreateGuide({ workspace }: { workspace: StudioWorkspace }) {
               onDocument={setDocument}
               onCategory={setCategory}
             />
-            <p className="studio-notice">
-              {workspace.audience === 'public'
-                ? 'Public workspace: publishing will make this guide readable by everyone.'
-                : 'Private workspace: published guides are only visible to active workspace members.'}
-            </p>
+            {workspace.audience === 'public' ? (
+              <fieldset className="studio-fieldset">
+                <legend>Section</legend>
+                <p className="studio-hint">
+                  Chosen once. A guide cannot move between sections after it is created.
+                </p>
+                <label className="studio-choice">
+                  <input
+                    type="radio"
+                    name="audience"
+                    value="public"
+                    checked={audience === 'public'}
+                    onChange={() => setAudience('public')}
+                  />
+                  <span>
+                    <strong>Public</strong>
+                    Anyone can read it once published.
+                  </span>
+                </label>
+                <label className="studio-choice">
+                  <input
+                    type="radio"
+                    name="audience"
+                    value="members"
+                    checked={audience === 'members'}
+                    onChange={() => setAudience('members')}
+                  />
+                  <span>
+                    <strong>Internal</strong>
+                    Only active members of this workspace can read it.
+                  </span>
+                </label>
+              </fieldset>
+            ) : (
+              <p className="studio-notice">
+                Private workspace: published guides are only visible to active workspace members.
+              </p>
+            )}
             {error && <ErrorNotice error={error} />}
             <div className="studio-actions">
               <a href={`/studio/${workspace.id}`}>Cancel</a>

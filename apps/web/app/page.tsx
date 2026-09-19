@@ -1,7 +1,7 @@
 import type { PublishedGuide } from '@guide/contracts';
 import { Library } from '../components/library';
 import { isConfigured } from '../lib/application';
-import { getPublicScope } from '../lib/queries';
+import { getPublicScope, getSections } from '../lib/queries';
 import { resolveCategoryFilter } from '../lib/category-filter';
 export const dynamic = 'force-dynamic';
 export default async function Page({
@@ -13,6 +13,7 @@ export default async function Page({
   const query = typeof params.q === 'string' ? params.q.slice(0, 200) : '';
   const category = typeof params.category === 'string' ? params.category.slice(0, 100) : '';
   const scope = (await getPublicScope())!;
+  const sections = await getSections('repair-collective', 'public');
   const [allGuides, taxonomy] = await Promise.all([scope.list(), scope.categories()]);
   const categories = [...new Set(allGuides.map((guide) => guide.category))];
   const selected = resolveCategoryFilter(taxonomy, category);
@@ -32,6 +33,7 @@ export default async function Page({
       }))}
       query={query}
       category={selected?.id ?? category}
+      sections={sections}
     />
   );
 }
