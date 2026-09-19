@@ -790,3 +790,38 @@
   font-size: 13px;
   color: var(--gp-semantic-status-success-foreground);
 }
+
+.studio-section-move {
+  display: grid;
+  gap: 8px;
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--gp-semantic-border-subtle);
+}
+.studio-section-move h3 {
+  margin: 0;
+  font-size: 14px;
+}
+.studio-section-move button {
+  justify-self: start;
+}
+/* Reasons a move is unavailable. Presented as information rather than as a
+   failure: nothing has been attempted yet. */
+.studio-blockers {
+  padding: 12px 14px;
+  border: 1px solid var(--gp-semantic-status-note-border);
+  background: var(--gp-semantic-status-note-background);
+  color: var(--gp-semantic-status-note-foreground);
+  border-radius: 8px;
+  font-size: 13px;
+}
+.studio-blockers p {
+  margin: 0 0 6px;
+  font-weight: 600;
+}
+.studio-blockers ul {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 4px;
+}

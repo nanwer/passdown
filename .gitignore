@@ -24,3 +24,6 @@ docs/development/published-formatting-examples.md
 
 # Uploaded images. Local content, never committed.
 .media/
+
+# Disposable uploads from browser test runs.
+.media-authoring/

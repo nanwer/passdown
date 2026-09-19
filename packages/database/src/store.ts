@@ -591,6 +591,81 @@ export function createApplicationStore(options: { connectionString: string }) {
       });
     },
     /**
+     * What stands between this guide and the public section, by name.
+     *
+     * Offered before the choice rather than after it, so an author reads why a
+     * move is unavailable instead of being refused once they have decided.
+     */
+    async guidePublicBlockers(
+      actor: Actor,
+      workspaceId: string,
+      guideId: string,
+    ): Promise<{ kind: 'workspace' | 'category' | 'item'; name: string }[]> {
+      return transaction(actor, workspaceId, async (c) => {
+        await owner(c, workspaceId);
+        return (
+          await c.query('SELECT kind,name FROM app.guide_public_blockers($1,$2)', [
+            workspaceId,
+            guideId,
+          ])
+        ).rows;
+      });
+    },
+    /**
+     * Moves a guide between a workspace's public and internal sections.
+     *
+     * `expectedRelease` is the release the author was looking at when they
+     * decided. If someone published in the meantime the move is refused, so
+     * nobody makes public a version they have not read.
+     *
+     * Going public is checked against everything the current release depends
+     * on; going internal is always allowed, because it only removes access.
+     */
+    async setGuideAudience(
+      actor: Actor,
+      workspaceId: string,
+      id: string,
+      audience: 'public' | 'members',
+      expectedRelease: number | null,
+    ): Promise<DraftGuide> {
+      if (audience !== 'public' && audience !== 'members')
+        throw new ApplicationError('VALIDATION_ERROR', 'Choose a public or internal section.', 422);
+      return transaction(actor, workspaceId, async (c) => {
+        await lockStructured(c, workspaceId);
+        const current = await lockedDraft(c, workspaceId, id);
+        if (current.current_release !== expectedRelease) throw conflict();
+        if (current.audience !== audience) {
+          await c.query(
+            'UPDATE app.guide SET audience=$3,updated_at=clock_timestamp() WHERE workspace_id=$1 AND id=$2',
+            [workspaceId, id, audience],
+          );
+          const details = { from: current.audience, to: audience, release: current.current_release };
+          await c.query(
+            "INSERT INTO app.audit(id,workspace_id,guide_id,actor_id,action,details) VALUES($1,$2,$3,app.actor_id(),'guide.audience_changed',$4)",
+            [randomUUID(), workspaceId, id, details],
+          );
+          await c.query(
+            "INSERT INTO app.outbox(id,workspace_id,guide_id,event,payload) VALUES($1,$2,$3,'guide.audience_changed',$4)",
+            [randomUUID(), workspaceId, id, details],
+          );
+        }
+        const row = (
+          await c.query('SELECT * FROM app.guide WHERE workspace_id=$1 AND id=$2', [
+            workspaceId,
+            id,
+          ])
+        ).rows[0];
+        const category = await selectedCategory(
+          c,
+          workspaceId,
+          row.category_id,
+          'guide',
+          row.audience === 'public',
+        ).catch(() => null);
+        return draft({ ...row, category_path: category?.path ?? [] });
+      });
+    },
+    /**
      * Places a guide beneath another, or removes it from its family.
      *
      * A guide may have one parent, so setting a new one replaces the old link

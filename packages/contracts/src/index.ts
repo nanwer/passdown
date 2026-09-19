@@ -214,6 +214,17 @@ export const guideFamilySchema = z.strictObject({
   sortOrder: z.number().int().min(0).max(100000).default(0),
 });
 export type GuideFamilyInput = z.infer<typeof guideFamilySchema>;
+export const guideAudienceSchema = z.strictObject({
+  audience: z.enum(['public', 'members']),
+  /**
+   * The release the author was looking at when they decided. A mismatch means
+   * someone published in between, so the move is refused rather than making a
+   * version public that nobody has read.
+   */
+  expectedRelease: z.number().int().min(1).nullable(),
+});
+export type GuideAudienceInput = z.infer<typeof guideAudienceSchema>;
+export type GuidePublicBlocker = { kind: 'workspace' | 'category' | 'item'; name: string };
 export type GuideFamily = {
   ancestors: { id: string; title: string }[];
   children: { id: string; title: string }[];

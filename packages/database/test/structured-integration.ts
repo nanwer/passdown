@@ -827,4 +827,129 @@ export async function structuredChecks({
       });
     },
   );
+
+  await check(
+    'audience moves: a guide can change sections, and going public cannot expose what is not public',
+    async () => {
+      const suffix = randomUUID().slice(0, 8);
+      const open = await category(`Open ${suffix}`);
+      const closed = await category(`Closed ${suffix}`, null, 'guide', 'members');
+      const publish = async (id: string, version = 1) =>
+        store.publishDraft(who, 'public', id, {
+          expectedVersion: version,
+          expectedRelease: null,
+          license: 'all-rights-reserved',
+        });
+
+      // Internal, published, referencing nothing restricted: the move out is
+      // allowed and takes effect for the current release immediately.
+      const internal = await store.createDraft(who, 'public', {
+        document: { ...doc, title: `Internal to public ${suffix}` },
+        categoryId: open.id,
+        audience: 'members',
+      });
+      await publish(internal.id);
+      assert.equal(await store.getRelease(anonymous, 'public', internal.id), null);
+      assert.deepEqual(await store.guidePublicBlockers(who, 'public', internal.id), []);
+      await store.setGuideAudience(who, 'public', internal.id, 'public', 1);
+      assert.equal(
+        (await store.getRelease(anonymous, 'public', internal.id))?.title,
+        `Internal to public ${suffix}`,
+      );
+
+      // And back again: access stops, the snapshot stays, and a member still
+      // reads it. Withdrawing is never blocked.
+      await store.setGuideAudience(who, 'public', internal.id, 'members', 1);
+      assert.equal(await store.getRelease(anonymous, 'public', internal.id), null);
+      assert.equal(
+        (await store.getRelease(who, 'public', internal.id))?.title,
+        `Internal to public ${suffix}`,
+      );
+      assert.equal(
+        Number(
+          (
+            await owner.query('SELECT count(*) FROM app.release WHERE guide_id=$1', [internal.id])
+          ).rows[0].count,
+        ),
+        1,
+      );
+      // Both moves are recorded, with the direction.
+      const trail = (
+        await owner.query(
+          "SELECT details FROM app.audit WHERE guide_id=$1 AND action='guide.audience_changed' ORDER BY created_at",
+          [internal.id],
+        )
+      ).rows.map((r) => `${r.details.from}->${r.details.to}`);
+      assert.deepEqual(trail, ['members->public', 'public->members']);
+
+      // A members-only category is a blocker, named so the author can act.
+      const filed = await store.createDraft(who, 'public', {
+        document: { ...doc, title: `Filed privately ${suffix}` },
+        categoryId: closed.id,
+        audience: 'members',
+      });
+      await publish(filed.id);
+      assert.deepEqual(await store.guidePublicBlockers(who, 'public', filed.id), [
+        { kind: 'category', name: `Closed ${suffix}` },
+      ]);
+      await denied(store.setGuideAudience(who, 'public', filed.id, 'public', 1), 422);
+      await assert.rejects(
+        store.setGuideAudience(who, 'public', filed.id, 'public', 1),
+        new RegExp(`Closed ${suffix}`),
+      );
+
+      // So is a members-only catalog item the published version names.
+      const secretTools = await category(`Secret tools ${suffix}`, null, 'tool', 'members');
+      const secretTool = await item(`Secret driver ${suffix}`, secretTools.id, 'tool', 'public', 'members');
+      const using = await store.createDraft(who, 'public', {
+        document: {
+          ...toStructuredDocument({ ...doc, title: `Uses a secret tool ${suffix}` }),
+          requirements: [requirement(secretTool)],
+        },
+        categoryId: open.id,
+        audience: 'members',
+      });
+      await publish(using.id);
+      assert.deepEqual(await store.guidePublicBlockers(who, 'public', using.id), [
+        { kind: 'item', name: `Secret driver ${suffix}` },
+      ]);
+      await assert.rejects(
+        store.setGuideAudience(who, 'public', using.id, 'public', 1),
+        new RegExp(`Secret driver ${suffix}`),
+      );
+
+      // A private workspace has no public section to move into at all.
+      const privateCategory = await category(`Private ${suffix}`, null, 'guide', 'members', 'private');
+      const inPrivate = await store.createDraft(who, 'private', {
+        document: { ...doc, title: `Private only ${suffix}` },
+        categoryId: privateCategory.id,
+        audience: 'members',
+      });
+      assert.deepEqual(await store.guidePublicBlockers(who, 'private', inPrivate.id), [
+        { kind: 'workspace', name: 'Private' },
+      ]);
+      await assert.rejects(
+        store.setGuideAudience(who, 'private', inPrivate.id, 'public', null),
+        /no public section/,
+      );
+
+      // Deciding against a version you have not read is refused.
+      await denied(store.setGuideAudience(who, 'public', internal.id, 'public', null), 409);
+
+      // And none of this depends on the service being the one to ask.
+      await assert.rejects(
+        scoped(who, 'public', (c) =>
+          c.query("UPDATE app.guide SET audience='public' WHERE id=$1", [filed.id]),
+        ),
+        new RegExp(`Closed ${suffix}`),
+      );
+      // Identity is still fixed, which is what immutability was protecting.
+      await assert.rejects(
+        scoped(who, 'public', (c) =>
+          c.query("UPDATE app.guide SET workspace_id='private' WHERE id=$1", [filed.id]),
+        ),
+        /identity is immutable/,
+      );
+    },
+  );
 }

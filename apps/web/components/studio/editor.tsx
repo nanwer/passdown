@@ -1,6 +1,16 @@
 'use client';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { ArrowDown, ArrowUp, Copy, Eye, Plus, Save, Trash2 } from 'lucide-react';
+import {
+  ArrowDown,
+  ArrowUp,
+  Copy,
+  Eye,
+  Globe2,
+  LockKeyhole,
+  Plus,
+  Save,
+  Trash2,
+} from 'lucide-react';
 import { Button, Dialog } from '@guide/ui';
 import { StepRenderer } from '@guide/guide-ui';
 import {
@@ -9,7 +19,12 @@ import {
   getRequirementIssues,
   type GuideStep,
 } from '@guide/content';
-import type { ContentLicense, DraftGuide, StudioWorkspace } from '@guide/contracts';
+import type {
+  ContentLicense,
+  DraftGuide,
+  GuidePublicBlocker,
+  StudioWorkspace,
+} from '@guide/contracts';
 import { SessionGate, ErrorNotice } from './frame';
 import { MetadataFields } from './pages';
 import { newStep, reorder } from './model';
@@ -165,6 +180,127 @@ function StepPictures({
  * with the draft, because a family link belongs to the guide rather than to
  * any one version of its text.
  */
+/**
+ * Moving a guide between the public and internal sections.
+ *
+ * Going public is checked before it is offered, so an author reads what stands
+ * in the way instead of being refused after deciding. Going internal is never
+ * blocked, but it is not a recall either, and the wording says so rather than
+ * letting someone believe the guide has been unsent.
+ */
+function GuideSectionPicker({
+  workspaceId,
+  guideId,
+  audience,
+  currentRelease,
+  onMoved,
+}: {
+  workspaceId: string;
+  guideId: string;
+  audience: 'public' | 'members';
+  currentRelease: number | null;
+  onMoved: (audience: 'public' | 'members') => void;
+}) {
+  const [blockers, setBlockers] = useState<GuidePublicBlocker[] | null>(null);
+  const [error, setError] = useState('');
+  const [saved, setSaved] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    void studioFetch<{ blockers: GuidePublicBlocker[] }>(
+      `/api/studio/${workspaceId}/guides/${guideId}/audience`,
+    )
+      .then((result) => {
+        if (active) setBlockers(result.blockers);
+      })
+      .catch(() => {
+        if (active) setBlockers([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [workspaceId, guideId, audience]);
+
+  async function move(next: 'public' | 'members') {
+    setBusy(true);
+    setError('');
+    setSaved('');
+    try {
+      await studioFetch(`/api/studio/${workspaceId}/guides/${guideId}/audience`, {
+        method: 'PUT',
+        body: JSON.stringify({ audience: next, expectedRelease: currentRelease }),
+      });
+      onMoved(next);
+      setSaved(
+        next === 'public'
+          ? 'Moved. The published version is now in the public library.'
+          : 'Moved. This guide is no longer served publicly.',
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'That move could not be saved.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const describe = (blocker: GuidePublicBlocker) =>
+    blocker.kind === 'workspace'
+      ? `${blocker.name} is a private workspace, so it has no public section.`
+      : blocker.kind === 'category'
+        ? `It is published under ${blocker.name}, a members-only category.`
+        : `The published version uses ${blocker.name}, a members-only catalog item.`;
+
+  return (
+    <div className="studio-section-move">
+      <h3>Section</h3>
+      <p className="studio-hint">
+        {audience === 'public'
+          ? 'Anyone can read the published version of this guide.'
+          : 'Only members of this workspace can read this guide.'}
+      </p>
+      {audience === 'members' ? (
+        blockers === null ? (
+          <p className="studio-hint">Checking what this guide depends on…</p>
+        ) : blockers.length ? (
+          <div className="studio-blockers">
+            <p>This guide cannot move to the public section yet:</p>
+            <ul>
+              {blockers.map((blocker) => (
+                <li key={`${blocker.kind}:${blocker.name}`}>{describe(blocker)}</li>
+              ))}
+            </ul>
+          </div>
+        ) : (
+          <>
+            <p className="studio-hint">
+              Moving it out makes the published version readable by anyone, and lists it in the
+              public library.
+            </p>
+            <Button variant="secondary" disabled={busy} onClick={() => void move('public')}>
+              <Globe2 size={16} />
+              Move to the public section
+            </Button>
+          </>
+        )
+      ) : (
+        <>
+          <p className="studio-hint">
+            Moving it in stops it being served publicly straight away. It does not reach copies
+            people have already saved, printed or indexed, and any licence it was published under
+            still applies to those.
+          </p>
+          <Button variant="secondary" disabled={busy} onClick={() => void move('members')}>
+            <LockKeyhole size={16} />
+            Move to the internal section
+          </Button>
+        </>
+      )}
+      {saved && <p className="studio-success">{saved}</p>}
+      {error && <ErrorNotice error={error} />}
+    </div>
+  );
+}
 function GuideFamilyPicker({
   workspaceId,
   guideId,
@@ -785,6 +921,15 @@ function Editor({ workspace, guideId }: { workspace: StudioWorkspace; guideId: s
                   }
                 />
                 <GuideFamilyPicker workspaceId={guide.workspaceId} guideId={guide.id} />
+                <GuideSectionPicker
+                  workspaceId={guide.workspaceId}
+                  guideId={guide.id}
+                  audience={guide.audience}
+                  currentRelease={guide.currentRelease}
+                  onMoved={(audience) =>
+                    setGuide((current) => (current ? { ...current, audience } : current))
+                  }
+                />
               </>
             ) : preview ? (
               <div className="studio-live-preview">

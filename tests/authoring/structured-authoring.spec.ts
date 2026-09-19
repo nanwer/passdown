@@ -932,3 +932,142 @@ test('a guide family lets readers narrow to a model without exposing relatives t
   await expect(visitor.getByRole('heading', { name: `Fridge model A ${suffix}` })).toBeVisible();
   await anonymous.close();
 });
+
+test('a guide moves between the public and internal sections, and says what it cannot undo', async ({
+  page,
+  browser,
+}) => {
+  await login(page.request);
+  const workspace = 'repair-collective';
+  const suffix = randomUUID().slice(0, 8);
+  const open = await category(page.request, workspace, `Open shelf ${suffix}`);
+
+  const internal = (
+    await api<{ guide: DraftGuide }>(page.request, `/api/studio/${workspace}/guides`, 'POST', {
+      document: toStructuredDocument(
+        {
+          schemaVersion: 3,
+          title: `Team only ${suffix}`,
+          summary: 'Written for the team first.',
+          locale: 'en',
+          difficulty: 'easy',
+          durationMinutes: 5,
+          tools: [],
+          steps: [
+            {
+              id: randomUUID(),
+              title: 'Check the seal',
+              body: [
+                {
+                  type: 'paragraph',
+                  children: [{ type: 'text', text: 'Check the seal.', marks: [] }],
+                },
+              ],
+              media: [],
+              callouts: [],
+            },
+          ],
+        },
+        randomUUID,
+      ),
+      categoryId: open.id,
+      audience: 'members',
+    })
+  ).guide;
+  await api(page.request, `/api/studio/${workspace}/guides/${internal.id}/publish`, 'POST', {
+    expectedVersion: internal.version,
+    expectedRelease: null,
+    license: 'all-rights-reserved',
+  });
+
+  const anonymous = await browser.newContext();
+  const visitor = await anonymous.newPage();
+  await visitor.goto(`/guides/${internal.id}`);
+  await expect(visitor.getByRole('heading', { name: `Team only ${suffix}` })).toHaveCount(0);
+
+  // The author moves it out to the public section.
+  await page.goto(`/studio/${workspace}/${internal.id}`);
+  await page.getByRole('button', { name: 'Guide details' }).click();
+  await expect(page.getByText('Only members of this workspace can read this guide.')).toBeVisible();
+  await page.getByRole('button', { name: 'Move to the public section' }).click();
+  await expect(page.getByText('now in the public library')).toBeVisible();
+
+  await visitor.goto(`/guides/${internal.id}`);
+  await expect(visitor.getByRole('heading', { name: `Team only ${suffix}` })).toBeVisible();
+
+  // And back in again. The wording does not promise a recall it cannot make.
+  await page.reload();
+  await page.getByRole('button', { name: 'Guide details' }).click();
+  await expect(page.getByText('Anyone can read the published version of this guide.')).toBeVisible();
+  await expect(
+    page.getByText(/any licence it was published under still applies to those/),
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'Move to the internal section' }).click();
+  await expect(page.getByText('no longer served publicly')).toBeVisible();
+
+  await visitor.goto(`/guides/${internal.id}`);
+  await expect(visitor.getByRole('heading', { name: `Team only ${suffix}` })).toHaveCount(0);
+  await anonymous.close();
+
+  // A guide filed under a members-only category is told why, before it asks.
+  const closed = await api<{ category: Category }>(
+    page.request,
+    `/api/studio/${workspace}/categories`,
+    'POST',
+    {
+      name: `Closed shelf ${suffix}`,
+      parentId: null,
+      domain: 'guide',
+      visibility: 'members',
+      description: '',
+      sortOrder: 0,
+    },
+  );
+  const filed = (
+    await api<{ guide: DraftGuide }>(page.request, `/api/studio/${workspace}/guides`, 'POST', {
+      document: toStructuredDocument(
+        {
+          schemaVersion: 3,
+          title: `Filed away ${suffix}`,
+          summary: 'Filed on the closed shelf.',
+          locale: 'en',
+          difficulty: 'easy',
+          durationMinutes: 5,
+          tools: [],
+          steps: [
+            {
+              id: randomUUID(),
+              title: 'Only step',
+              body: [
+                { type: 'paragraph', children: [{ type: 'text', text: 'Do it.', marks: [] }] },
+              ],
+              media: [],
+              callouts: [],
+            },
+          ],
+        },
+        randomUUID,
+      ),
+      categoryId: closed.category.id,
+      audience: 'members',
+    })
+  ).guide;
+  await api(page.request, `/api/studio/${workspace}/guides/${filed.id}/publish`, 'POST', {
+    expectedVersion: filed.version,
+    expectedRelease: null,
+    license: 'all-rights-reserved',
+  });
+
+  await page.goto(`/studio/${workspace}/${filed.id}`);
+  await page.getByRole('button', { name: 'Guide details' }).click();
+  await expect(page.getByText('This guide cannot move to the public section yet:')).toBeVisible();
+  await expect(
+    page.getByText(`It is published under Closed shelf ${suffix}, a members-only category.`),
+  ).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Move to the public section' })).toHaveCount(0);
+
+  expect(
+    (await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze())
+      .violations,
+  ).toEqual([]);
+});
