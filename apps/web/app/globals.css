@@ -793,23 +793,31 @@ button {
 .dialog-overlay {
   position: fixed;
   inset: 0;
-  background: color-mix(in srgb, var(--gp-semantic-text-primary) 30%, transparent);
+  background: var(--gp-component-dialog-backdrop);
   backdrop-filter: blur(4px);
-  z-index: 50;
+  z-index: calc(50 + var(--dialog-depth, 0) * 2);
 }
 .dialog-content {
+  --dialog-width: var(--gp-component-dialog-width-standard);
   position: fixed;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: min(520px, calc(100% - 24px));
-  max-height: calc(100dvh - 24px);
+  width: min(
+    calc(var(--dialog-width) + var(--dialog-depth, 0) * var(--gp-component-dialog-depth-width)),
+    calc(100% - 32px)
+  );
+  max-height: calc(100dvh - 32px);
   overflow: auto;
-  padding: 38px;
-  border-radius: var(--gp-semantic-radius-editorial);
+  padding: 40px;
+  border-radius: var(--gp-component-dialog-radius);
   background: var(--gp-semantic-surface-raised);
   border: 1px solid var(--gp-semantic-border-subtle);
-  z-index: 51;
+  box-shadow: var(--gp-component-dialog-shadow);
+  z-index: calc(51 + var(--dialog-depth, 0) * 2);
+}
+.dialog-content[data-size='wide'] {
+  --dialog-width: var(--gp-component-dialog-width-wide);
 }
 .dialog-title {
   font-size: 22px;
@@ -1481,7 +1489,7 @@ button {
     margin-inline-start: auto;
   }
   .dialog-content {
-    padding: 32px 25px;
+    padding: 32px 24px;
   }
 }
 @media (prefers-reduced-motion: reduce) {

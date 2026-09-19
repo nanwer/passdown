@@ -1,5 +1,5 @@
 'use client';
-import { useState, type ReactElement } from 'react';
+import { useId, useState, type ReactElement } from 'react';
 import { Plus, Search, ArrowLeft, Package, Wrench, Check, ChevronDown } from 'lucide-react';
 import { Button, Dialog } from '@guide/ui';
 import type { Category, CatalogItem, StudioWorkspace } from '@guide/contracts';
@@ -36,6 +36,7 @@ export function CatalogPicker({
   const [search, setSearch] = useState('');
   const [filterKind, setKind] = useState<CatalogItem['kind'] | 'all'>(kind ?? 'all');
   const [categoryId, setCategory] = useState<string | null>(null);
+  const categoryLabelId = useId();
   const available = filterCatalog(items, {
     search,
     categoryId,
@@ -44,6 +45,7 @@ export function CatalogPicker({
   });
   return (
     <Dialog
+      size="wide"
       trigger={
         <Button type="button" variant="secondary" disabled={disabled}>
           <Plus size={16} />
@@ -113,33 +115,38 @@ export function CatalogPicker({
                   </select>
                 </label>
               )}
-              <details className="structured-category-filter">
-                <summary>
-                  <ChevronDown size={15} />
-                  {categoryId
-                    ? (categories.find((category) => category.id === categoryId)?.name ??
-                      'Selected category')
-                    : 'Browse item categories'}
-                </summary>
-                <button
-                  type="button"
-                  className="structured-text-button"
-                  onClick={() => setCategory(null)}
-                >
-                  All item categories
-                </button>
-                <CategoryTree
-                  categories={eligibleCategories(categories, { visibility }).filter(
-                    (category) =>
-                      category.domain !== 'guide' &&
-                      (!(kind ?? (filterKind === 'all' ? undefined : filterKind)) ||
-                        category.domain ===
-                          ((kind ?? filterKind) === 'tool' ? 'tool' : 'material')),
-                  )}
-                  value={categoryId}
-                  onSelect={(category) => setCategory(category.id)}
-                />
-              </details>
+              <div className="structured-filter-field">
+                <span id={categoryLabelId}>Item category</span>
+                <details className="structured-category-filter">
+                  <summary aria-labelledby={`${categoryLabelId} ${categoryLabelId}-value`}>
+                    <ChevronDown size={15} aria-hidden="true" />
+                    <span id={`${categoryLabelId}-value`}>
+                      {categoryId
+                        ? (categories.find((category) => category.id === categoryId)?.name ??
+                          'Selected category')
+                        : 'Browse item categories'}
+                    </span>
+                  </summary>
+                  <button
+                    type="button"
+                    className="structured-text-button"
+                    onClick={() => setCategory(null)}
+                  >
+                    All item categories
+                  </button>
+                  <CategoryTree
+                    categories={eligibleCategories(categories, { visibility }).filter(
+                      (category) =>
+                        category.domain !== 'guide' &&
+                        (!(kind ?? (filterKind === 'all' ? undefined : filterKind)) ||
+                          category.domain ===
+                            ((kind ?? filterKind) === 'tool' ? 'tool' : 'material')),
+                    )}
+                    value={categoryId}
+                    onSelect={(category) => setCategory(category.id)}
+                  />
+                </details>
+              </div>
             </div>
             {error ? (
               <>
@@ -491,6 +498,7 @@ export function CatalogDialog({
   return (
     <Dialog
       trigger={trigger}
+      size="wide"
       open={open}
       onOpenChange={setOpen}
       title={initial ? 'Edit catalog item' : 'Create catalog item'}

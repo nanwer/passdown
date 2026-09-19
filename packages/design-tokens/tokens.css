@@ -87,6 +87,10 @@
   --gp-primitive-color-2c313b: #2C313B;
   --gp-primitive-color-233f38: #233F38;
   --gp-primitive-color-111317: #111317;
+  --gp-primitive-radius-dialog: 24px;
+  --gp-primitive-dialog-width-standard: 520px;
+  --gp-primitive-dialog-width-wide: 640px;
+  --gp-primitive-dialog-depth-width: 80px;
 }
 :root, [data-theme="light"] {
   color-scheme: light;
@@ -142,6 +146,8 @@
   --gp-semantic-editor-hover: var(--gp-primitive-color-f1f3f6);
   --gp-semantic-editor-selection: var(--gp-primitive-color-e6f4f0);
   --gp-semantic-editor-backdrop: var(--gp-primitive-color-f6f7f9);
+  --gp-semantic-surface-overlay: rgb(12 22 18 / 0.34);
+  --gp-semantic-shadow-dialog: 0 24px 80px rgb(0 0 0 / 0.22), 0 4px 16px rgb(0 0 0 / 0.12);
 }
 [data-theme="dark"] {
   color-scheme: dark;
@@ -197,6 +203,8 @@
   --gp-semantic-editor-hover: var(--gp-primitive-color-2c313b);
   --gp-semantic-editor-selection: var(--gp-primitive-color-233f38);
   --gp-semantic-editor-backdrop: var(--gp-primitive-color-111317);
+  --gp-semantic-surface-overlay: rgb(12 22 18 / 0.62);
+  --gp-semantic-shadow-dialog: 0 24px 80px rgb(0 0 0 / 0.5), 0 4px 16px rgb(0 0 0 / 0.12);
 }
 :root {
   --gp-component-button-background: var(--gp-semantic-action-primary-background);
@@ -216,4 +224,10 @@
   --gp-component-editor-hover: var(--gp-semantic-editor-hover);
   --gp-component-editor-selection: var(--gp-semantic-editor-selection);
   --gp-component-editor-backdrop: var(--gp-semantic-editor-backdrop);
+  --gp-component-dialog-radius: var(--gp-primitive-radius-dialog);
+  --gp-component-dialog-width-standard: var(--gp-primitive-dialog-width-standard);
+  --gp-component-dialog-width-wide: var(--gp-primitive-dialog-width-wide);
+  --gp-component-dialog-depth-width: var(--gp-primitive-dialog-depth-width);
+  --gp-component-dialog-backdrop: var(--gp-semantic-surface-overlay);
+  --gp-component-dialog-shadow: var(--gp-semantic-shadow-dialog);
 }

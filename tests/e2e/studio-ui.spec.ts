@@ -70,6 +70,66 @@ const initial = {
     ],
   },
 };
+test('nested category dialog shields its parent and restores the unfinished catalog form', async ({
+  page,
+}) => {
+  const draft = {
+    ...initial,
+    document: { ...initial.document, tools: ['Precision screwdriver'] },
+  };
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.route('**/api/studio/session', (route) =>
+    route.fulfill({
+      json: {
+        user: { id: 'user', name: 'Test owner', email: 'owner@test.local' },
+        workspaces: [workspace],
+      },
+    }),
+  );
+  await page.route(`**/api/studio/${workspace.id}/guides/${guideId}`, (route) =>
+    route.fulfill({ json: { guide: draft } }),
+  );
+  await page.goto(`/studio/${workspace.id}/${guideId}`);
+  await page.getByRole('button', { name: 'Guide details' }).click();
+  await page.getByRole('button', { name: 'Link Precision screwdriver', exact: true }).click();
+  await page.getByRole('button', { name: 'Create catalog item', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Item name', exact: true }).fill('Keep this draft name');
+  const parent = page.getByRole('dialog', { name: 'Create catalog item', exact: true });
+  const parentBounds = (await parent.boundingBox())!;
+  const categoryTrigger = page.getByRole('button', { name: /Item category/ });
+  await categoryTrigger.click();
+  const child = page.getByRole('dialog', { name: 'Choose item category', exact: true });
+  await expect(child).toBeVisible();
+
+  // The backdrop must cover the exposed parent surface, not sit behind it.
+  const exposedParent = { x: parentBounds.x + 30, y: parentBounds.y + 30 };
+  expect(
+    await page.evaluate(
+      ({ x, y }) => document.elementFromPoint(x, y)?.classList.contains('dialog-overlay'),
+      exposedParent,
+    ),
+  ).toBe(true);
+  await page.mouse.click(exposedParent.x, exposedParent.y);
+  await expect(child).toHaveCount(0);
+  await expect(parent).toBeVisible();
+  await expect(page.getByRole('textbox', { name: 'Item name', exact: true })).toHaveValue(
+    'Keep this draft name',
+  );
+  await expect(categoryTrigger).toBeFocused();
+
+  await categoryTrigger.click();
+  for (let index = 0; index < 8; index++) {
+    await page.keyboard.press('Tab');
+    expect(await child.evaluate((element) => element.contains(document.activeElement))).toBe(true);
+  }
+  await page.keyboard.press('Escape');
+  await expect(child).toHaveCount(0);
+  await expect(parent).toBeVisible();
+  await expect(categoryTrigger).toBeFocused();
+  await expect(page.getByRole('textbox', { name: 'Item name', exact: true })).toHaveValue(
+    'Keep this draft name',
+  );
+});
 test('synthetic editor preserves typing during save, supports stable step operations and conflict recovery', async ({
   page,
 }) => {

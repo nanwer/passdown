@@ -14,6 +14,8 @@ Passdown is an early, working application for public community guides and privat
 - Shared reader, live search, keyboard navigation, responsive layouts and light/dark themes.
 - Versioned migrations, scoped repository access, validation, automated tests and public continuous checks.
 
+Recent interface fixes align catalog filters and distinguish nested category dialogs with a correctly layered backdrop, responsive sizing and shared dialog styling. Dismissing a nested picker preserves the unfinished parent form and returns focus to its trigger.
+
 ## Boundaries
 
 Saves are manual. Authoring and catalog administration currently require the owner role. Local setup provisions a verified owner; public registration, invitations and account-recovery delivery are not available. Media uploads, attachments, cross-guide prerequisites, approvals and collaborative editing are not implemented yet. Category nesting has a safety limit of 16 levels.

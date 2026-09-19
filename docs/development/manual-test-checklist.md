@@ -2,7 +2,18 @@
 
 Start the local app and sign in at [Studio](http://127.0.0.1:3100/studio) using the generated credentials in your private LOCAL_ACCESS.md. Test both Repair collective and Workshop operations. These examples use local test data you create yourself.
 
-## Current publication and naming update
+## Current catalog picker and dialog fixes
+
+| Feature                   | Steps                                                                                                                                                           | Expected result                                                                                                                                                                                           |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Aligned catalog filters   | Open a guide in Studio, select a step, then choose **Add from catalog**. Expand **Item category**, select a category with a long name and change **Item type**. | Both filters have visible labels and align at the top. Category names wrap within their control. The category tree stays usable and changing type clears the category filter.                             |
+| Distinct nested dialogs   | In that picker choose **Create catalog item**, type an item name, then open **Item category**.                                                                  | The foreground dialog is wider on desktop, has rounded corners and a shadow, and dims/blurs the parent form behind it.                                                                                    |
+| Dismissal and recovery    | With the category dialog open, use Tab/Shift+Tab, then Escape. Reopen it and click the dimmed area of the parent form.                                          | Focus stays within the child while open. Each dismissal closes only the child, returns focus to the category control and preserves the item name.                                                         |
+| Narrow screens and themes | Repeat at 390px and 320px wide, and in dark mode. Scroll long forms to their actions.                                                                           | Filters stack, dialogs keep space from the viewport edges, controls remain reachable and content does not overflow horizontally. On small screens, backdrop separation takes priority over a wider child. |
+
+These are interface fixes. Saving a catalog entry or publishing a guide still requires its existing explicit action; opening and dismissing a picker does not save the unfinished item form.
+
+## Publication and naming
 
 | Feature             | Steps                                                            | Expected result                                                                                                                                   |
 | ------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |

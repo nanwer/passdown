@@ -430,7 +430,8 @@
 }
 .structured-form label,
 .structured-tree-panel > label:not(.structured-checkbox),
-.structured-picker-filters label {
+.structured-picker-filters label,
+.structured-filter-field {
   display: flex;
   flex-direction: column;
   gap: 7px;
@@ -527,31 +528,47 @@
   margin-bottom: 16px;
 }
 .structured-picker-filters {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
   gap: 12px;
-  flex-wrap: wrap;
   margin: 16px 0;
-  align-items: flex-start;
+  align-items: start;
 }
-.structured-picker-filters > label {
-  flex: 1;
-  min-width: 180px;
+.structured-picker-filters select {
+  min-height: 44px;
 }
 .structured-category-filter {
-  flex: 1;
-  min-width: 190px;
-  border: 1px solid var(--gp-semantic-border-subtle);
-  padding: 10px;
-  border-radius: 6px;
+  min-width: 0;
+  border: 1px solid var(--gp-component-field-border);
+  background: var(--gp-component-field-background);
+  border-radius: 7px;
 }
 .structured-category-filter summary {
   display: flex;
   align-items: center;
   gap: 6px;
-  line-height: 1.7;
+  min-height: 42px;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.5;
+}
+.structured-category-filter summary > svg {
+  flex-shrink: 0;
+}
+.structured-category-filter[open] summary > svg {
+  transform: rotate(180deg);
+}
+.structured-category-filter summary > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.structured-category-filter > .structured-text-button {
+  margin-inline: 12px;
 }
 .structured-category-filter .category-tree {
   max-height: 230px;
+  margin-inline: 8px;
   overflow: auto;
 }
 .catalog-picker-results {
@@ -688,7 +705,6 @@
 }
 .dialog-content:has(.structured-form),
 .dialog-content:has(.structured-picker-content) {
-  max-width: 700px;
   max-height: min(90dvh, 1000px);
   overflow-y: auto;
 }

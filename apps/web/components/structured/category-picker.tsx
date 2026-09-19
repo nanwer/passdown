@@ -52,6 +52,7 @@ export function CategoryPicker({
         {required && <span aria-hidden="true"> *</span>}
       </span>
       <Dialog
+        size="wide"
         trigger={
           <button
             type="button"
@@ -372,6 +373,7 @@ export function CategoryDialog({
   const [open, setOpen] = useState(false);
   return (
     <Dialog
+      size="wide"
       open={open}
       onOpenChange={setOpen}
       trigger={trigger}
