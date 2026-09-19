@@ -721,4 +721,110 @@ export async function structuredChecks({
       });
     },
   );
+
+  await check(
+    'guide families: a readable trail, refused cycles and relatives concealed by audience',
+    async () => {
+      const section = await category(`Families ${randomUUID().slice(0, 8)}`);
+      const make = async (title: string, audience: 'public' | 'members' = 'public') => {
+        const created = await store.createDraft(who, 'public', {
+          document: { ...doc, title },
+          categoryId: section.id,
+          audience,
+        });
+        await store.publishDraft(who, 'public', created.id, {
+          expectedVersion: 1,
+          expectedRelease: null,
+          license: 'all-rights-reserved',
+        });
+        return created.id;
+      };
+      const range = await make('Fridge range');
+      const model = await make('Fridge model');
+      const revision = await make('Fridge revision');
+      await store.setGuideParent(who, 'public', model, range);
+      await store.setGuideParent(who, 'public', revision, model);
+
+      const middle = await store.getGuideFamily(anonymous, 'public', model);
+      assert.deepEqual(
+        middle.ancestors.map((a) => a.title),
+        ['Fridge range'],
+      );
+      assert.deepEqual(
+        middle.children.map((c) => c.title),
+        ['Fridge revision'],
+      );
+      // The trail reads top-down however deep the guide sits.
+      assert.deepEqual(
+        (await store.getGuideFamily(anonymous, 'public', revision)).ancestors.map((a) => a.title),
+        ['Fridge range', 'Fridge model'],
+      );
+
+      // A guide cannot become its own ancestor, at any distance.
+      await assert.rejects(store.setGuideParent(who, 'public', range, revision));
+      await assert.rejects(
+        store.setGuideParent(who, 'public', range, range),
+        /its own broader guide/,
+      );
+      // Nor can a family cross a workspace boundary.
+      await assert.rejects(store.setGuideParent(who, 'private', model, range));
+
+      // Setting a parent replaces the old link rather than adding a second
+      // route up, and clearing it leaves the guide readable on its own.
+      await store.setGuideParent(who, 'public', revision, range);
+      assert.deepEqual(
+        (await store.getGuideFamily(anonymous, 'public', revision)).ancestors.map((a) => a.title),
+        ['Fridge range'],
+      );
+      await store.setGuideParent(who, 'public', revision, null);
+      assert.deepEqual(await store.getGuideFamily(anonymous, 'public', revision), {
+        ancestors: [],
+        children: [],
+      });
+      await store.setGuideParent(who, 'public', revision, model);
+
+      // Depth is bounded so a walk either way stays cheap. Eight guides deep
+      // is allowed; the ninth link is refused.
+      const chain = [range, model, revision];
+      for (let n = chain.length; n < 8; n += 1) {
+        const next = await make(`Fridge depth ${n}`);
+        await store.setGuideParent(who, 'public', next, chain[chain.length - 1]!);
+        chain.push(next);
+      }
+      const overflow = await make('Fridge too deep');
+      await assert.rejects(
+        store.setGuideParent(who, 'public', overflow, chain[chain.length - 1]!),
+        /8 levels/,
+      );
+
+      // A members-only relative leaves no trace for a visitor: not the link,
+      // not a placeholder, and not a count.
+      const internalRange = await make('Internal range', 'members');
+      const publicChild = await make('Public child');
+      await store.setGuideParent(who, 'public', publicChild, internalRange);
+      assert.deepEqual(
+        await store.getGuideFamily(anonymous, 'public', publicChild),
+        { ancestors: [], children: [] },
+      );
+      assert.deepEqual(
+        (await store.getGuideFamily(who, 'public', publicChild)).ancestors.map((a) => a.title),
+        ['Internal range'],
+      );
+      // And the reverse direction: the internal parent does not advertise a
+      // public child to someone who cannot read the parent at all.
+      assert.deepEqual(await store.getGuideFamily(anonymous, 'public', internalRange), {
+        ancestors: [],
+        children: [],
+      });
+      // Straight at the table, with no service code in the way.
+      await scoped(anonymous, 'public', async (c) => {
+        const rows = (
+          await c.query('SELECT child_guide_id FROM app.guide_family WHERE parent_guide_id=$1', [
+            internalRange,
+          ])
+        ).rowCount;
+        assert.equal(rows, 0);
+      });
+    },
+  );
 }

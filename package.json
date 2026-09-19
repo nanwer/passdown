@@ -13,7 +13,7 @@
     "start": "pnpm --filter @guide/web start",
     "tokens:generate": "node packages/design-tokens/generate.mjs",
     "tokens:check": "node packages/design-tokens/generate.mjs --check",
-    "lint": "node scripts/check-boundaries.mjs",
+    "lint": "node scripts/check-boundaries.mjs && node scripts/check-tokens.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:e2e": "playwright test",
@@ -26,7 +26,7 @@
     "local:migrate": "node scripts/migrate-local.mjs",
     "test:database": "tsx packages/database/test/integration.ts",
     "test:authoring": "playwright test --config playwright.authoring.config.ts",
-    "local:verify": "node scripts/verify-schema.mjs",
+    "local:verify": "tsx scripts/verify-schema.mjs",
     "migrations:manifest": "node scripts/migration-manifest.mjs",
     "migrations:check": "node scripts/migration-manifest.mjs --check"
   },

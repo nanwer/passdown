@@ -770,3 +770,23 @@
     height: 160px;
   }
 }
+
+/* Placing a guide beneath a broader one. Kept visually distinct from the
+   category field so the two axes do not read as the same choice. */
+.studio-family {
+  display: grid;
+  gap: 8px;
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--gp-semantic-border-subtle);
+}
+.studio-family label {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+}
+.studio-success {
+  margin: 0;
+  font-size: 13px;
+  color: var(--gp-semantic-status-success-foreground);
+}

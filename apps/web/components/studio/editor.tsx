@@ -155,6 +155,97 @@ function StepPictures({
     </fieldset>
   );
 }
+
+/**
+ * Places this guide beneath a broader one.
+ *
+ * Separate from the category, and deliberately so: a category says what kind
+ * of thing the guide is about, while this says it is a narrower case of
+ * another guide — a single model under a whole range. Saved on its own, not
+ * with the draft, because a family link belongs to the guide rather than to
+ * any one version of its text.
+ */
+function GuideFamilyPicker({
+  workspaceId,
+  guideId,
+}: {
+  workspaceId: string;
+  guideId: string;
+}) {
+  const [candidates, setCandidates] = useState<{ id: string; title: string }[]>([]);
+  const [parentId, setParentId] = useState('');
+  const [saved, setSaved] = useState('');
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    void Promise.all([
+      studioFetch<{ guides: { id: string; title: string }[] }>(
+        `/api/studio/${workspaceId}/guides`,
+      ),
+      studioFetch<{ family: { ancestors: { id: string }[] } }>(
+        `/api/studio/${workspaceId}/guides/${guideId}/family`,
+      ),
+    ])
+      .then(([list, family]) => {
+        if (!active) return;
+        setCandidates(list.guides.filter((g) => g.id !== guideId));
+        const ancestors = family.family.ancestors;
+        setParentId(ancestors.length ? ancestors[ancestors.length - 1]!.id : '');
+      })
+      .catch(() => {
+        if (active) setCandidates([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [workspaceId, guideId]);
+
+  async function save(next: string) {
+    setBusy(true);
+    setError('');
+    setSaved('');
+    try {
+      await studioFetch(`/api/studio/${workspaceId}/guides/${guideId}/family`, {
+        method: 'PUT',
+        body: JSON.stringify({ parentGuideId: next || null, sortOrder: 0 }),
+      });
+      setParentId(next);
+      setSaved(next ? 'Saved. This guide now sits beneath that one.' : 'Saved. This guide stands on its own.');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'That relationship could not be saved.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="studio-family">
+      <label>
+        Part of a broader guide
+        <select
+          value={parentId}
+          disabled={busy}
+          onChange={(event) => void save(event.target.value)}
+        >
+          <option value="">Not part of one</option>
+          {candidates.map((candidate) => (
+            <option key={candidate.id} value={candidate.id}>
+              {candidate.title}
+            </option>
+          ))}
+        </select>
+      </label>
+      <p className="studio-hint">
+        For a range and its models: readers of the broader guide can narrow to this one, and
+        readers here can step back up. Separate from its category.
+      </p>
+      {saved && <p className="studio-success">{saved}</p>}
+      {error && <ErrorNotice error={error} />}
+    </div>
+  );
+}
 export function EditorPage({ workspaceId, guideId }: { workspaceId: string; guideId: string }) {
   return (
     <SessionGate workspaceId={workspaceId}>
@@ -671,8 +762,7 @@ function Editor({ workspace, guideId }: { workspace: StudioWorkspace; guideId: s
               Add step
             </Button>
             <p className="studio-hint">
-              Changes stay in this tab until you save. Text editing is available; media uploads come
-              later.
+              Changes stay in this tab until you save.
             </p>
           </aside>
           <section className="studio-editor-canvas">
@@ -694,6 +784,7 @@ function Editor({ workspace, guideId }: { workspace: StudioWorkspace; guideId: s
                     )
                   }
                 />
+                <GuideFamilyPicker workspaceId={guide.workspaceId} guideId={guide.id} />
               </>
             ) : preview ? (
               <div className="studio-live-preview">

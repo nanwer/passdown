@@ -33,6 +33,9 @@ async function getPersistentScope(
       store.listReleases(actor, workspaceId, { ...filter, audience }),
     get: (id: string) => store.getRelease(actor, workspaceId, id),
     categories: () => store.listCategories(actor, workspaceId, { domain: 'guide' }),
+    // Through the reader's own scope, so a relative they cannot open is
+    // absent rather than shown as something withheld.
+    family: (guideId: string) => store.getGuideFamily(actor, workspaceId, guideId),
   };
 }
 export async function getMemberScope(workspaceId: string) {

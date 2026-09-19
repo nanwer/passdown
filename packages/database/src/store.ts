@@ -2,17 +2,6 @@ import { randomUUID } from 'node:crypto';
 import pg from 'pg';
 import { readSchemaState } from './schema-state';
 
-/** True for our own errors however the contracts module was bundled. */
-function isApplicationError(error: unknown): error is ApplicationError {
-  if (error instanceof ApplicationError) return true;
-  const candidate = error as { name?: unknown; status?: unknown; code?: unknown } | null;
-  return (
-    !!candidate &&
-    candidate.name === 'ApplicationError' &&
-    typeof candidate.status === 'number' &&
-    typeof candidate.code === 'string'
-  );
-}
 import { actorSchema, type Actor } from '@guide/core';
 import {
   guideDocumentSchema,
@@ -33,7 +22,21 @@ import {
   type CreateDraftInput,
   type SaveDraftInput,
   type PublishInput,
+  type GuideFamily,
 } from '@guide/contracts';
+
+/** True for our own errors however the contracts module was bundled. */
+function isApplicationError(error: unknown): error is ApplicationError {
+  if (error instanceof ApplicationError) return true;
+  const candidate = error as { name?: unknown; status?: unknown; code?: unknown } | null;
+  return (
+    !!candidate &&
+    candidate.name === 'ApplicationError' &&
+    typeof candidate.status === 'number' &&
+    typeof candidate.code === 'string'
+  );
+}
+
 import { localDatabaseURL } from './config';
 import {
   structuredStore,
@@ -585,6 +588,91 @@ export function createApplicationStore(options: { connectionString: string }) {
           await c.query('SELECT app.asset_readable($1,$2) AS allowed', [workspaceId, assetId])
         ).rows[0];
         return row?.allowed === true;
+      });
+    },
+    /**
+     * Places a guide beneath another, or removes it from its family.
+     *
+     * A guide may have one parent, so setting a new one replaces the old link
+     * rather than adding a second route up. Cycles, self-links and links
+     * across workspaces are refused by the database.
+     */
+    async setGuideParent(
+      actor: Actor,
+      workspaceId: string,
+      guideId: string,
+      parentGuideId: string | null,
+      sortOrder = 0,
+    ) {
+      // The database refuses this too, but its message names a constraint
+      // rather than explaining anything, and this is the one bad link a person
+      // could plausibly send.
+      if (parentGuideId === guideId)
+        throw new ApplicationError(
+          'VALIDATION_ERROR',
+          'A guide cannot be its own broader guide.',
+          422,
+        );
+      return transaction(actor, workspaceId, async (c) => {
+        await owner(c, workspaceId);
+        if (!parentGuideId) {
+          await c.query(
+            'DELETE FROM app.guide_family WHERE workspace_id=$1 AND child_guide_id=$2',
+            [workspaceId, guideId],
+          );
+          return;
+        }
+        await c.query(
+          `INSERT INTO app.guide_family(workspace_id,child_guide_id,parent_guide_id,sort_order)
+           VALUES($1,$2,$3,$4)
+           ON CONFLICT(workspace_id,child_guide_id)
+           DO UPDATE SET parent_guide_id=EXCLUDED.parent_guide_id,sort_order=EXCLUDED.sort_order`,
+          [workspaceId, guideId, parentGuideId, sortOrder],
+        );
+      });
+    },
+    /**
+     * Where a guide sits in its family: the path up to the top, and the guides
+     * directly beneath it.
+     *
+     * Both come through the reader's own scope, so an ancestor or a variant
+     * the actor may not read is simply absent — no placeholder, and no count
+     * that would betray it.
+     */
+    async getGuideFamily(
+      actor: Actor,
+      workspaceId: string,
+      guideId: string,
+    ): Promise<GuideFamily> {
+      return transaction(actor, workspaceId, async (c) => {
+        const ancestors = (
+          await c.query(
+            `WITH RECURSIVE up AS (
+               SELECT f.parent_guide_id AS id, 1 AS depth
+               FROM app.guide_family f
+               WHERE f.workspace_id=$1 AND f.child_guide_id=$2
+               UNION ALL
+               SELECT f.parent_guide_id, up.depth+1
+               FROM app.guide_family f JOIN up ON f.child_guide_id=up.id
+               WHERE f.workspace_id=$1 AND up.depth<=8
+             )
+             SELECT p.id, p.document->>'title' AS title
+             FROM up JOIN app.published_guides($1) p ON p.id=up.id
+             ORDER BY up.depth DESC`,
+            [workspaceId, guideId],
+          )
+        ).rows;
+        const children = (
+          await c.query(
+            `SELECT p.id, p.document->>'title' AS title
+             FROM app.guide_family f
+             JOIN app.published_guides($1) p ON p.id=f.child_guide_id
+             WHERE f.workspace_id=$1 AND f.parent_guide_id=$2
+             ORDER BY f.sort_order, p.document->>'title'`,
+            [workspaceId, guideId],
+          )
+        ).rows;
+        return { ancestors, children };
       });
     },
     async consumeRateLimit(key: string, limit: number, windowSeconds: number): Promise<boolean> {

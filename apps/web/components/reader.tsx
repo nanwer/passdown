@@ -1,6 +1,7 @@
 import { AppShell } from '@guide/ui';
 import { GuideArtwork, StepRenderer, PreparationList } from '@guide/guide-ui';
 import type { DemoGuide } from '@guide/testing';
+import type { GuideFamily } from '@guide/contracts';
 import type { PublishedGuide } from '@guide/contracts';
 import Link from 'next/link';
 import { ArrowLeft, ArrowUp, Clock3, ListOrdered, LockKeyhole } from 'lucide-react';
@@ -10,12 +11,18 @@ export function Reader({
   persistent = false,
   basePath,
   workspaceName,
+  family,
 }: {
   guide: DemoGuide | PublishedGuide;
   team?: boolean;
   persistent?: boolean;
   basePath?: string;
   workspaceName?: string;
+  /**
+   * Where this guide sits among broader and narrower versions of the same
+   * subject. Only relatives the reader may open are present.
+   */
+  family?: GuideFamily;
 }) {
   // Sample guides ship their artwork inline and have no stored pictures, so
   // only a persisted guide gets a media source.
@@ -24,6 +31,9 @@ export function Reader({
       ? (assetId: string) => `/api/media/${guide.workspaceId}/${assetId}`
       : undefined;
   const base = basePath ?? (team ? '/preview/workshop' : '/');
+  // Relatives live beside this guide: '/guides/:id' publicly, or under the
+  // workspace path when reading a members-only section.
+  const readerBase = basePath ? `${basePath}/guides` : team ? '/preview/workshop/guides' : '/guides';
   const sample = !('isSample' in guide) || guide.isSample;
   const synthetic = team && !persistent;
   return (
@@ -65,6 +75,15 @@ export function Reader({
             </nav>
           ) : (
             <div className="eyebrow">{guide.category} / VISUAL FIELD NOTES</div>
+          )}
+          {family && family.ancestors.length > 0 && (
+            <nav className="guide-family-trail" aria-label="Broader guides">
+              {family.ancestors.map((ancestor) => (
+                <a key={ancestor.id} href={`${readerBase}/${ancestor.id}`}>
+                  {ancestor.title}
+                </a>
+              ))}
+            </nav>
           )}
           <h1>{guide.title}</h1>
           <p className="reader-summary">{guide.summary}</p>
@@ -119,6 +138,21 @@ export function Reader({
             </div>
           </aside>
           <div className="reader-body">
+            {family && family.children.length > 0 && (
+              <section className="guide-family-children" aria-labelledby="family-children">
+                <h2 id="family-children">Choose your version</h2>
+                <p>
+                  This guide covers the range. These cover a particular one in more detail.
+                </p>
+                <ul>
+                  {family.children.map((child) => (
+                    <li key={child.id}>
+                      <a href={`${readerBase}/${child.id}`}>{child.title}</a>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
             {guide.document.steps.map((step, index) => (
               <StepRenderer
                 key={step.id}

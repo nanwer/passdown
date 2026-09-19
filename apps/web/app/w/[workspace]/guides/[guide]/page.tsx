@@ -16,9 +16,11 @@ export default async function Page({ params }: Props) {
   const scope = await getMemberScope(workspace);
   const guide = await scope?.get(id);
   if (!scope || !guide) notFound();
+  const family = await scope.family(id);
   return (
     <Reader
       guide={guide}
+      family={family}
       team={scope.workspace.audience === 'private'}
       persistent
       basePath={`/w/${workspace}`}

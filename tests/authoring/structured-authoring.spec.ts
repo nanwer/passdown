@@ -819,3 +819,116 @@ test('a picture is re-encoded, shown to readers of the guide, and hidden from ev
   });
   expect(stealing.status(), 'an asset from another workspace must be refused').toBe(422);
 });
+
+test('a guide family lets readers narrow to a model without exposing relatives they cannot read', async ({
+  page,
+  browser,
+}) => {
+  await login(page.request);
+  const workspace = 'repair-collective';
+  const section = await category(page.request, workspace, `Family ${randomUUID().slice(0, 8)}`);
+  const suffix = randomUUID().slice(0, 8);
+
+  const publish = async (id: string, version: number) =>
+    api(page.request, `/api/studio/${workspace}/guides/${id}/publish`, 'POST', {
+      expectedVersion: version,
+      expectedRelease: null,
+      license: 'all-rights-reserved',
+    });
+
+  const range = await draft(page.request, workspace, section.id, `Fridges ${suffix}`);
+  const model = await draft(page.request, workspace, section.id, `Fridge model A ${suffix}`);
+  await publish(range.id, range.version);
+  await publish(model.id, model.version);
+
+  const setParent = (child: string, parent: string | null) =>
+    page.request.put(`/api/studio/${workspace}/guides/${child}/family`, {
+      headers,
+      data: { parentGuideId: parent, sortOrder: 0 },
+    });
+
+  expect((await setParent(model.id, range.id)).status()).toBe(200);
+
+  // A guide cannot be its own ancestor, nor its own parent.
+  expect((await setParent(range.id, model.id)).status()).toBeGreaterThanOrEqual(400);
+  expect((await setParent(model.id, model.id)).status()).toBeGreaterThanOrEqual(400);
+
+  // Nor can a family cross workspaces.
+  const otherSection = await category(page.request, 'workshop', `Other ${suffix}`, 'guide');
+  const otherGuide = await draft(page.request, 'workshop', otherSection.id, `Elsewhere ${suffix}`);
+  expect(
+    (
+      await page.request.put(`/api/studio/workshop/guides/${otherGuide.id}/family`, {
+        headers,
+        data: { parentGuideId: range.id, sortOrder: 0 },
+      })
+    ).status(),
+  ).toBeGreaterThanOrEqual(400);
+
+  // The author's own control: set the link from the editor, not the API.
+  await page.goto(`/studio/${workspace}/${model.id}`);
+  await page.getByRole('button', { name: 'Guide details' }).click();
+  const picker = page.getByLabel('Part of a broader guide');
+  await expect(picker).toHaveValue(range.id);
+  await picker.selectOption('');
+  await expect(page.getByText('Saved. This guide stands on its own.')).toBeVisible();
+  await picker.selectOption(range.id);
+  await expect(page.getByText('This guide now sits beneath that one.')).toBeVisible();
+  await page.reload();
+  await page.getByRole('button', { name: 'Guide details' }).click();
+  await expect(page.getByLabel('Part of a broader guide')).toHaveValue(range.id);
+
+  // A reader on the range can narrow into the model, and back again.
+  const anonymous = await browser.newContext();
+  const visitor = await anonymous.newPage();
+  await visitor.goto(`/guides/${range.id}`);
+  await expect(visitor.getByRole('heading', { name: 'Choose your version' })).toBeVisible();
+  await visitor.getByRole('link', { name: `Fridge model A ${suffix}` }).click();
+  await expect(visitor).toHaveURL(new RegExp(model.id));
+  await expect(
+    visitor.getByRole('navigation', { name: 'Broader guides' }).getByRole('link', {
+      name: `Fridges ${suffix}`,
+    }),
+  ).toBeVisible();
+
+  // An internal parent stays invisible to a reader of its public child: no
+  // trail, no placeholder, nothing naming it.
+  const internalParent = (
+    await api<{ guide: DraftGuide }>(page.request, `/api/studio/${workspace}/guides`, 'POST', {
+      document: toStructuredDocument(
+        {
+          schemaVersion: 3,
+          title: `Internal range ${suffix}`,
+          summary: 'Members only.',
+          locale: 'en',
+          difficulty: 'easy',
+          durationMinutes: 5,
+          tools: [],
+          steps: [
+            {
+              id: randomUUID(),
+              title: 'Internal step',
+              body: [
+                { type: 'paragraph', children: [{ type: 'text', text: 'Internal.', marks: [] }] },
+              ],
+              media: [],
+              callouts: [],
+            },
+          ],
+        },
+        randomUUID,
+      ),
+      categoryId: section.id,
+      audience: 'members',
+    })
+  ).guide;
+  await publish(internalParent.id, internalParent.version);
+  expect((await setParent(model.id, internalParent.id)).status()).toBe(200);
+
+  await visitor.goto(`/guides/${model.id}`);
+  await expect(visitor.getByRole('navigation', { name: 'Broader guides' })).toHaveCount(0);
+  await expect(visitor.getByText(`Internal range ${suffix}`)).toHaveCount(0);
+  // The child itself is still perfectly readable on its own.
+  await expect(visitor.getByRole('heading', { name: `Fridge model A ${suffix}` })).toBeVisible();
+  await anonymous.close();
+});

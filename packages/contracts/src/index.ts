@@ -203,6 +203,21 @@ export type CatalogUsageCounts = {
   draftGuides: number;
   publishedGuides: number;
 };
+/**
+ * A guide's place in its family: the path up to the broadest guide, and the
+ * narrower guides directly beneath it. Only what the reader may open appears,
+ * so an unreadable relative leaves no trace rather than a locked placeholder.
+ */
+export const guideFamilySchema = z.strictObject({
+  /** null removes the guide from its family, leaving it standalone. */
+  parentGuideId: z.uuid().nullable(),
+  sortOrder: z.number().int().min(0).max(100000).default(0),
+});
+export type GuideFamilyInput = z.infer<typeof guideFamilySchema>;
+export type GuideFamily = {
+  ancestors: { id: string; title: string }[];
+  children: { id: string; title: string }[];
+};
 export type CatalogUsage = {
   guides: {
     id: string;

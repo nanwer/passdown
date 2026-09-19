@@ -12,4 +12,5 @@ export const migrationManifest: { name: string; checksum: string }[] = [
   { name: '009_category_deactivation_blockers.sql', checksum: '819ce65bfe56882c584b2940e06e983180fd45f6ad881a67e08448f3065ac78d' },
   { name: '010_catalog_usage_counts.sql', checksum: '85aac3a388afff12534fe2088be2807f14e2e39db8acb74120549b29b0f27429' },
   { name: '011_media_assets.sql', checksum: 'b98d8cd38f1339d2bc4b0685ee8a28ba0d440313e7a88e198b5889bb5260a971' },
+  { name: '012_guide_families.sql', checksum: '716ceb773471e817ceb5a6bbf4294b900ebe722bdce1f3d5f6255bd1911d8bd4' },
 ];

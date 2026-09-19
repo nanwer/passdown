@@ -17,7 +17,9 @@ export async function generateMetadata({ params }: GuidePageProps): Promise<Meta
 
 export default async function Page({ params }: GuidePageProps) {
   const { guide: id } = await params;
-  const guide = await (await getPublicScope())?.get(id);
+  const scope = await getPublicScope();
+  const guide = await scope?.get(id);
   if (!guide) notFound();
-  return <Reader guide={guide} persistent={isConfigured()} />;
+  const family = scope && 'family' in scope ? await scope.family(id) : undefined;
+  return <Reader guide={guide} persistent={isConfigured()} family={family} />;
 }
