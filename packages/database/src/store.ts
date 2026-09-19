@@ -162,6 +162,8 @@ export function createApplicationStore(options: { connectionString: string }) {
             'An item with this manufacturer and part number already exists. Reuse the existing item.',
             'partNumber',
           );
+        if (constraint === 'category_code_unique')
+          throw validation('This code is already used in this workspace. Choose another.', 'code');
         throw conflict();
       }
       if (code === '40001' || code === '40P01') throw conflict();

@@ -9,6 +9,7 @@ import {
 const root: Category = {
   id: 'root',
   workspaceId: 'public',
+  code: 'GC-0001',
   domain: 'guide',
   parentId: null,
   name: 'Electronics',

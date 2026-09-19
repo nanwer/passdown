@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Archive,
   ArrowLeft,
@@ -22,7 +22,12 @@ import { useCategories, useCatalog, announceStructuredChange } from './data';
 import { CategoryTree } from './category-tree';
 import { CategoryDialog } from './category-picker';
 import { CatalogDialog } from './catalog-picker';
-import { categoryPath, filterCatalog, catalogCreationDefaults } from './tree-model';
+import {
+  categoryPath,
+  filterCatalog,
+  catalogCreationDefaults,
+  searchCategories,
+} from './tree-model';
 import './structured.css';
 const domains = {
   guide: 'Guide categories',
@@ -78,17 +83,32 @@ export function CategoryManagementPage({ workspaceId }: { workspaceId: string })
   );
 }
 function CategoryManagement({ workspace }: { workspace: StudioWorkspace }) {
-  const { categories, error, loading, refresh } = useCategories(workspace.id);
+  const { categories, counts, error, loading, refresh } = useCategories(workspace.id, undefined, {
+    withCounts: true,
+  });
   const [domain, setDomain] = useState<Category['domain']>('guide');
   const [query, setQuery] = useState('');
   const [selectedId, setSelected] = useState<string | null>(null);
-  const [showArchived, setShowArchived] = useState(false);
+  const [status, setStatus] = useState<'all' | 'active' | 'inactive'>('active');
   const [notice, setNotice] = useState('');
   const [actionError, setActionError] = useState('');
   const [pending, setPending] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
-  const visible = categories.filter(
-    (category) => category.domain === domain && (showArchived || !category.archived),
+  const countsById = useMemo(
+    () => new Map(counts.map((entry) => [entry.categoryId, entry])),
+    [counts],
+  );
+  const inDomain = categories.filter((category) => category.domain === domain);
+  // Status counts describe what the current search matches, before the selected
+  // status narrows it, so All always equals Active plus Inactive.
+  const matching = searchCategories(inDomain, query);
+  const statusCounts = {
+    active: matching.filter((category) => !category.archived).length,
+    inactive: matching.filter((category) => category.archived).length,
+    all: matching.length,
+  };
+  const visible = inDomain.filter((category) =>
+    status === 'all' ? true : status === 'active' ? !category.archived : category.archived,
   );
   const selected = categories.find((category) => category.id === selectedId);
   const owner = workspace.role === 'owner';
@@ -184,14 +204,19 @@ function CategoryManagement({ workspace }: { workspace: StudioWorkspace }) {
               onChange={(event) => setQuery(event.target.value)}
             />
           </div>
-          <label className="structured-checkbox">
-            <input
-              type="checkbox"
-              checked={showArchived}
-              onChange={(event) => setShowArchived(event.target.checked)}
-            />
-            Include archived
-          </label>
+          <div className="structured-status-tabs" role="group" aria-label="Category status">
+            {(['all', 'active', 'inactive'] as const).map((option) => (
+              <button
+                key={option}
+                type="button"
+                aria-pressed={status === option}
+                onClick={() => setStatus(option)}
+              >
+                {option === 'all' ? 'All' : option === 'active' ? 'Active' : 'Inactive'}
+                <span className="structured-status-count">{statusCounts[option]}</span>
+              </button>
+            ))}
+          </div>
           {error ? (
             <>
               <ErrorNotice error={error} />
@@ -206,6 +231,7 @@ function CategoryManagement({ workspace }: { workspace: StudioWorkspace }) {
               categories={visible}
               query={query}
               value={selectedId}
+              counts={countsById}
               onSelect={(category) => {
                 setSelected(category.id);
                 setActionError('');
@@ -222,6 +248,9 @@ function CategoryManagement({ workspace }: { workspace: StudioWorkspace }) {
               <p className="structured-breadcrumb">{categoryPath(selected)}</p>
               <h2>{selected.name}</h2>
               <div className="structured-inline-meta">
+                <span className="category-code" title="Stable code. Renaming or moving keeps it.">
+                  {selected.code}
+                </span>
                 <span>
                   {selected.visibility === 'public' ? (
                     <Globe size={14} />
@@ -230,11 +259,32 @@ function CategoryManagement({ workspace }: { workspace: StudioWorkspace }) {
                   )}{' '}
                   {selected.visibility === 'public' ? 'Public' : 'Workspace members'}
                 </span>
-                <span>{selected.archived ? 'Archived' : 'Active'}</span>
+                <span>{selected.archived ? 'Inactive' : 'Active'}</span>
                 <span>Version {selected.version}</span>
               </div>
               <p>{selected.description || 'No description yet.'}</p>
               <dl className="structured-facts">
+                <div>
+                  <dt>Guides</dt>
+                  <dd>
+                    {(() => {
+                      const entry = countsById.get(selected.id);
+                      if (!entry || entry.subtree === 0) return 'None assigned yet';
+                      const nested = entry.subtree - entry.direct;
+                      return nested === 0
+                        ? `${entry.subtree} here`
+                        : `${entry.subtree} total — ${entry.direct} here + ${nested} in subcategories`;
+                    })()}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Published releases</dt>
+                  <dd>
+                    {countsById.get(selected.id)?.publishedSubtree
+                      ? `${countsById.get(selected.id)!.publishedSubtree} current`
+                      : 'None published yet'}
+                  </dd>
+                </div>
                 <div>
                   <dt>Direct subcategories</dt>
                   <dd>

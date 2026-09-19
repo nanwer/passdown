@@ -21,6 +21,7 @@ const names = ['Electronics', 'Computers', 'Laptops', 'Maker', 'Model'];
 const categories: Category[] = names.map((name, index) => ({
   id: `00000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`,
   workspaceId: 'public',
+  code: `GC-${String(index + 1).padStart(4, '0')}`,
   name,
   domain: 'guide',
   parentId: index ? `00000000-0000-4000-8000-${String(index).padStart(12, '0')}` : null,

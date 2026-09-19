@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { ChevronDown, ChevronRight, Folder, FolderOpen, Check } from 'lucide-react';
-import type { Category } from '@guide/contracts';
+import type { Category, CategoryCounts } from '@guide/contracts';
 import { categoryPath, searchCategories } from './tree-model';
 import './structured.css';
 export interface CategoryTreeProps {
@@ -10,6 +10,24 @@ export interface CategoryTreeProps {
   onSelect: (category: Category) => void;
   query?: string;
   label?: string;
+  /** Distinct-guide totals by category id. Omitted on selection-only surfaces. */
+  counts?: Map<string, CategoryCounts>;
+}
+/**
+ * "12 guides" with the breakdown behind it, or null when nothing is assigned.
+ * The total covers the whole subtree, so a parent reflects its children.
+ */
+export function describeCount(counts?: CategoryCounts) {
+  if (!counts || counts.subtree === 0) return null;
+  const guides = `${counts.subtree} ${counts.subtree === 1 ? 'guide' : 'guides'}`;
+  const nested = counts.subtree - counts.direct;
+  return {
+    short: guides,
+    full:
+      nested === 0
+        ? `${guides}, all assigned here`
+        : `${guides}: ${counts.direct} here and ${nested} in subcategories`,
+  };
 }
 export function CategoryTree({
   categories,
@@ -17,7 +35,39 @@ export function CategoryTree({
   onSelect,
   query = '',
   label = 'Category tree',
+  counts,
 }: CategoryTreeProps) {
+  /**
+   * Code and totals describe a row; they are not part of its name. Keeping them
+   * out of the accessible name stops every row announcing as
+   * "Electronics GC-0005 12 guides" while still making both available.
+   */
+  function rowExtras(category: Category) {
+    const described = describeCount(counts?.get(category.id));
+    const descriptionId = `category-description-${category.id}`;
+    const description = [category.code, described?.full].filter(Boolean).join('. ');
+    return {
+      descriptionId,
+      describedBy: description ? descriptionId : undefined,
+      badges: (
+        <>
+          <small className="category-code" aria-hidden="true">
+            {category.code}
+          </small>
+          {described && (
+            <small className="category-count" aria-hidden="true" title={described.full}>
+              {described.short}
+            </small>
+          )}
+        </>
+      ),
+      description: description ? (
+        <span id={descriptionId} className="sr-only">
+          {description}
+        </span>
+      ) : null,
+    };
+  }
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const sorted = searchCategories(categories, query);
   if (!sorted.length)
@@ -31,22 +81,28 @@ export function CategoryTree({
   if (query.trim())
     return (
       <ul className="category-results" aria-label={label}>
-        {sorted.map((category) => (
-          <li key={category.id}>
-            <button
-              type="button"
-              className={value === category.id ? 'selected' : ''}
-              onClick={() => onSelect(category)}
-            >
-              <Folder size={17} aria-hidden="true" />
-              <span>
-                <strong>{category.name}</strong>
-                <small>{categoryPath(category)}</small>
-              </span>
-              {value === category.id && <Check size={16} aria-hidden="true" />}
-            </button>
-          </li>
-        ))}
+        {sorted.map((category) => {
+          const extras = rowExtras(category);
+          return (
+            <li key={category.id}>
+              <button
+                type="button"
+                className={value === category.id ? 'selected' : ''}
+                aria-describedby={extras.describedBy}
+                onClick={() => onSelect(category)}
+              >
+                <Folder size={17} aria-hidden="true" />
+                <span>
+                  <strong>{category.name}</strong>
+                  <small>{categoryPath(category)}</small>
+                </span>
+                {extras.badges}
+                {value === category.id && <Check size={16} aria-hidden="true" />}
+              </button>
+              {extras.description}
+            </li>
+          );
+        })}
       </ul>
     );
   const ids = new Set(categories.map((category) => category.id));
@@ -61,6 +117,7 @@ export function CategoryTree({
         {rows.map((category) => {
           const children = categories.some((child) => child.parentId === category.id);
           const open = !collapsed.has(category.id);
+          const extras = rowExtras(category);
           return (
             <li key={category.id}>
               <div className="category-tree-row">
@@ -89,6 +146,7 @@ export function CategoryTree({
                   className={`category-node ${value === category.id ? 'selected' : ''}`}
                   title={categoryPath(category)}
                   aria-pressed={value === category.id}
+                  aria-describedby={extras.describedBy}
                   onClick={() => onSelect(category)}
                 >
                   {open && children ? (
@@ -97,9 +155,11 @@ export function CategoryTree({
                     <Folder size={17} aria-hidden="true" />
                   )}
                   <span>{category.name}</span>
+                  {extras.badges}
                   {category.archived && <small>Archived</small>}
                   {value === category.id && <Check size={15} aria-hidden="true" />}
                 </button>
+                {extras.description}
               </div>
               {children && open && branch(category.id)}
             </li>

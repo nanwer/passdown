@@ -94,7 +94,22 @@ export const categoryFields = {
   visibility: z.enum(['public', 'members']),
   sortOrder: z.number().int().min(0).max(100000).default(0),
 };
-export const createCategorySchema = z.strictObject(categoryFields);
+/**
+ * Short business identifier, unique per workspace and domain. The server
+ * proposes one at creation and it can be changed only then: renaming or moving
+ * a category never changes its code, so existing references stay meaningful.
+ */
+export const categoryCodeSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(24)
+  .regex(/^[A-Za-z0-9][A-Za-z0-9-]*$/, 'Use letters, numbers and hyphens.')
+  .transform((value) => value.toUpperCase());
+export const createCategorySchema = z.strictObject({
+  ...categoryFields,
+  code: categoryCodeSchema.optional(),
+});
 export const updateCategorySchema = z.strictObject({
   ...categoryFields,
   expectedVersion: z.number().int().min(1),
@@ -102,12 +117,27 @@ export const updateCategorySchema = z.strictObject({
 });
 export type CreateCategoryInput = z.infer<typeof createCategorySchema>;
 export type UpdateCategoryInput = z.infer<typeof updateCategorySchema>;
-export type Category = CreateCategoryInput & {
+export type Category = Omit<CreateCategoryInput, 'code'> & {
   id: string;
   workspaceId: string;
+  code: string;
   archived: boolean;
   version: number;
   path: CategoryPath;
+};
+/**
+ * Distinct guides assigned to a category. `direct` counts guides whose own
+ * category is this one; `subtree` adds every authorized descendant. Each
+ * logical guide counts once — never its steps, requirements or release
+ * versions. The published figures describe guides whose current release sits
+ * here, which is what blocks deactivation.
+ */
+export type CategoryCounts = {
+  categoryId: string;
+  direct: number;
+  subtree: number;
+  publishedDirect: number;
+  publishedSubtree: number;
 };
 export const catalogFields = {
   categoryId: z.uuid(),

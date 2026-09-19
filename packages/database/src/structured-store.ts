@@ -8,6 +8,7 @@ import {
   createCatalogItemSchema,
   updateCatalogItemSchema,
   type Category,
+  type CategoryCounts,
   type CategoryDomain,
   type CatalogItem,
   type CatalogKind,
@@ -53,6 +54,7 @@ export function categoryDTO(row: Row): Category {
   return {
     id: row.id,
     workspaceId: row.workspace_id,
+    code: row.code,
     domain: row.domain,
     parentId: row.parent_id,
     name: row.name,
@@ -232,17 +234,57 @@ export function structuredStore(
     async getCategory(actor: Actor, workspaceId: string, id: string) {
       return transaction(actor, workspaceId, (c) => category(c, workspaceId, id));
     },
+    /** The code the server would assign next, used to prefill the create form. */
+    async proposeCategoryCode(
+      actor: Actor,
+      workspaceId: string,
+      domain: CategoryDomain,
+    ): Promise<string> {
+      return transaction(actor, workspaceId, async (c) => {
+        await owner(c, workspaceId);
+        return (
+          await c.query('SELECT app.next_category_code($1,$2) AS code', [workspaceId, domain])
+        ).rows[0].code;
+      });
+    },
+    /**
+     * Distinct-guide counts for every readable category in a domain. Counts
+     * come from the same authorized scope as the listing, so a public reader
+     * can never infer private guides from a total.
+     */
+    async listCategoryCounts(
+      actor: Actor,
+      workspaceId: string,
+      domain: CategoryDomain,
+    ): Promise<CategoryCounts[]> {
+      return transaction(actor, workspaceId, async (c) =>
+        (
+          await c.query(
+            'SELECT category_id,direct,subtree,published_direct,published_subtree FROM app.category_guide_counts($1,$2)',
+            [workspaceId, domain],
+          )
+        ).rows.map((row) => ({
+          categoryId: row.category_id,
+          direct: Number(row.direct),
+          subtree: Number(row.subtree),
+          publishedDirect: Number(row.published_direct),
+          publishedSubtree: Number(row.published_subtree),
+        })),
+      );
+    },
     async createCategory(actor: Actor, workspaceId: string, input: CreateCategoryInput) {
       const data = parse(createCategorySchema, input);
       return transaction(actor, workspaceId, async (c) => {
         await owner(c, workspaceId);
         await lockStructured(c, workspaceId);
         const id = randomUUID();
+        // A null code lets the database assign the next one for this domain.
         await c.query(
-          'INSERT INTO app.category(id,workspace_id,domain,parent_id,name,description,visibility,sort_order) VALUES($1,$2,$3,$4,$5,$6,$7,$8)',
+          'INSERT INTO app.category(id,workspace_id,code,domain,parent_id,name,description,visibility,sort_order) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)',
           [
             id,
             workspaceId,
+            data.code ?? null,
             data.domain,
             data.parentId,
             data.name,

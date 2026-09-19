@@ -6,6 +6,7 @@ const category = (id: string, name: string, parentId: string | null = null): Cat
   id,
   name,
   parentId,
+  code: `GC-${id}`,
   workspaceId: 'repair-collective',
   domain: 'guide',
   description: '',

@@ -761,3 +761,69 @@
     flex-wrap: wrap;
   }
 }
+
+/* Status tabs: All / Active / Inactive, each carrying the count of records the
+   current search matches before the selected status narrows the list. */
+.structured-status-tabs {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--gp-semantic-border-subtle);
+  border-radius: 9px;
+  background: var(--gp-semantic-surface-sunken);
+}
+.structured-status-tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 11px;
+  border: 0;
+  border-radius: 6px;
+  color: var(--gp-semantic-text-secondary);
+  background: transparent;
+  font-size: 12px;
+  cursor: pointer;
+}
+.structured-status-tabs button[aria-pressed='true'] {
+  background: var(--gp-semantic-surface-raised);
+  color: var(--gp-semantic-text-primary);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.08);
+  font-weight: 650;
+}
+.structured-status-count {
+  min-width: 20px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--gp-semantic-surface-sunken);
+  color: var(--gp-semantic-text-secondary);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+.structured-status-tabs button[aria-pressed='true'] .structured-status-count {
+  background: var(--gp-semantic-surface-sunken);
+  color: var(--gp-semantic-text-primary);
+}
+
+/* Stable short code. Shown beside the name so a renamed category is still
+   recognizable by the identifier other records reference. */
+.category-code {
+  font-family: var(--gp-semantic-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  color: var(--gp-semantic-text-secondary);
+  white-space: nowrap;
+}
+/* Distinct-guide total for the whole subtree; the title and screen-reader text
+   carry the direct-versus-nested breakdown. */
+.category-count {
+  margin-left: auto;
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--gp-semantic-border-subtle);
+  color: var(--gp-semantic-text-secondary);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}

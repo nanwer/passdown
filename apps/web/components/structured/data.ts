@@ -1,13 +1,24 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
-import type { Category, CatalogItem } from '@guide/contracts';
+import type { Category, CategoryCounts, CatalogItem } from '@guide/contracts';
 import { studioFetch } from '../studio/transport';
 const changeEvent = 'guide-structured-data-changed';
 export function announceStructuredChange(workspaceId: string) {
   window.dispatchEvent(new CustomEvent(changeEvent, { detail: workspaceId }));
 }
-export function useCategories(workspaceId: string, provided?: Category[]) {
+/**
+ * Categories for a workspace. Management surfaces pass `withCounts` to also
+ * load distinct-guide totals; inline pickers leave it off so choosing a
+ * category never pays the cost of counting.
+ */
+export function useCategories(
+  workspaceId: string,
+  provided?: Category[],
+  options?: { withCounts?: boolean },
+) {
+  const withCounts = options?.withCounts === true;
   const [categories, setCategories] = useState<Category[]>(provided ?? []);
+  const [counts, setCounts] = useState<CategoryCounts[]>([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(!provided);
   const [revision, setRevision] = useState(0);
@@ -21,16 +32,19 @@ export function useCategories(workspaceId: string, provided?: Category[]) {
     let active = true;
     setLoading(true);
     setError('');
-    studioFetch<{ categories: Category[] }>(
-      `/api/studio/${workspaceId}/categories?includeArchived=true`,
+    studioFetch<{ categories: Category[]; counts?: CategoryCounts[] }>(
+      `/api/studio/${workspaceId}/categories?includeArchived=true${withCounts ? '&counts=true' : ''}`,
     )
       .then((result) => {
-        if (active) setCategories(result.categories);
+        if (!active) return;
+        setCategories(result.categories);
+        setCounts(result.counts ?? []);
       })
       .catch((error) => {
         if (active) {
           setError(error.message);
           setCategories([]);
+          setCounts([]);
         }
       })
       .finally(() => {
@@ -39,7 +53,7 @@ export function useCategories(workspaceId: string, provided?: Category[]) {
     return () => {
       active = false;
     };
-  }, [workspaceId, provided, revision]);
+  }, [workspaceId, provided, revision, withCounts]);
   useEffect(() => {
     const changed = (event: Event) => {
       if ((event as CustomEvent<string>).detail === workspaceId) refresh();
@@ -47,7 +61,7 @@ export function useCategories(workspaceId: string, provided?: Category[]) {
     window.addEventListener(changeEvent, changed);
     return () => window.removeEventListener(changeEvent, changed);
   }, [workspaceId, refresh]);
-  return { categories, error, loading, refresh };
+  return { categories, counts, error, loading, refresh };
 }
 export function useCatalog(workspaceId: string) {
   const [items, setItems] = useState<CatalogItem[]>([]);

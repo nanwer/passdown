@@ -263,6 +263,86 @@ export async function structuredChecks({
     },
   );
   await check(
+    'taxonomy codes: assigned per domain, editable only at creation, stable across rename and move',
+    async () => {
+      const all = await store.listCategories(who, 'public', { includeArchived: true });
+      assert(all.every((c) => /^[A-Z]{2}-\d{4}$/.test(c.code)));
+      const perDomain = new Map<string, Set<string>>();
+      for (const c of all) {
+        const seen = perDomain.get(c.domain) ?? new Set<string>();
+        assert(!seen.has(c.code), `duplicate code ${c.code} in ${c.domain}`);
+        seen.add(c.code);
+        perDomain.set(c.domain, seen);
+      }
+      // Domains number independently, so a guide and a tool category never collide.
+      assert((await store.proposeCategoryCode(who, 'public', 'tool')).startsWith('TC-'));
+
+      // A caller-supplied code is honoured and normalized to upper case.
+      const chosen = await store.createCategory(who, 'public', {
+        name: 'Coded branch',
+        parentId: null,
+        domain: 'guide',
+        visibility: 'public',
+        description: '',
+        sortOrder: 0,
+        code: 'fridge-lg',
+      });
+      assert.equal(chosen.code, 'FRIDGE-LG');
+
+      // The same code cannot be taken twice within a domain, and the failure
+      // names the field rather than surfacing a database constraint.
+      await denied(
+        store.createCategory(who, 'public', {
+          name: 'Duplicate code',
+          parentId: null,
+          domain: 'guide',
+          visibility: 'public',
+          description: '',
+          sortOrder: 0,
+          code: 'FRIDGE-LG',
+        }),
+      );
+
+      // Renaming and re-parenting leave identity and code untouched.
+      const moved = await edit(chosen, { name: 'Renamed branch', parentId: root.id });
+      assert.equal(moved.code, 'FRIDGE-LG');
+      assert.equal(moved.id, chosen.id);
+    },
+  );
+  await check(
+    'taxonomy counts: distinct guides roll up through the subtree and separate draft from published',
+    async () => {
+      const counts = new Map(
+        (await store.listCategoryCounts(who, 'public', 'guide')).map((c) => [c.categoryId, c]),
+      );
+      const at = (id: string) =>
+        counts.get(id) ?? {
+          categoryId: id,
+          direct: 0,
+          subtree: 0,
+          publishedDirect: 0,
+          publishedSubtree: 0,
+        };
+
+      // The earlier taxonomy check left this guide's draft under `other` while
+      // its published release stayed on `leaf`, which is now a child of `other`.
+      assert(at(other.id).direct >= 1, 'a draft assignment counts against its own category');
+      assert(at(leaf.id).publishedDirect >= 1, 'a release counts against the release category');
+      assert(
+        at(other.id).publishedSubtree > at(other.id).publishedDirect,
+        'a parent rolls up published releases held by its children',
+      );
+      for (const c of counts.values()) {
+        assert(c.subtree >= c.direct, `${c.categoryId}: subtree must include direct`);
+        assert(c.publishedSubtree >= c.publishedDirect);
+      }
+
+      // A signed-out reader never learns about restricted branches through totals.
+      const publicCounts = await store.listCategoryCounts(anonymous, 'public', 'guide');
+      assert(!publicCounts.some((c) => c.categoryId === restricted.id));
+    },
+  );
+  await check(
     'catalog: exact variants, searchable descendant categories, duplicate identifiers and wrong domains',
     async () => {
       const phillips = await category('Phillips', tools.id, 'tool');
