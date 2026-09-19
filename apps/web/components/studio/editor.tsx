@@ -19,6 +19,142 @@ import { StudioError, studioFetch } from './transport';
 function fingerprint(guide: DraftGuide) {
   return JSON.stringify({ document: guide.document, categoryId: guide.categoryId });
 }
+
+/**
+ * Pictures for one step.
+ *
+ * An upload is held here until it has a description, and only then added to
+ * the document. The content schema requires alt text, so attaching first and
+ * asking later would mean the author's next save failed for a reason that
+ * arrived long after the choice that caused it.
+ */
+function StepPictures({
+  workspaceId,
+  step,
+  onChange,
+}: {
+  workspaceId: string;
+  step: GuideStep;
+  onChange: (step: GuideStep) => void;
+}) {
+  const [pending, setPending] = useState<{ id: string } | null>(null);
+  const [alt, setAlt] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const fileInput = useRef<HTMLInputElement>(null);
+
+  async function upload(file: File) {
+    setBusy(true);
+    setError('');
+    try {
+      const body = new FormData();
+      body.append('file', file);
+      const result = await studioFetch<{ asset: { id: string } }>(
+        `/api/studio/${workspaceId}/assets`,
+        { method: 'POST', body },
+      );
+      setPending({ id: result.asset.id });
+      setAlt('');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'That picture could not be added.');
+    } finally {
+      setBusy(false);
+      if (fileInput.current) fileInput.current.value = '';
+    }
+  }
+
+  return (
+    <fieldset className="studio-pictures">
+      <legend>Pictures</legend>
+      {step.media.map((media) => (
+        <div className="studio-picture" key={media.assetId}>
+          <img src={`/api/media/${workspaceId}/${media.assetId}`} alt={media.alt} />
+          <label>
+            Description
+            <input
+              value={media.alt}
+              maxLength={500}
+              onChange={(e) =>
+                onChange({
+                  ...step,
+                  media: step.media.map((m) =>
+                    m.assetId === media.assetId ? { ...m, alt: e.target.value } : m,
+                  ),
+                })
+              }
+            />
+          </label>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() =>
+              onChange({
+                ...step,
+                media: step.media.filter((m) => m.assetId !== media.assetId),
+              })
+            }
+          >
+            Remove
+          </Button>
+        </div>
+      ))}
+
+      {pending ? (
+        <div className="studio-picture studio-picture--pending">
+          <img src={`/api/media/${workspaceId}/${pending.id}`} alt="" />
+          <label>
+            Describe this picture
+            <input
+              autoFocus
+              value={alt}
+              maxLength={500}
+              placeholder="What someone who cannot see it needs to know"
+              onChange={(e) => setAlt(e.target.value)}
+            />
+          </label>
+          <Button
+            type="button"
+            disabled={!alt.trim()}
+            onClick={() => {
+              onChange({
+                ...step,
+                media: [...step.media, { assetId: pending.id, alt: alt.trim(), annotations: [] }],
+              });
+              setPending(null);
+              setAlt('');
+            }}
+          >
+            Add to step
+          </Button>
+          <Button type="button" variant="secondary" onClick={() => setPending(null)}>
+            Discard
+          </Button>
+        </div>
+      ) : (
+        step.media.length < 10 && (
+          <label className="studio-picture-add">
+            <span>{busy ? 'Adding\u2026' : 'Add a picture'}</span>
+            <input
+              ref={fileInput}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              disabled={busy}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) void upload(file);
+              }}
+            />
+          </label>
+        )
+      )}
+      {error && <ErrorNotice error={error} />}
+      <p className="studio-hint">
+        JPEG, PNG or WebP, up to 20 MB. Location and camera details are removed, and pictures are
+        only visible to people who can already read the guide.
+      </p>
+    </fieldset>
+  );
+}
 export function EditorPage({ workspaceId, guideId }: { workspaceId: string; guideId: string }) {
   return (
     <SessionGate workspaceId={workspaceId}>
@@ -562,7 +698,12 @@ function Editor({ workspace, guideId }: { workspace: StudioWorkspace; guideId: s
             ) : preview ? (
               <div className="studio-live-preview">
                 <span className="studio-eyebrow">Reader preview · Step {index + 1}</span>
-                <StepRenderer document={guide.document} step={step} index={index} />
+                <StepRenderer
+                  document={guide.document}
+                  step={step}
+                  index={index}
+                  mediaSrc={(assetId) => `/api/media/${guide.workspaceId}/${assetId}`}
+                />
               </div>
             ) : (
               <>
@@ -664,6 +805,11 @@ function Editor({ workspace, guideId }: { workspace: StudioWorkspace; guideId: s
                           : { ...previous, [step.id]: message },
                       )
                     }
+                  />
+                  <StepPictures
+                    workspaceId={guide.workspaceId}
+                    step={step}
+                    onChange={updateStep}
                   />
                 </div>
                 {guide.document.schemaVersion === 4 && (

@@ -177,3 +177,48 @@
 .instruction-table-scroll :is(th, td):has(.instruction-panel) {
   min-width: 240px;
 }
+
+/* A step's pictures. The frame is positioned so annotation markers can sit on
+   the image, and the image scales with the column rather than a fixed size. */
+.step-media {
+  margin: 20px 0 0;
+}
+.step-media-frame {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  border: 1px solid var(--gp-semantic-border-subtle);
+  border-radius: 12px;
+  background: var(--gp-semantic-surface-sunken);
+}
+.step-media-frame img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+/* Percentage coordinates are relative to the stored image, so a marker stays
+   on the same detail at any rendered size. */
+.step-media-mark {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  min-width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 2px solid var(--gp-semantic-surface-raised);
+  background: var(--gp-semantic-action-primary-background);
+  color: var(--gp-semantic-action-primary-foreground);
+  font-size: 12px;
+  font-weight: 700;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.3);
+}
+.step-media-legend {
+  margin: 10px 0 0;
+  padding-left: 22px;
+  display: grid;
+  gap: 4px;
+  font-size: 14px;
+  color: var(--gp-semantic-text-secondary);
+}

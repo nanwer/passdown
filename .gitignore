@@ -21,3 +21,6 @@ docs/development/published-formatting-examples.md
 *.dump
 *.bundle
 *.bak
+
+# Uploaded images. Local content, never committed.
+.media/

@@ -8,11 +8,18 @@ export function StepRenderer({
   index,
   illustration,
   document,
+  mediaSrc,
 }: {
   document?: GuideDocument;
   step: GuideStep;
   index: number;
   illustration?: ReactNode;
+  /**
+   * Where to fetch a picture. Supplied by the page rather than built here, so
+   * this component stays independent of routing, and omitted where images
+   * cannot be served — a preview of unsaved work, or a text-only export.
+   */
+  mediaSrc?: (assetId: string) => string;
 }) {
   return (
     <section className="reader-step" id={`step-${step.id}`} aria-labelledby={`heading-${step.id}`}>
@@ -34,12 +41,61 @@ export function StepRenderer({
               </div>
             </aside>
           ))}
-          {step.media.length > 0 && (
-            <p className="media-unavailable">Media is unavailable in this text preview.</p>
-          )}
+          {step.media.length > 0 &&
+            (mediaSrc ? (
+              step.media.map((media) => (
+                <StepMedia key={media.assetId} media={media} src={mediaSrc(media.assetId)} />
+              ))
+            ) : (
+              <p className="media-unavailable">Pictures appear once this guide is saved.</p>
+            ))}
         </div>
       </div>
     </section>
+  );
+}
+
+/**
+ * One picture and its marks.
+ *
+ * Annotations are drawn as numbered markers positioned over the image, and
+ * repeated underneath as an ordinary list. Someone who cannot see the overlay
+ * still gets every label, in order, which a purely visual marker would deny
+ * them.
+ */
+function StepMedia({
+  media,
+  src,
+}: {
+  media: GuideStep['media'][number];
+  src: string;
+}) {
+  const pins = media.annotations.filter((a) => a.type === 'pin');
+  return (
+    <figure className="step-media">
+      <div className="step-media-frame">
+        <img src={src} alt={media.alt} loading="lazy" decoding="async" />
+        {media.annotations.map((annotation, index) => (
+          <span
+            key={index}
+            className={`step-media-mark step-media-mark--${annotation.type}`}
+            style={{ left: `${annotation.x}%`, top: `${annotation.y}%` }}
+            aria-hidden="true"
+          >
+            {annotation.type === 'pin' ? pins.indexOf(annotation) + 1 : ''}
+          </span>
+        ))}
+      </div>
+      {media.annotations.length > 0 && (
+        <figcaption>
+          <ol className="step-media-legend">
+            {media.annotations.map((annotation, index) => (
+              <li key={index}>{annotation.label}</li>
+            ))}
+          </ol>
+        </figcaption>
+      )}
+    </figure>
   );
 }
 

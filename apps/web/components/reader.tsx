@@ -17,6 +17,12 @@ export function Reader({
   basePath?: string;
   workspaceName?: string;
 }) {
+  // Sample guides ship their artwork inline and have no stored pictures, so
+  // only a persisted guide gets a media source.
+  const mediaSrc =
+    persistent && 'workspaceId' in guide
+      ? (assetId: string) => `/api/media/${guide.workspaceId}/${assetId}`
+      : undefined;
   const base = basePath ?? (team ? '/preview/workshop' : '/');
   const sample = !('isSample' in guide) || guide.isSample;
   const synthetic = team && !persistent;
@@ -119,6 +125,7 @@ export function Reader({
                 step={step}
                 document={guide.document}
                 index={index}
+                mediaSrc={mediaSrc}
                 illustration={
                   sample && (index === 0 || index === 2) ? (
                     <GuideArtwork kind={guide.artwork} detail />

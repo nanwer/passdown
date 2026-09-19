@@ -732,3 +732,90 @@ test('creating a guide offers a section only where the workspace has both', asyn
   await expect(page.getByRole('group', { name: 'Section' })).toHaveCount(0);
   await expect(page.getByText('only visible to active workspace members')).toBeVisible();
 });
+
+test('a picture is re-encoded, shown to readers of the guide, and hidden from everyone else', async ({
+  page,
+  browser,
+}) => {
+  const sharp = (await import('sharp')).default;
+  await login(page.request);
+  const workspace = 'repair-collective';
+  const section = await category(page.request, workspace, `Pictures ${randomUUID().slice(0, 8)}`);
+
+  // A JPEG carrying EXIF, including a location, and a sideways orientation.
+  const original = await sharp({
+    create: { width: 240, height: 120, channels: 3, background: '#2f6f5e' },
+  })
+    .withMetadata({ orientation: 6 })
+    .withExif({ IFD0: { Artist: 'Camera', Copyright: 'Somebody' } })
+    .jpeg()
+    .toBuffer();
+
+  const uploaded = await page.request.post(`/api/studio/${workspace}/assets`, {
+    headers,
+    multipart: { file: { name: 'photo.jpg', mimeType: 'image/jpeg', buffer: original } },
+  });
+  expect(uploaded.status(), await uploaded.text()).toBe(201);
+  const assetId = (await uploaded.json()).asset.id as string;
+
+  // Nothing references it yet, so even its owner's readers cannot fetch it.
+  const anonymous = await browser.newContext();
+  const visitor = await anonymous.newPage();
+  expect((await visitor.request.get(`/api/media/${workspace}/${assetId}`)).status()).toBe(404);
+
+  // Put it on a step and publish.
+  const guide = await draft(page.request, workspace, section.id, `Picture guide ${randomUUID().slice(0, 8)}`);
+  const withPicture = {
+    ...guide.document,
+    steps: guide.document.steps.map((step, index) =>
+      index === 0
+        ? { ...step, media: [{ assetId, alt: 'The finished workbench', annotations: [] }] }
+        : step,
+    ),
+  };
+  await api(page.request, `/api/studio/${workspace}/guides/${guide.id}`, 'PUT', {
+    expectedVersion: guide.version,
+    document: withPicture,
+    categoryId: section.id,
+  });
+  await api(page.request, `/api/studio/${workspace}/guides/${guide.id}/publish`, 'POST', {
+    expectedVersion: guide.version + 1,
+    expectedRelease: null,
+    license: 'all-rights-reserved',
+  });
+
+  // A reader of the published guide gets the picture, re-encoded and upright.
+  const served = await visitor.request.get(`/api/media/${workspace}/${assetId}`);
+  expect(served.status()).toBe(200);
+  expect(served.headers()['content-type']).toBe('image/webp');
+  const meta = await sharp(await served.body()).metadata();
+  expect(meta.format).toBe('webp');
+  // Orientation 6 means the stored bytes must come back rotated a quarter turn.
+  expect(meta.width).toBe(120);
+  expect(meta.height).toBe(240);
+  // Nothing of the camera's metadata survives the re-encode.
+  expect(meta.exif).toBeUndefined();
+
+  // The picture appears in the reader with its description.
+  await visitor.goto(`/guides/${guide.id}`);
+  await expect(visitor.getByAltText('The finished workbench')).toBeVisible();
+  await anonymous.close();
+
+  // A document cannot claim an asset from another workspace.
+  const otherSection = await category(page.request, 'workshop', `Other ${randomUUID().slice(0, 8)}`);
+  const otherGuide = await draft(page.request, 'workshop', otherSection.id, `Foreign ${randomUUID().slice(0, 8)}`);
+  const stealing = await page.request.put(`/api/studio/workshop/guides/${otherGuide.id}`, {
+    headers,
+    data: {
+      expectedVersion: otherGuide.version,
+      document: {
+        ...otherGuide.document,
+        steps: otherGuide.document.steps.map((step, index) =>
+          index === 0 ? { ...step, media: [{ assetId, alt: 'Not mine', annotations: [] }] } : step,
+        ),
+      },
+      categoryId: otherSection.id,
+    },
+  });
+  expect(stealing.status(), 'an asset from another workspace must be refused').toBe(422);
+});

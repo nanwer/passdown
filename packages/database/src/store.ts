@@ -1,6 +1,18 @@
 import { randomUUID } from 'node:crypto';
 import pg from 'pg';
 import { readSchemaState } from './schema-state';
+
+/** True for our own errors however the contracts module was bundled. */
+function isApplicationError(error: unknown): error is ApplicationError {
+  if (error instanceof ApplicationError) return true;
+  const candidate = error as { name?: unknown; status?: unknown; code?: unknown } | null;
+  return (
+    !!candidate &&
+    candidate.name === 'ApplicationError' &&
+    typeof candidate.status === 'number' &&
+    typeof candidate.code === 'string'
+  );
+}
 import { actorSchema, type Actor } from '@guide/core';
 import {
   guideDocumentSchema,
@@ -59,13 +71,55 @@ function parse<T>(
     );
   return result.data;
 }
-function requireTextOnly(document: GuideDocument) {
-  if (document.steps.some((step) => step.media.length > 0))
+/**
+ * Every picture a step names must be an asset of this workspace.
+ *
+ * Checked on the server because an identifier from the client is untrusted:
+ * without this, a document could claim an asset belonging to another workspace
+ * and a later reference would grant access to it.
+ */
+async function validateMedia(client: pg.PoolClient, workspaceId: string, document: GuideDocument) {
+  const ids = [...new Set(document.steps.flatMap((step) => step.media.map((m) => m.assetId)))];
+  if (!ids.length) return;
+  const known = (
+    await client.query('SELECT id FROM app.asset WHERE workspace_id=$1 AND id=ANY($2::text[])', [
+      workspaceId,
+      ids,
+    ])
+  ).rows.map((row: { id: string }) => row.id);
+  const missing = ids.filter((id) => !known.includes(id));
+  if (missing.length)
     throw new ApplicationError(
       'VALIDATION_ERROR',
-      'Media references are not supported by local text authoring.',
+      'An image in this guide is no longer available. Remove it and add the picture again.',
       422,
-      [{ path: 'document.steps', message: 'Remove media references before saving.' }],
+      missing.map((id) => ({ path: `document.media.${id}`, message: 'Unknown image.' })),
+    );
+}
+
+/**
+ * Records which pictures a draft or a release uses, so access can follow a
+ * live reference. Draft rows are replaced on every save; release rows are
+ * written once and never revisited, which is what keeps a published guide's
+ * images readable exactly as long as that release is current.
+ */
+async function projectMedia(
+  client: pg.PoolClient,
+  workspaceId: string,
+  guideId: string,
+  release: number,
+  document: GuideDocument,
+) {
+  if (release === 0)
+    await client.query(
+      'DELETE FROM app.asset_reference WHERE workspace_id=$1 AND guide_id=$2 AND release_number=0',
+      [workspaceId, guideId],
+    );
+  const ids = [...new Set(document.steps.flatMap((step) => step.media.map((m) => m.assetId)))];
+  for (const assetId of ids)
+    await client.query(
+      'INSERT INTO app.asset_reference(workspace_id,asset_id,guide_id,release_number) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING',
+      [workspaceId, assetId, guideId, release],
     );
 }
 function draft(row: Row): DraftGuide {
@@ -145,7 +199,13 @@ export function createApplicationStore(options: { connectionString: string }) {
       return result;
     } catch (error) {
       await client.query('ROLLBACK');
-      if (error instanceof ApplicationError) throw error;
+      // Recognised by shape as well as by instanceof: the bundler can produce
+      // more than one copy of the contracts module, and an error thrown across
+      // that boundary is the same class but fails instanceof. Today such an
+      // error would fall through the codes below and be rethrown unchanged, but
+      // that is luck rather than design — a catch-all added later would turn it
+      // into a generic failure.
+      if (isApplicationError(error)) throw error;
       const code = (error as { code?: string }).code;
       if (code === '42501') throw missing();
       if (code === '23514') throw validation((error as Error).message);
@@ -301,13 +361,13 @@ export function createApplicationStore(options: { connectionString: string }) {
       input: CreateDraftInput,
     ): Promise<DraftGuide> {
       const data = parse(createDraftSchema, input);
-      requireTextOnly(data.document);
       data.document = toStructuredDocument(data.document, randomUUID);
       return transaction(actor, workspaceId, async (c) => {
         const workspace = await owner(c, workspaceId);
         await lockStructured(c, workspaceId);
         const category = await selectedCategory(c, workspaceId, data.categoryId, 'guide');
         await validateRequirements(c, workspaceId, data.document, undefined);
+        await validateMedia(c, workspaceId, data.document);
         if (workspace.audience === 'private' && data.audience === 'public')
           throw new ApplicationError(
             'VALIDATION_ERROR',
@@ -330,6 +390,7 @@ export function createApplicationStore(options: { connectionString: string }) {
           ],
         );
         await projectRequirements(c, workspaceId, result.rows[0].id, 0, data.document);
+        await projectMedia(c, workspaceId, result.rows[0].id, 0, data.document);
         return draft({ ...result.rows[0], category_path: category.path });
       });
     },
@@ -340,7 +401,6 @@ export function createApplicationStore(options: { connectionString: string }) {
       input: SaveDraftInput,
     ): Promise<DraftGuide> {
       const data = parse(saveDraftSchema, input);
-      requireTextOnly(data.document);
       data.document = toStructuredDocument(data.document, randomUUID);
       return transaction(actor, workspaceId, async (c) => {
         await lockStructured(c, workspaceId);
@@ -360,6 +420,7 @@ export function createApplicationStore(options: { connectionString: string }) {
           )
         ).rows[0];
         await projectRequirements(c, workspaceId, id, 0, data.document);
+        await projectMedia(c, workspaceId, id, 0, data.document);
         return draft({ ...row, category_path: category.path });
       });
     },
@@ -408,7 +469,7 @@ export function createApplicationStore(options: { connectionString: string }) {
               message: issue.message,
             })),
           );
-        requireTextOnly(document);
+        await validateMedia(c, workspaceId, document);
         if (document.steps.some((step) => !hasInstructionText(step.body)))
           throw new ApplicationError(
             'VALIDATION_ERROR',
@@ -436,6 +497,9 @@ export function createApplicationStore(options: { connectionString: string }) {
             JSON.stringify(category.path),
           ],
         );
+        // Freeze this release's pictures alongside its content, so the images
+        // stay readable for exactly as long as this release is current.
+        await projectMedia(c, workspaceId, id, number, document);
         await c.query(
           "UPDATE app.guide SET current_release=$3,published_version=version,state='published',updated_at=clock_timestamp() WHERE workspace_id=$1 AND id=$2",
           [workspaceId, id, number],
@@ -475,6 +539,53 @@ export function createApplicationStore(options: { connectionString: string }) {
     /** Forgets a counter, used when an attempt succeeds. */
     async clearRateLimit(key: string): Promise<void> {
       await pool.query('DELETE FROM app.rate_limit WHERE key=$1', [key]);
+    },
+    /**
+     * Records an already-processed upload. The row is immutable: replacing a
+     * picture creates a new asset, so a published release keeps the exact
+     * images it was published with.
+     */
+    async createAsset(
+      actor: Actor,
+      workspaceId: string,
+      asset: {
+        id: string;
+        contentHash: string;
+        mediaType: string;
+        byteSize: number;
+        width: number;
+        height: number;
+      },
+    ) {
+      return transaction(actor, workspaceId, async (c) => {
+        await owner(c, workspaceId);
+        await c.query(
+          'INSERT INTO app.asset(id,workspace_id,content_hash,media_type,byte_size,width,height,created_by) VALUES($1,$2,$3,$4,$5,$6,$7,app.actor_id())',
+          [
+            asset.id,
+            workspaceId,
+            asset.contentHash,
+            asset.mediaType,
+            asset.byteSize,
+            asset.width,
+            asset.height,
+          ],
+        );
+        return asset.id;
+      });
+    },
+    /**
+     * Whether this actor may read an asset's bytes right now. Decided by a
+     * live reference rather than by possession of the identifier, so a
+     * withdrawn release stops granting access to its pictures.
+     */
+    async assetReadable(actor: Actor, workspaceId: string, assetId: string): Promise<boolean> {
+      return transaction(actor, workspaceId, async (c) => {
+        const row = (
+          await c.query('SELECT app.asset_readable($1,$2) AS allowed', [workspaceId, assetId])
+        ).rows[0];
+        return row?.allowed === true;
+      });
     },
     async consumeRateLimit(key: string, limit: number, windowSeconds: number): Promise<boolean> {
       if (
