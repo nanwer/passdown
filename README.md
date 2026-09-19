@@ -6,21 +6,24 @@ Knowing how to do something is useful. Leaving clear instructions so someone els
 
 Build a public library for a repair community, or keep procedures inside a private team workspace. Both use the same editor, content model and reader.
 
-Passdown is in active development. Persistent authoring, publication, categories and shared tool/material catalogs work locally. Media uploads, community contribution workflows and production deployment support are still ahead.
+Passdown is in active development. Persistent authoring, publication, categories, shared tool/material catalogs and step photographs work locally. Community contribution workflows and production deployment support are still ahead.
 
 ## What works today
 
-| Capability                        | What you can do                                                                                                                                                                                                      |
-| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Public and private libraries      | Publish community guides or member-only team procedures, with access enforced on the server.                                                                                                                         |
-| Visual step editor                | Write formatted instructions with headings, lists, links, quotes, tables and information, warning, error, success, note and decision panels. Add, duplicate and reorder steps; preview the reader before publishing. |
-| Nested categories                 | Create and manage category trees, including product/model branches. Browse subcategories, follow breadcrumbs and find guides throughout a parent category.                                                           |
-| Shared catalogs                   | Reuse tools, consumable materials and replacement parts with exact specifications, units and manufacturer identifiers. Search or create items while writing a guide.                                                 |
-| Preparation and step requirements | Set guide quantities, optional items and notes, then identify what each step needs. Distinguish new consumption from reuse and add prerequisites or dependencies on earlier steps.                                   |
-| Explicit saves and publication    | Save drafts manually with version checks. Published content is a fixed snapshot; later draft or catalog edits do not silently change it.                                                                             |
-| Everyday navigation               | Search as you type, combine search with categories, use light or dark themes and navigate with a keyboard on responsive layouts.                                                                                     |
+| Capability                        | What you can do                                                                                                                                                                                                               |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Public and private libraries      | Publish community guides or member-only team procedures, with access enforced on the server.                                                                                                                                  |
+| Visual step editor                | Write formatted instructions with headings, lists, links, quotes, tables and information, warning, error, success, note and decision panels. Add, duplicate and reorder steps; preview the reader before publishing.          |
+| Nested categories                 | Create and manage category trees, including product/model branches. Browse subcategories, follow breadcrumbs and find guides throughout a parent category.                                                                    |
+| Shared catalogs                   | Reuse tools, consumable materials and replacement parts with exact specifications, units and manufacturer identifiers. Search or create items while writing a guide.                                                          |
+| Preparation and step requirements | Set guide quantities, optional items and notes, then identify what each step needs. Distinguish new consumption from reuse and add prerequisites or dependencies on earlier steps.                                            |
+| Explicit saves and publication    | Save drafts manually with version checks. Published content is a fixed snapshot; later draft or catalog edits do not silently change it.                                                                                      |
+| Everyday navigation               | Search as you type, combine search with categories, use light or dark themes and navigate with a keyboard on responsive layouts.                                                                                              |
+| Step photographs                  | Add pictures to a step. Every upload is decoded and re-encoded, which removes camera metadata including location, and is stored outside the web root. A picture is readable only through a guide the reader may already open. |
+| Guide families                    | Place a guide beneath a broader one — a product range above its models. Readers step up to the general guide or down to their exact version. A relative they cannot read is absent rather than withheld.                      |
+| Public and internal sections      | Move a published guide between the two sections of a workspace. Going public is refused, with reasons, when the guide depends on a members-only category or catalog item.                                                     |
 
-Current authoring requires a workspace owner account. Public signup, invitations, role-management screens, approval workflows and collaborative editing are not implemented yet. Saves are manual; there is no autosave. Uploaded photos, attachments and image annotations are not available yet.
+Current authoring requires a workspace owner account. Public signup, invitations, role-management screens, approval workflows and collaborative editing are not implemented yet. Saves are manual; there is no autosave. Photographs are supported; captions, reordering, reuse of an image already uploaded, non-image attachments and drawing annotations onto a picture are not. The reader renders annotations, so a guide that carries them displays correctly, but nothing can author them yet.
 
 ## Run locally
 
