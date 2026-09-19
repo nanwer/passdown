@@ -4,11 +4,12 @@ Start the local app and sign in at [Studio](http://127.0.0.1:3100/studio) using 
 
 ## Current publication and naming update
 
-| Feature             | Steps                                         | Expected result                                                                                                               |
-| ------------------- | --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| Product name        | Open the library, a guide and Studio.         | Headers and browser titles identify Passdown; existing content and workspace names remain unchanged.                          |
-| Public project      | Open the repository README and ROADMAP.md.    | Purpose, working features, setup and upcoming outcomes are clear; the roadmap distinguishes working and future functionality. |
-| Commit explanations | Inspect a main-branch commit and its comment. | Subject, reason, changes and validation are readable. Future local commits require an explanatory body.                       |
+| Feature             | Steps                                                            | Expected result                                                                                                                                   |
+| ------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Product name        | Open the library, a guide and Studio.                            | Headers and browser titles identify Passdown; existing content and workspace names remain unchanged.                                              |
+| Public project      | Open the repository README and ROADMAP.md.                       | Purpose, working features, setup and upcoming outcomes are clear; the roadmap distinguishes working and future functionality.                     |
+| Commit explanations | Inspect a main-branch commit and its comment.                    | Subject, reason, changes and validation are readable. Future local commits require an explanatory body.                                           |
+| Automated checks    | Open the latest main-branch run in the repository's Actions tab. | The checks cover commit explanations, types, unit tests, production build, browser navigation, database behavior and complete authoring journeys. |
 
 ## Core authoring and discovery
 

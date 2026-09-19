@@ -83,6 +83,7 @@ test('real public create, step editing, save, reload, immutable publication, and
   context,
 }) => {
   const title = `Public journey ${randomUUID().slice(0, 8)}`;
+  const categoryName = `Browser verification ${randomUUID().slice(0, 8)}`;
   await page.goto('/studio');
   await expect(page).toHaveURL(/sign-in/);
   await page
@@ -95,17 +96,15 @@ test('real public create, step editing, save, reload, immutable publication, and
     .getByRole('link')
     .filter({ has: page.getByRole('heading', { name: 'Repair collective', exact: true }) })
     .click();
+  // The form loads its category list on mount, so prepare this run's fixture first.
+  await ensureCategory(context.request, 'repair-collective', categoryName);
   await page.getByRole('link', { name: 'New guide', exact: true }).click();
   await page.getByRole('textbox', { name: 'Guide title', exact: true }).fill(title);
   await page
     .getByRole('textbox', { name: 'Summary', exact: true })
     .fill('A working public guide created from the browser.');
-  await ensureCategory(context.request, 'repair-collective');
   await page.getByRole('button', { name: /^Category/ }).click();
-  await page
-    .getByRole('dialog')
-    .getByRole('button', { name: 'Browser verification', exact: true })
-    .click();
+  await page.getByRole('dialog').getByRole('button', { name: categoryName, exact: true }).click();
   await page.getByRole('button', { name: 'Create draft', exact: true }).click();
   await expect(page).toHaveURL(/studio\/repair-collective\/[a-f0-9-]+$/);
   const editorURL = page.url();
