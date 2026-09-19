@@ -19,6 +19,7 @@ import type {
   Category,
   CategoryBlockers,
   CatalogItem,
+  CatalogUsageCounts,
   StudioWorkspace,
 } from '@guide/contracts';
 import { SessionGate, ErrorNotice } from '../studio/frame';
@@ -45,6 +46,24 @@ const domains = {
  * Superseded releases are deliberately not a reason: they keep their own frozen
  * category reference and never become selectable again.
  */
+/**
+ * Distinct guides using an item, drafts and current releases kept apart: moving
+ * an item out of a draft does not change what a release already froze. Returns
+ * null when nothing uses it, so unused rows stay quiet.
+ */
+function describeUsage(usage?: CatalogUsageCounts) {
+  if (!usage || (usage.draftGuides === 0 && usage.publishedGuides === 0)) return null;
+  const parts = [
+    usage.draftGuides > 0 ? `${usage.draftGuides} in drafts` : null,
+    usage.publishedGuides > 0 ? `${usage.publishedGuides} published` : null,
+  ].filter(Boolean);
+  const total = Math.max(usage.draftGuides, usage.publishedGuides);
+  return (
+    <small className="catalog-usage" aria-hidden="true" title={parts.join(' · ')}>
+      {total} {total === 1 ? 'guide' : 'guides'}
+    </small>
+  );
+}
 function blockingReasons(blockers: CategoryBlockers, workspaceId: string) {
   return [
     {
@@ -515,21 +534,32 @@ export function CatalogManagementPage({ workspaceId }: { workspaceId: string }) 
   );
 }
 function CatalogManagement({ workspace }: { workspace: StudioWorkspace }) {
-  const { items, error, loading, refresh } = useCatalog(workspace.id);
+  const { items, usage, error, loading, refresh } = useCatalog(workspace.id, { withUsage: true });
   const { categories, error: categoryError } = useCategories(workspace.id);
   const [search, setSearch] = useState('');
   const [kind, setKind] = useState<CatalogItem['kind'] | 'all'>('all');
   const [categoryId, setCategory] = useState<string | null>(null);
   const [selectedId, setSelected] = useState<string | null>(null);
-  const [archived, setArchived] = useState(false);
+  const [status, setStatus] = useState<'all' | 'active' | 'inactive'>('active');
   const [notice, setNotice] = useState('');
+  const usageById = useMemo(() => new Map(usage.map((entry) => [entry.itemId, entry])), [usage]);
   const selected = items.find((item) => item.id === selectedId);
-  const visible = filterCatalog(items, {
+  // Status counts describe what the other filters match, before the selected
+  // status narrows it, so All always equals Active plus Inactive.
+  const matching = filterCatalog(items, {
     search,
     categoryId,
     kind: kind === 'all' ? undefined : kind,
-    includeArchived: archived,
+    includeArchived: true,
   });
+  const statusCounts = {
+    active: matching.filter((item) => !item.archived).length,
+    inactive: matching.filter((item) => item.archived).length,
+    all: matching.length,
+  };
+  const visible = matching.filter((item) =>
+    status === 'all' ? true : status === 'active' ? !item.archived : item.archived,
+  );
   const owner = workspace.role === 'owner';
   return (
     <main className="studio-container structured-management" id="main" tabIndex={-1}>
@@ -584,14 +614,19 @@ function CatalogManagement({ workspace }: { workspace: StudioWorkspace }) {
               <option value="part">Replacement parts</option>
             </select>
           </label>
-          <label className="structured-checkbox">
-            <input
-              type="checkbox"
-              checked={archived}
-              onChange={(event) => setArchived(event.target.checked)}
-            />
-            Include archived
-          </label>
+          <div className="structured-status-tabs" role="group" aria-label="Item status">
+            {(['all', 'active', 'inactive'] as const).map((option) => (
+              <button
+                key={option}
+                type="button"
+                aria-pressed={status === option}
+                onClick={() => setStatus(option)}
+              >
+                {option === 'all' ? 'All' : option === 'active' ? 'Active' : 'Inactive'}
+                <span className="structured-status-count">{statusCounts[option]}</span>
+              </button>
+            ))}
+          </div>
           <button
             type="button"
             className="structured-text-button"
@@ -653,8 +688,9 @@ function CatalogManagement({ workspace }: { workspace: StudioWorkspace }) {
                       <span>{item.specification || 'General specification'}</span>
                       <small>{item.categoryPath.map((node) => node.name).join(' / ')}</small>
                     </span>
+                    {describeUsage(usageById.get(item.id))}
                     <span className="structured-kind-label">
-                      {item.archived ? 'Archived' : item.kind}
+                      {item.archived ? 'Inactive' : item.kind}
                     </span>
                   </button>
                 </li>

@@ -14,6 +14,7 @@ import {
   type CatalogItem,
   type CatalogKind,
   type CatalogUsage,
+  type CatalogUsageCounts,
   type CreateCategoryInput,
   type UpdateCategoryInput,
   type CreateCatalogItemInput,
@@ -465,6 +466,20 @@ export function structuredStore(
         );
         return (await item(c, workspaceId, id))!;
       });
+    },
+    /** Usage for every readable item at once, for the catalog listing. */
+    async listCatalogUsage(actor: Actor, workspaceId: string): Promise<CatalogUsageCounts[]> {
+      return transaction(actor, workspaceId, async (c) =>
+        (
+          await c.query('SELECT item_id,draft_guides,published_guides FROM app.catalog_usage_counts($1)', [
+            workspaceId,
+          ])
+        ).rows.map((row) => ({
+          itemId: row.item_id,
+          draftGuides: Number(row.draft_guides),
+          publishedGuides: Number(row.published_guides),
+        })),
+      );
     },
     async getCatalogUsage(actor: Actor, workspaceId: string, id: string): Promise<CatalogUsage> {
       return transaction(actor, workspaceId, async (c) => {

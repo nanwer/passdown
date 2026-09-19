@@ -193,6 +193,16 @@ export type CatalogItem = CreateCatalogItemInput & {
   version: number;
   categoryPath: CategoryPath;
 };
+/**
+ * How many distinct guides use a catalog item. Drafts and current releases are
+ * separate because moving an item out of a draft does not change what a
+ * published release already froze.
+ */
+export type CatalogUsageCounts = {
+  itemId: string;
+  draftGuides: number;
+  publishedGuides: number;
+};
 export type CatalogUsage = {
   guides: {
     id: string;

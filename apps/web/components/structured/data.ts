@@ -1,6 +1,11 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
-import type { Category, CategoryCounts, CatalogItem } from '@guide/contracts';
+import type {
+  Category,
+  CategoryCounts,
+  CatalogItem,
+  CatalogUsageCounts,
+} from '@guide/contracts';
 import { studioFetch } from '../studio/transport';
 const changeEvent = 'guide-structured-data-changed';
 export function announceStructuredChange(workspaceId: string) {
@@ -63,8 +68,11 @@ export function useCategories(
   }, [workspaceId, refresh]);
   return { categories, counts, error, loading, refresh };
 }
-export function useCatalog(workspaceId: string) {
+/** Catalog items, with distinct-guide usage on management surfaces. */
+export function useCatalog(workspaceId: string, options?: { withUsage?: boolean }) {
+  const withUsage = options?.withUsage === true;
   const [items, setItems] = useState<CatalogItem[]>([]);
+  const [usage, setUsage] = useState<CatalogUsageCounts[]>([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [revision, setRevision] = useState(0);
@@ -73,14 +81,19 @@ export function useCatalog(workspaceId: string) {
     let active = true;
     setLoading(true);
     setError('');
-    studioFetch<{ items: CatalogItem[] }>(`/api/studio/${workspaceId}/catalog?includeArchived=true`)
+    studioFetch<{ items: CatalogItem[]; usage?: CatalogUsageCounts[] }>(
+      `/api/studio/${workspaceId}/catalog?includeArchived=true${withUsage ? '&usage=true' : ''}`,
+    )
       .then((result) => {
-        if (active) setItems(result.items);
+        if (!active) return;
+        setItems(result.items);
+        setUsage(result.usage ?? []);
       })
       .catch((error) => {
         if (active) {
           setError(error.message);
           setItems([]);
+          setUsage([]);
         }
       })
       .finally(() => {
@@ -89,7 +102,7 @@ export function useCatalog(workspaceId: string) {
     return () => {
       active = false;
     };
-  }, [workspaceId, revision]);
+  }, [workspaceId, revision, withUsage]);
   useEffect(() => {
     const changed = (event: Event) => {
       if ((event as CustomEvent<string>).detail === workspaceId) refresh();
@@ -97,5 +110,5 @@ export function useCatalog(workspaceId: string) {
     window.addEventListener(changeEvent, changed);
     return () => window.removeEventListener(changeEvent, changed);
   }, [workspaceId, refresh]);
-  return { items, error, loading, refresh };
+  return { items, usage, error, loading, refresh };
 }

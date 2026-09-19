@@ -868,3 +868,17 @@
   font-weight: 650;
   text-align: center;
 }
+
+/* Distinct guides using an item. A visual scanning aid: the detail panel
+   carries the full draft-versus-published breakdown for assistive technology,
+   so this stays out of the row's accessible name. */
+.catalog-usage {
+  margin-left: auto;
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--gp-semantic-border-subtle);
+  color: var(--gp-semantic-text-secondary);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}

@@ -600,3 +600,49 @@ test('deactivation explains what still uses a category and only unblocks once th
   await page.getByRole('button', { name: 'Archive category', exact: true }).click();
   await expect(page.getByText('Category archived', { exact: false })).toBeVisible();
 });
+
+test('catalog listing reports how many guides use each item and filters by status', async ({
+  page,
+}) => {
+  await login(page.request);
+  const workspace = 'repair-collective';
+  const toolCategory = await category(
+    page.request,
+    workspace,
+    `Hand tools ${randomUUID().slice(0, 8)}`,
+    'tool',
+  );
+  const unused = (
+    await api<{ item: CatalogItem }>(page.request, `/api/studio/${workspace}/catalog`, 'POST', {
+      categoryId: toolCategory.id,
+      kind: 'tool',
+      name: `Unused driver ${randomUUID().slice(0, 8)}`,
+      specification: 'Phillips #1',
+      description: 'Never referenced by a guide.',
+      manufacturer: '',
+      model: '',
+      partNumber: '',
+      defaultUnit: 'each',
+      visibility: 'public',
+    })
+  ).item;
+
+  await page.goto(`/studio/${workspace}/catalog`);
+  const tabs = page.getByRole('group', { name: 'Item status' });
+  await expect(tabs).toBeVisible();
+
+  // All equals Active plus Inactive, and the counts respond to the filters.
+  const readCount = async (name: string) =>
+    Number((await tabs.getByRole('button', { name: new RegExp(`^${name}`) }).innerText()).replace(/\D/g, ''));
+  const [all, active, inactive] = [
+    await readCount('All'),
+    await readCount('Active'),
+    await readCount('Inactive'),
+  ];
+  expect(all).toBe(active + inactive);
+
+  // An item nothing references carries no usage badge.
+  const row = page.getByRole('button', { name: new RegExp(unused.name) });
+  await expect(row).toBeVisible();
+  await expect(row.locator('.catalog-usage')).toHaveCount(0);
+});

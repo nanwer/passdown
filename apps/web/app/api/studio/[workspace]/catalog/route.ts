@@ -9,16 +9,19 @@ export function GET(request: Request, context: Context) {
     const { workspace } = await context.params;
     assertIdentifier(workspace);
     const url = new URL(request.url);
-    return Response.json({
-      items: await getApplication().store.listCatalogItems(actor, workspace, {
-        kind: url.searchParams.has('kind')
-          ? parseInput(catalogKindSchema, url.searchParams.get('kind'))
-          : undefined,
-        includeArchived: url.searchParams.get('includeArchived') === 'true',
-        categoryId: url.searchParams.get('categoryId') ?? undefined,
-        search: url.searchParams.get('search') ?? undefined,
-      }),
+    const store = getApplication().store;
+    const items = await store.listCatalogItems(actor, workspace, {
+      kind: url.searchParams.has('kind')
+        ? parseInput(catalogKindSchema, url.searchParams.get('kind'))
+        : undefined,
+      includeArchived: url.searchParams.get('includeArchived') === 'true',
+      categoryId: url.searchParams.get('categoryId') ?? undefined,
+      search: url.searchParams.get('search') ?? undefined,
     });
+    if (url.searchParams.get('usage') !== 'true') return Response.json({ items });
+    // Same authorized scope as the listing, so a total cannot imply a guide the
+    // caller may not open.
+    return Response.json({ items, usage: await store.listCatalogUsage(actor, workspace) });
   });
 }
 export function POST(request: Request, context: Context) {

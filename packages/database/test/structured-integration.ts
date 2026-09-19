@@ -648,6 +648,46 @@ export async function structuredChecks({
     },
   );
   await check(
+    'catalog usage: the bulk listing agrees with per-item usage and separates drafts from releases',
+    async () => {
+      const bulk = new Map(
+        (await store.listCatalogUsage(who, 'public')).map((entry) => [entry.itemId, entry]),
+      );
+      const items = await store.listCatalogItems(who, 'public', { includeArchived: true });
+      assert(items.length > 0, 'fixtures should leave catalog items behind');
+      for (const item of items) {
+        const detail = await store.getCatalogUsage(who, 'public', item.id);
+        const counts = bulk.get(item.id) ?? {
+          itemId: item.id,
+          draftGuides: 0,
+          publishedGuides: 0,
+        };
+        // The per-item query returns guides referenced by a draft or the
+        // current release, so it is the union of the two bulk buckets.
+        const union = new Set(detail.guides.map((g) => g.id));
+        assert(
+          counts.draftGuides <= union.size && counts.publishedGuides <= union.size,
+          `${item.name}: bulk counts exceed the per-item guide list`,
+        );
+        assert(
+          (counts.draftGuides > 0 || counts.publishedGuides > 0) === union.size > 0,
+          `${item.name}: bulk and per-item disagree about whether anything uses it`,
+        );
+        const published = detail.guides.filter((g) => g.currentRelease !== null).length;
+        assert(
+          counts.publishedGuides <= published,
+          `${item.name}: more published usage than guides with a current release`,
+        );
+      }
+
+      // A signed-out reader cannot learn about restricted items through totals.
+      const publicUsage = await store.listCatalogUsage(anonymous, 'public');
+      const restrictedItems = items.filter((item) => item.visibility === 'members');
+      for (const item of restrictedItems)
+        assert(!publicUsage.some((entry) => entry.itemId === item.id));
+    },
+  );
+  await check(
     'structured database boundary: direct cycles, wrong guide domains and suspended catalog writes cannot bypass service',
     async () => {
       await assert.rejects(
