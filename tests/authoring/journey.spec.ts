@@ -106,7 +106,8 @@ test('real public create, step editing, save, reload, immutable publication, and
   await page.getByRole('button', { name: /^Category/ }).click();
   await page.getByRole('dialog').getByRole('button', { name: categoryName, exact: true }).click();
   await page.getByRole('button', { name: 'Create draft', exact: true }).click();
-  await expect(page).toHaveURL(/studio\/repair-collective\/[a-f0-9-]+$/);
+  // A fresh development server compiles the editor route during this navigation.
+  await page.waitForURL(/studio\/repair-collective\/[a-f0-9-]+$/, { timeout: 30000 });
   const editorURL = page.url();
   const id = editorURL.split('/').pop()!;
   await page
