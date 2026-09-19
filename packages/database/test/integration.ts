@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import pg from 'pg';
-import { createApplicationStore, createIdentity } from '../src/index';
+import {
+  createApplicationStore,
+  createIdentity,
+  readSchemaState,
+  describeSchemaState,
+} from '../src/index';
 import { readConfig } from '../../../scripts/local-config.mjs';
 import { seedLocal } from '../../../scripts/seed-local';
 import { migrate, requireLocal } from '../../../scripts/migrate-local.mjs';
@@ -910,6 +915,46 @@ try {
         (await store.getDraft(actor('owner'), 'public', draft.id))?.document,
         toStructuredDocument(document),
       );
+    },
+  );
+  await check(
+    'schema state reports a database that is behind or diverged, and clears once it matches',
+    async () => {
+      const current = await readSchemaState(owner);
+      assert.equal(current.ok, true, 'the migrated test database should report as current');
+      assert.equal(describeSchemaState(current), null);
+
+      // A migration recorded by this build but absent from the database is the
+      // case that used to surface as an unrelated runtime failure.
+      const latest = (
+        await owner.query('SELECT name,checksum FROM public.schema_migration ORDER BY name DESC')
+      ).rows[0];
+      await owner.query('DELETE FROM public.schema_migration WHERE name=$1', [latest.name]);
+      try {
+        const behind = await readSchemaState(owner);
+        assert.equal(behind.ok, false);
+        assert.equal(behind.ok === false && behind.reason, 'pending');
+        assert(describeSchemaState(behind)!.includes(latest.name));
+        assert(describeSchemaState(behind)!.includes('local:migrate'));
+
+        // An edited migration cannot be repaired by re-running, so it is
+        // reported as divergence rather than as merely behind.
+        await owner.query(
+          'INSERT INTO public.schema_migration(name,checksum) VALUES($1,$2) ON CONFLICT(name) DO UPDATE SET checksum=EXCLUDED.checksum',
+          [latest.name, 'a'.repeat(64)],
+        );
+        const diverged = await readSchemaState(owner);
+        assert.equal(diverged.ok === false && diverged.reason, 'changed');
+        assert(!describeSchemaState(diverged)!.includes('local:migrate'));
+      } finally {
+        // Always put the record back: a half-finished run must not leave the
+        // database looking like it is behind.
+        await owner.query(
+          'INSERT INTO public.schema_migration(name,checksum) VALUES($1,$2) ON CONFLICT(name) DO UPDATE SET checksum=EXCLUDED.checksum',
+          [latest.name, latest.checksum],
+        );
+      }
+      assert.equal((await readSchemaState(owner)).ok, true);
     },
   );
   await check(

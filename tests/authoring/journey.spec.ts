@@ -584,3 +584,46 @@ test('complete formatting examples publish with every supported style and readab
     ).toHaveCount(0);
   }
 });
+
+test('signing in correctly many times does not lock the account out', async ({ request }) => {
+  // The per-address limit exists to bound credential guessing. Charging a
+  // correct sign-in against it would lock out anyone who legitimately signs in
+  // often, which is a real cost for no security gain.
+  for (let attempt = 0; attempt < 14; attempt++) {
+    const response = await request.post('/api/auth/sign-in/email', {
+      headers,
+      data: {
+        email: credentials.GUIDE_LOCAL_OWNER_EMAIL,
+        password: credentials.GUIDE_LOCAL_OWNER_PASSWORD,
+      },
+    });
+    expect(response.status(), `attempt ${attempt + 1} of 14`).toBe(200);
+  }
+});
+
+test('a correct sign-in clears earlier failed attempts', async ({ request }) => {
+  const email = credentials.GUIDE_LOCAL_OWNER_EMAIL;
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const failed = await request.post('/api/auth/sign-in/email', {
+      headers,
+      data: { email, password: 'A-deliberately-wrong-password' },
+    });
+    expect(failed.status()).toBe(401);
+  }
+  // Succeeding forgets those, so a later mistype does not inherit the count.
+  expect(
+    (
+      await request.post('/api/auth/sign-in/email', {
+        headers,
+        data: { email, password: credentials.GUIDE_LOCAL_OWNER_PASSWORD },
+      })
+    ).status(),
+  ).toBe(200);
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const failed = await request.post('/api/auth/sign-in/email', {
+      headers,
+      data: { email, password: 'A-deliberately-wrong-password' },
+    });
+    expect(failed.status(), 'the counter should have been reset').toBe(401);
+  }
+});

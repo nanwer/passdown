@@ -32,6 +32,10 @@ export async function migrate(connectionString, runtimeURL) {
     await client.query(
       'CREATE TABLE IF NOT EXISTS public.schema_migration(name text PRIMARY KEY,checksum text NOT NULL,applied_at timestamptz NOT NULL DEFAULT now())',
     );
+    // The runtime role reads this to confirm the database matches the build it
+    // is serving. Read-only, and metadata only: it grants nothing over content,
+    // and the runtime still cannot apply or record a migration.
+    await client.query('GRANT SELECT ON public.schema_migration TO guide_runtime');
     for (const name of readdirSync(root + 'packages/database/migrations')
       .filter((n) => n.endsWith('.sql'))
       .sort()) {

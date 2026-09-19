@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import pg from 'pg';
+import { readSchemaState } from './schema-state';
 import { actorSchema, type Actor } from '@guide/core';
 import {
   guideDocumentSchema,
@@ -455,6 +456,26 @@ export function createApplicationStore(options: { connectionString: string }) {
         );
       });
     },
+    /**
+     * Whether a counter has already reached its limit, without consuming one.
+     *
+     * Lets a caller reject an address that is already locked out before doing
+     * the expensive work, while leaving the decision of what counts as an
+     * attempt to the caller.
+     */
+    async rateLimitReached(key: string, limit: number): Promise<boolean> {
+      const row = (
+        await pool.query(
+          'SELECT count FROM app.rate_limit WHERE key=$1 AND expires_at>now()',
+          [key],
+        )
+      ).rows[0];
+      return Boolean(row) && Number(row.count) >= limit;
+    },
+    /** Forgets a counter, used when an attempt succeeds. */
+    async clearRateLimit(key: string): Promise<void> {
+      await pool.query('DELETE FROM app.rate_limit WHERE key=$1', [key]);
+    },
     async consumeRateLimit(key: string, limit: number, windowSeconds: number): Promise<boolean> {
       if (
         !key ||
@@ -480,6 +501,20 @@ export function createApplicationStore(options: { connectionString: string }) {
       } catch (e) {
         await client.query('ROLLBACK');
         throw e;
+      } finally {
+        client.release();
+      }
+    },
+    /**
+     * Whether this database matches the migrations this build ships with.
+     * Read at startup so a schema mismatch is reported once, by name, instead
+     * of surfacing later as an unrelated failure on whichever request first
+     * needs the missing object.
+     */
+    async schemaState() {
+      const client = await pool.connect();
+      try {
+        return await readSchemaState(client);
       } finally {
         client.release();
       }

@@ -8,7 +8,7 @@
     "node": ">=22.12.0 <23 || >=24 <25"
   },
   "scripts": {
-    "dev": "pnpm tokens:generate && pnpm --filter @guide/web dev",
+    "dev": "pnpm tokens:generate && pnpm local:migrate && pnpm --filter @guide/web dev",
     "build": "pnpm tokens:generate && pnpm --filter @guide/web build",
     "start": "pnpm --filter @guide/web start",
     "tokens:generate": "node packages/design-tokens/generate.mjs",
@@ -17,7 +17,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:e2e": "playwright test",
-    "check": "pnpm tokens:check && pnpm lint && pnpm typecheck && pnpm test",
+    "check": "pnpm tokens:check && pnpm migrations:check && pnpm lint && pnpm typecheck && pnpm test",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "local:setup": "tsx scripts/local-setup.ts",
@@ -25,7 +25,10 @@
     "local:down": "docker compose --env-file .env.local -f compose.app.yaml down",
     "local:migrate": "node scripts/migrate-local.mjs",
     "test:database": "tsx packages/database/test/integration.ts",
-    "test:authoring": "playwright test --config playwright.authoring.config.ts"
+    "test:authoring": "playwright test --config playwright.authoring.config.ts",
+    "local:verify": "node scripts/verify-schema.mjs",
+    "migrations:manifest": "node scripts/migration-manifest.mjs",
+    "migrations:check": "node scripts/migration-manifest.mjs --check"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.13.0",
