@@ -226,13 +226,14 @@ for (const workspace of ['repair-collective', 'workshop']) {
     await page.goto(`/studio/${workspace}/categories`);
     await page.getByRole('button', { name: root.name, exact: true }).click();
     await page.getByRole('button', { name: 'Archive', exact: true }).click();
-    await page
-      .getByRole('dialog')
-      .getByRole('button', { name: 'Archive category', exact: true })
-      .click();
-    await expect(page.getByRole('dialog').getByRole('alert')).toContainText(
-      /Move|referenc|children|categor/i,
+    // What blocks retirement is now explained before the attempt and the
+    // confirm stays disabled, rather than a refusal arriving after a click.
+    await expect(page.getByRole('dialog').locator('.structured-blockers')).toContainText(
+      /Move|guide|categor/i,
     );
+    await expect(
+      page.getByRole('dialog').getByRole('button', { name: 'Archive category', exact: true }),
+    ).toBeDisabled();
     await page.getByRole('dialog').getByRole('button', { name: 'Cancel', exact: true }).click();
     await page.getByRole('button', { name: leaf.name, exact: true }).click();
     await page.getByRole('button', { name: 'Edit or move', exact: true }).click();
