@@ -167,6 +167,15 @@ export function createApplicationStore(options: { connectionString: string }) {
         throw conflict();
       }
       if (code === '40001' || code === '40P01') throw conflict();
+      // A function or table the application expects is absent, which in
+      // practice means the database is behind the migrations on disk. Say so,
+      // rather than reporting a generic outage the reader cannot act on.
+      if (code === '42883' || code === '42P01')
+        throw new ApplicationError(
+          'SCHEMA_BEHIND',
+          'This database is missing a migration the application needs. Run pnpm local:migrate, then try again.',
+          503,
+        );
       throw error;
     } finally {
       client.release();
