@@ -535,6 +535,12 @@ test('hover targets the table under the pointer independently of the caret and e
   await expect(plus).toBeVisible();
   await plus.hover();
   await expect(page.locator('.rte-table-insertion-line--column')).toHaveClass(/is-emphasized/);
+  // The scan judges a finished editor, so wait for one. Typing into a header
+  // reaches the document a moment after the keystroke, and under a loaded
+  // machine the scan could arrive first and report every header as empty —
+  // a true reading of a state no reader ever sees.
+  await expect(first.locator('th')).toHaveText(['First table', 'Quantity', 'Status']);
+  await expect(second.locator('th')).toHaveText(['Second table', 'Quantity', 'Status']);
   expect(
     (
       await new AxeBuilder({ page })
