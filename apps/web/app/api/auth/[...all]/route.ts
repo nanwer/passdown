@@ -1,10 +1,18 @@
 import { createHash } from 'node:crypto';
 import { ApplicationError } from '@guide/contracts';
-import { getApplication, enforceRateLimit } from '../../../../lib/application';
+import { getApplication } from '../../../../lib/application';
 import { apiResponse, assertOrigin, readJSON } from '../../../../lib/http';
 export const dynamic = 'force-dynamic';
 const signInFailureLimit = 10;
 const failureKey = (emailHash: string) => `sign-in-failures:${emailHash}`;
+/**
+ * Guessing spread thinly across many addresses never trips the per-address
+ * limit, so one counter watches failures across the installation. It is set
+ * far above any honest failure rate — people mistype — and well below what a
+ * spraying attack needs to be worth running.
+ */
+const globalFailureLimit = 500;
+const globalFailureKey = 'sign-in-failures:global';
 type Context = { params: Promise<{ all: string[] }> };
 export function GET(request: Request, context: Context) {
   return apiResponse(async () => {
@@ -33,8 +41,19 @@ export function POST(request: Request, context: Context) {
         Object.keys(body).some((key) => !['email', 'password'].includes(key))
       )
         throw new ApplicationError('VALIDATION_ERROR', 'Enter your email and password.', 422);
-      // A coarse flood guard across every attempt, successful or not.
-      await enforceRateLimit('sign-in:global', 60);
+      // A coarse flood guard for the whole installation. It counts failures
+      // only, and only after an attempt is decided, for the same reason the
+      // per-address limit does: a burst of correct sign-ins is a workday —
+      // a shift starting, a class arriving — and refusing those would be this
+      // application denying service to its own users on their busiest morning.
+      // A burst of *failed* ones, spread across addresses so the per-address
+      // limit never trips, is the thing a global counter is actually for.
+      if (await getApplication().store.rateLimitReached(globalFailureKey, globalFailureLimit))
+        throw new ApplicationError(
+          'RATE_LIMITED',
+          'Too many failed sign-in attempts right now. Please wait a minute and try again.',
+          429,
+        );
       // The per-address limit exists to bound credential guessing, so it counts
       // failures. Charging a correct sign-in against it locks out anyone who
       // legitimately signs in often — several devices, a shared address, an
@@ -56,12 +75,14 @@ export function POST(request: Request, context: Context) {
     );
     if (!response.ok) {
       // Only a failed attempt advances the guessing counter.
-      if (emailHash)
+      if (emailHash) {
         await getApplication().store.consumeRateLimit(
           failureKey(emailHash),
           signInFailureLimit,
           60,
         );
+        await getApplication().store.consumeRateLimit(globalFailureKey, globalFailureLimit, 60);
+      }
       const result = await response.json().catch(() => null);
       throw new ApplicationError(
         result?.code ?? 'AUTHENTICATION_FAILED',

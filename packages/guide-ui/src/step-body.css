@@ -237,3 +237,8 @@
   font-size: 14px;
   color: var(--gp-semantic-text-secondary);
 }
+.step-media-caption {
+  margin: 10px 0 0;
+  font-size: 14px;
+  color: var(--gp-semantic-text-secondary);
+}

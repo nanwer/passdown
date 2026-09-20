@@ -47,7 +47,20 @@ const annotation = z.discriminatedUnion('type', [
 ]);
 const media = z.strictObject({
   assetId: z.uuid(),
+  /**
+   * What the picture shows, for a reader who cannot see it. Required, because
+   * a picture with no description is a step some readers cannot follow.
+   */
   alt: z.string().min(1).max(500),
+  /**
+   * A visible line beneath the picture, for everyone. Distinct from `alt`:
+   * that stands in for the image, this sits alongside it. Optional, because
+   * most pictures in a procedure are explained by the step they belong to.
+   *
+   * Defaulted rather than required so documents written before captions
+   * existed still parse.
+   */
+  caption: z.string().trim().max(200).default(''),
   annotations: z.array(annotation).max(30).default([]),
 });
 const heading = z.strictObject({

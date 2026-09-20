@@ -1189,3 +1189,79 @@ test('an author marks up a photograph, and the marks reach the reader with their
   ).toEqual([]);
   await anonymous.close();
 });
+
+test('pictures carry captions and can be put in order', async ({ page, browser }) => {
+  const sharp = (await import('sharp')).default;
+  await login(page.request);
+  const workspace = 'repair-collective';
+  const suffix = randomUUID().slice(0, 8);
+  const section = await category(page.request, workspace, `Captioned ${suffix}`);
+
+  const upload = async (shade: string) => {
+    const bytes = await sharp({
+      create: { width: 200, height: 150, channels: 3, background: shade },
+    })
+      .jpeg()
+      .toBuffer();
+    const response = await page.request.post(`/api/studio/${workspace}/assets`, {
+      headers,
+      multipart: { file: { name: 'p.jpg', mimeType: 'image/jpeg', buffer: bytes } },
+    });
+    expect(response.status(), await response.text()).toBe(201);
+    return (await response.json()).asset.id as string;
+  };
+  const [first, second] = [await upload('#204a3c'), await upload('#7a3b2e')];
+
+  const guide = await draft(page.request, workspace, section.id, `Captioned guide ${suffix}`);
+  await api(page.request, `/api/studio/${workspace}/guides/${guide.id}`, 'PUT', {
+    expectedVersion: guide.version,
+    document: {
+      ...guide.document,
+      steps: guide.document.steps.map((step, index) =>
+        index === 0
+          ? {
+              ...step,
+              media: [
+                { assetId: first, alt: 'The case from above', caption: '', annotations: [] },
+                { assetId: second, alt: 'The case from below', caption: '', annotations: [] },
+              ],
+            }
+          : step,
+      ),
+    },
+    categoryId: section.id,
+  });
+
+  await page.goto(`/studio/${workspace}/${guide.id}`);
+  await expect(page.getByText('Picture 1 of 2')).toBeVisible();
+  const captions = page.getByRole('textbox', { name: 'Caption' });
+  await captions.first().fill('Taken before anything was removed.');
+  await captions.nth(1).fill('The same case, turned over.');
+
+  // The first picture cannot move earlier, and the last cannot move later.
+  await expect(page.getByRole('button', { name: 'Move picture 1 earlier' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Move picture 2 later' })).toBeDisabled();
+
+  // Moving the second one earlier takes its caption and description with it.
+  await page.getByRole('button', { name: 'Move picture 2 earlier' }).click();
+  await expect(captions.first()).toHaveValue('The same case, turned over.');
+  await expect(page.getByRole('textbox', { name: 'Description' }).first()).toHaveValue(
+    'The case from below',
+  );
+
+  await publish(page);
+
+  const anonymous = await browser.newContext();
+  const visitor = await anonymous.newPage();
+  await visitor.goto(`/guides/${guide.id}`);
+  // The reader sees them in the order the author left them, each with its own
+  // caption, and the descriptions still belong to the right pictures.
+  await expect(visitor.locator('.step-media-caption')).toHaveText([
+    'The same case, turned over.',
+    'Taken before anything was removed.',
+  ]);
+  const images = visitor.locator('.step-media img');
+  await expect(images.first()).toHaveAttribute('alt', 'The case from below');
+  await expect(images.nth(1)).toHaveAttribute('alt', 'The case from above');
+  await anonymous.close();
+});

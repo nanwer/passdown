@@ -35,7 +35,7 @@ import type {
 } from '@guide/contracts';
 import { SessionGate, ErrorNotice } from './frame';
 import { MetadataFields } from './pages';
-import { newStep, reorder } from './model';
+import { moveBy, newStep, reorder } from './model';
 import { RichTextEditor } from './rich-text-editor';
 import { StepRequirements } from './step-requirements';
 import { StudioError, studioFetch } from './transport';
@@ -290,8 +290,33 @@ function StepPictures({
   return (
     <fieldset className="studio-pictures">
       <legend>Pictures</legend>
-      {step.media.map((media) => (
+      {step.media.map((media, position) => (
         <div className="studio-picture" key={media.assetId}>
+          <div className="studio-picture-topline">
+            <span className="studio-eyebrow">
+              Picture {position + 1} of {step.media.length}
+            </span>
+            <div className="studio-picture-order">
+              <Button
+                type="button"
+                variant="ghost"
+                disabled={position === 0}
+                aria-label={`Move picture ${position + 1} earlier`}
+                onClick={() => onChange({ ...step, media: moveBy(step.media, position, -1) })}
+              >
+                <ArrowUp size={15} />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                disabled={position === step.media.length - 1}
+                aria-label={`Move picture ${position + 1} later`}
+                onClick={() => onChange({ ...step, media: moveBy(step.media, position, 1) })}
+              >
+                <ArrowDown size={15} />
+              </Button>
+            </div>
+          </div>
           <img src={`/api/media/${workspaceId}/${media.assetId}`} alt={media.alt} />
           <label>
             Description
@@ -303,6 +328,22 @@ function StepPictures({
                   ...step,
                   media: step.media.map((m) =>
                     m.assetId === media.assetId ? { ...m, alt: e.target.value } : m,
+                  ),
+                })
+              }
+            />
+          </label>
+          <label>
+            Caption
+            <input
+              value={media.caption}
+              maxLength={200}
+              placeholder="Shown under the picture. Optional."
+              onChange={(e) =>
+                onChange({
+                  ...step,
+                  media: step.media.map((m) =>
+                    m.assetId === media.assetId ? { ...m, caption: e.target.value } : m,
                   ),
                 })
               }
@@ -354,7 +395,10 @@ function StepPictures({
             onClick={() => {
               onChange({
                 ...step,
-                media: [...step.media, { assetId: pending.id, alt: alt.trim(), annotations: [] }],
+                media: [
+                  ...step.media,
+                  { assetId: pending.id, alt: alt.trim(), caption: '', annotations: [] },
+                ],
               });
               setPending(null);
               setAlt('');

@@ -212,6 +212,7 @@ try {
               {
                 assetId: 'bf1b1ce2-1f75-48a7-a77e-bf3dcb6ce635',
                 alt: 'Unsupported asset',
+                caption: '',
                 annotations: [],
               },
             ],

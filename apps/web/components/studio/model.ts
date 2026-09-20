@@ -45,3 +45,17 @@ export function reorder<T extends GuideStep>(steps: T[], id: string, delta: numb
   [copy[index], copy[target]] = [copy[target]!, copy[index]!];
   return copy;
 }
+
+/**
+ * Moves one item within a list, by position rather than by identity.
+ *
+ * `reorder` keys on a step's id; pictures are identified by the asset they
+ * point at, and the same asset could in principle appear twice on a step.
+ */
+export function moveBy<T>(items: T[], index: number, delta: number): T[] {
+  const target = index + delta;
+  if (index < 0 || index >= items.length || target < 0 || target >= items.length) return items;
+  const copy = [...items];
+  [copy[index], copy[target]] = [copy[target]!, copy[index]!];
+  return copy;
+}

@@ -156,6 +156,7 @@ describe('annotated photographs', () => {
       {
         assetId: '20000000-0000-4000-8000-000000000001',
         alt: 'The underside of the case',
+        caption: '',
         annotations,
       },
     ],
@@ -236,5 +237,56 @@ describe('annotated photographs', () => {
     expect(screen.getByText('The centre screw')).toBeVisible();
     expect(screen.getByText('Slide this way')).toBeVisible();
     expect(screen.getByRole('img', { name: 'The underside of the case' })).toBeVisible();
+  });
+});
+
+describe('picture captions', () => {
+  const withCaption = (caption: string, alt = 'The underside of the case'): GuideStep => ({
+    ...step('Undo the screw.'),
+    media: [{ assetId: '30000000-0000-4000-8000-000000000001', alt, caption, annotations: [] }],
+  });
+
+  it('shows a caption to everyone without it standing in for the description', () => {
+    render(
+      <StepRenderer
+        step={withCaption('Taken with the case upside down.')}
+        index={0}
+        mediaSrc={(id) => `/media/${id}`}
+      />,
+    );
+    expect(screen.getByText('Taken with the case upside down.')).toBeVisible();
+    // The two do different jobs: a caption is read alongside the picture, a
+    // description instead of it. A caption must never overwrite the alt text.
+    expect(screen.getByRole('img', { name: 'The underside of the case' })).toBeVisible();
+  });
+
+  it('adds nothing when a picture has neither caption nor marks', () => {
+    const { container } = render(
+      <StepRenderer step={withCaption('')} index={0} mediaSrc={(id) => `/media/${id}`} />,
+    );
+    // An empty figcaption is a gap a screen reader announces for no reason.
+    expect(container.querySelector('figcaption')).toBeNull();
+  });
+
+  it('keeps a caption and the list of marks apart', () => {
+    const { container } = render(
+      <StepRenderer
+        step={{
+          ...step('Undo the screw.'),
+          media: [
+            {
+              assetId: '30000000-0000-4000-8000-000000000002',
+              alt: 'The case',
+              caption: 'Seen from below.',
+              annotations: [{ type: 'pin', x: 0.5, y: 0.5, label: 'The centre screw' }],
+            },
+          ],
+        }}
+        index={0}
+        mediaSrc={(id) => `/media/${id}`}
+      />,
+    );
+    expect(container.querySelector('.step-media-caption')?.textContent).toBe('Seen from below.');
+    expect(container.querySelector('.step-media-legend')?.textContent).toBe('The centre screw');
   });
 });

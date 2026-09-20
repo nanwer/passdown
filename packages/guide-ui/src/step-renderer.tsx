@@ -116,13 +116,19 @@ function StepMedia({ media, src }: { media: GuideStep['media'][number]; src: str
           </span>
         ))}
       </div>
-      {media.annotations.length > 0 && (
+      {(media.caption || media.annotations.length > 0) && (
         <figcaption>
-          <ol className="step-media-legend">
-            {media.annotations.map((annotation, index) => (
-              <li key={index}>{annotation.label}</li>
-            ))}
-          </ol>
+          {/* The caption is for everyone; alt text stands in for the picture
+              when it cannot be seen. They are different jobs, so a caption is
+              never used as a substitute for the description. */}
+          {media.caption && <p className="step-media-caption">{media.caption}</p>}
+          {media.annotations.length > 0 && (
+            <ol className="step-media-legend">
+              {media.annotations.map((annotation, index) => (
+                <li key={index}>{annotation.label}</li>
+              ))}
+            </ol>
+          )}
         </figcaption>
       )}
     </figure>

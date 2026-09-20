@@ -903,3 +903,14 @@
 .studio-annotate-list input {
   flex: 1;
 }
+
+.studio-picture-topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.studio-picture-order {
+  display: flex;
+  gap: 2px;
+}

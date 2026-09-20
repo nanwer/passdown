@@ -589,7 +589,14 @@ test('signing in correctly many times does not lock the account out', async ({ r
   // The per-address limit exists to bound credential guessing. Charging a
   // correct sign-in against it would lock out anyone who legitimately signs in
   // often, which is a real cost for no security gain.
-  for (let attempt = 0; attempt < 14; attempt++) {
+  //
+  // The same reasoning applies to the installation-wide counter, which used to
+  // charge every attempt including the successful ones. At 60 a minute for
+  // everybody at once, a shift starting or a class arriving would have locked
+  // the whole workspace out — the application denying service to its own users
+  // on their busiest morning. This loop is well past that old ceiling, so it
+  // fails if the global counter ever goes back to counting successes.
+  for (let attempt = 0; attempt < 75; attempt++) {
     const response = await request.post('/api/auth/sign-in/email', {
       headers,
       data: {
@@ -597,7 +604,7 @@ test('signing in correctly many times does not lock the account out', async ({ r
         password: credentials.GUIDE_LOCAL_OWNER_PASSWORD,
       },
     });
-    expect(response.status(), `attempt ${attempt + 1} of 14`).toBe(200);
+    expect(response.status(), `attempt ${attempt + 1} of 75`).toBe(200);
   }
 });
 
