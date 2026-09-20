@@ -12,7 +12,10 @@ export async function studioFetch<T>(path: string, init?: RequestInit): Promise<
     ...init,
     credentials: 'same-origin',
     cache: 'no-store',
-    headers: init?.body ? { 'Content-Type': 'application/json' } : undefined,
+    // Only a JSON body gets a JSON content type. Declaring it for FormData
+    // suppresses the multipart boundary the browser would otherwise generate,
+    // and the request arrives at the server unparseable.
+    headers: typeof init?.body === 'string' ? { 'Content-Type': 'application/json' } : undefined,
   });
   const result = await response.json().catch(() => null);
   if (!response.ok) {

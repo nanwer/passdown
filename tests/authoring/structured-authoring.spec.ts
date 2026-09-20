@@ -1435,3 +1435,32 @@ test('a picture already in the workspace can be used again on another step', asy
   await expect(reopened.locator(`img[src*="${assetId}"]`)).toHaveCount(0);
   await anonymous.close();
 });
+
+test('adding a picture with the button on the page works', async ({ page }) => {
+  const sharp = (await import('sharp')).default;
+  await login(page.request);
+  const workspace = 'repair-collective';
+  const suffix = randomUUID().slice(0, 8);
+  const section = await category(page.request, workspace, `Upload ${suffix}`);
+  const guide = await draft(page.request, workspace, section.id, `Upload guide ${suffix}`);
+
+  const bytes = await sharp({
+    create: { width: 300, height: 200, channels: 3, background: '#4a6b52' },
+  })
+    .jpeg()
+    .toBuffer();
+
+  await page.goto(`/studio/${workspace}/${guide.id}`);
+  await page
+    .locator('.studio-picture-add input[type=file]')
+    .setInputFiles({ name: 'bench.jpg', mimeType: 'image/jpeg', buffer: bytes });
+
+  // Every other picture test uploads through the API. This one uses the
+  // control an author actually has.
+  await expect(page.getByRole('textbox', { name: 'Describe this picture' })).toBeVisible({
+    timeout: 15000,
+  });
+  await page.getByRole('textbox', { name: 'Describe this picture' }).fill('A clear bench');
+  await page.getByRole('button', { name: 'Add to step' }).click();
+  await expect(page.getByRole('textbox', { name: 'Description' })).toHaveValue('A clear bench');
+});
