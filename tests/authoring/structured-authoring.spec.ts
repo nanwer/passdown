@@ -1176,7 +1176,10 @@ test('an author marks up a photograph, and the marks reach the reader with their
     'The corner clip',
   ]);
   // The marker numbers match the legend, and sit where the author put them.
-  await expect(visitor.locator('.step-media-mark').first()).toHaveAttribute('style', /left:\s?54\.5%/);
+  await expect(visitor.locator('.step-media-mark').first()).toHaveAttribute(
+    'style',
+    /left:\s?54\.5%/,
+  );
   await expect(visitor.locator('.step-media-mark').first()).toHaveText('1');
   await expect(visitor.locator('.step-media-arrows line')).toHaveCount(1);
 
