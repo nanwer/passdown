@@ -39,7 +39,7 @@ import { MetadataFields } from './pages';
 import { moveBy, newStep, reorder } from './model';
 import { RichTextEditor } from './rich-text-editor';
 import { StepRequirements } from './step-requirements';
-import { StudioError, studioFetch } from './transport';
+import { StudioError, studioFetch, studioUpload } from './transport';
 function fingerprint(guide: DraftGuide) {
   return JSON.stringify({ document: guide.document, categoryId: guide.categoryId });
 }
@@ -366,25 +366,42 @@ function StepPictures({
   const [pending, setPending] = useState<{ id: string } | null>(null);
   const [alt, setAlt] = useState('');
   const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState(0);
   const [error, setError] = useState('');
+  /**
+   * The file that failed, kept so the author can try the same one again.
+   * Without it a failure means finding the photograph in the file picker a
+   * second time, which is the moment someone gives up on a slow connection.
+   */
+  const [failed, setFailed] = useState<File | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
+  const cancel = useRef<AbortController | null>(null);
 
   async function upload(file: File) {
+    cancel.current = new AbortController();
     setBusy(true);
     setError('');
+    setFailed(null);
+    setProgress(0);
     try {
-      const body = new FormData();
-      body.append('file', file);
-      const result = await studioFetch<{ asset: { id: string } }>(
+      const result = await studioUpload<{ asset: { id: string } }>(
         `/api/studio/${workspaceId}/assets`,
-        { method: 'POST', body },
+        file,
+        setProgress,
+        cancel.current.signal,
       );
       setPending({ id: result.asset.id });
       setAlt('');
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'That picture could not be added.');
+      const stopped = e instanceof StudioError && e.code === 'ABORTED';
+      setError(stopped ? '' : e instanceof Error ? e.message : 'That picture could not be added.');
+      // A picture the server refused will be refused again; only offer to
+      // retry what might succeed a second time.
+      const worthRetrying = !stopped && !(e instanceof StudioError && e.status === 422);
+      setFailed(worthRetrying ? file : null);
     } finally {
       setBusy(false);
+      cancel.current = null;
       if (fileInput.current) fileInput.current.value = '';
     }
   }
@@ -512,11 +529,41 @@ function StepPictures({
             Discard
           </Button>
         </div>
+      ) : busy ? (
+        <div className="studio-picture-progress">
+          <label>
+            Adding your picture
+            <progress value={progress} max={1} />
+          </label>
+          <span role="status">{Math.round(progress * 100)}% sent</span>
+          <Button type="button" variant="secondary" onClick={() => cancel.current?.abort()}>
+            Stop
+          </Button>
+        </div>
+      ) : failed ? (
+        <div className="studio-picture-retry">
+          <ErrorNotice error={error} />
+          <div className="studio-picture-actions">
+            <Button type="button" onClick={() => void upload(failed)}>
+              Try again
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => {
+                setFailed(null);
+                setError('');
+              }}
+            >
+              Choose a different picture
+            </Button>
+          </div>
+        </div>
       ) : (
         step.media.length < 10 && (
           <div className="studio-picture-actions">
             <label className="studio-picture-add">
-              <span>{busy ? 'Adding\u2026' : 'Add a picture'}</span>
+              <span>Add a picture</span>
               <input
                 ref={fileInput}
                 type="file"
@@ -541,7 +588,7 @@ function StepPictures({
           </div>
         )
       )}
-      {error && <ErrorNotice error={error} />}
+      {error && !failed && <ErrorNotice error={error} />}
       <p className="studio-hint">
         JPEG, PNG or WebP, up to 20 MB. Location and camera details are removed, and pictures are
         only visible to people who can already read the guide.

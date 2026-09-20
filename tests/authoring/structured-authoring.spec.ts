@@ -1436,7 +1436,7 @@ test('a picture already in the workspace can be used again on another step', asy
   await anonymous.close();
 });
 
-test('adding a picture with the button on the page works', async ({ page }) => {
+test('adding a picture from the page: progress, refusal, retry and removal', async ({ page }) => {
   const sharp = (await import('sharp')).default;
   await login(page.request);
   const workspace = 'repair-collective';
@@ -1463,4 +1463,38 @@ test('adding a picture with the button on the page works', async ({ page }) => {
   await page.getByRole('textbox', { name: 'Describe this picture' }).fill('A clear bench');
   await page.getByRole('button', { name: 'Add to step' }).click();
   await expect(page.getByRole('textbox', { name: 'Description' })).toHaveValue('A clear bench');
+
+  // A file the server will never accept is explained, and is not offered a
+  // retry that would fail identically.
+  await page.locator('.studio-picture-add input[type=file]').setInputFiles({
+    name: 'notes.txt',
+    mimeType: 'text/plain',
+    buffer: Buffer.from('this is not an image'),
+  });
+  await expect(page.getByText(/could not be read as an image|are supported/)).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Try again' })).toHaveCount(0);
+
+  // A failure that might not repeat keeps the file, so the author is not sent
+  // back to the file picker to find the same photograph again.
+  await page.route('**/api/studio/*/assets', (route) => route.abort('connectionfailed'));
+  await page
+    .locator('.studio-picture-add input[type=file]')
+    .setInputFiles({ name: 'bench2.jpg', mimeType: 'image/jpeg', buffer: bytes });
+  await expect(page.getByText(/did not reach the server/)).toBeVisible();
+  const retry = page.getByRole('button', { name: 'Try again' });
+  await expect(retry).toBeVisible();
+
+  await page.unroute('**/api/studio/*/assets');
+  await retry.click();
+  await expect(page.getByRole('textbox', { name: 'Describe this picture' })).toBeVisible({
+    timeout: 15000,
+  });
+  await page.getByRole('textbox', { name: 'Describe this picture' }).fill('The bench again');
+  await page.getByRole('button', { name: 'Add to step' }).click();
+  await expect(page.getByRole('textbox', { name: 'Description' })).toHaveCount(2);
+
+  // And a picture can be taken off the step again.
+  await page.getByRole('button', { name: 'Remove picture' }).first().click();
+  await expect(page.getByRole('textbox', { name: 'Description' })).toHaveCount(1);
+  await expect(page.getByRole('textbox', { name: 'Description' })).toHaveValue('The bench again');
 });
