@@ -32,3 +32,9 @@ docs/development/published-formatting-examples.md
 
 # Disposable uploads from browser test runs.
 .media-authoring/
+
+# Correspondence and verification notes written during development. These are
+# working documents, not project source, and some quote local evidence.
+/claude-*.md
+/review-for-gpt-*.md
+/feedback-to-gpt-*.md
