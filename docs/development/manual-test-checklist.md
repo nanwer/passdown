@@ -50,7 +50,6 @@ These are interface fixes. Saving a catalog entry or publishing a guide still re
 
 Owner-only authoring; manual saves without browser draft backup; category depth 16; tables limited to 10 columns and 51 rows. Uploads/PDF attachments, merged cells, cross-guide prerequisites, approval workflows and simultaneous collaborative editing are unfinished. Demonstration guides are examples, not verified repair instructions. See [development status](status.md) and [roadmap](../../ROADMAP.md).
 
-
 ## Category codes, totals and retirement
 
 1. Sign in and open **Studio → a workspace → Categories**. Expect every row to show a short code such as `GC-0001`, and branches holding guides to show a total such as `5 guides`. Hover a total: expect `5 guides: 1 here and 4 in subcategories`.

@@ -57,7 +57,11 @@ export function POST(request: Request, context: Context) {
     if (!response.ok) {
       // Only a failed attempt advances the guessing counter.
       if (emailHash)
-        await getApplication().store.consumeRateLimit(failureKey(emailHash), signInFailureLimit, 60);
+        await getApplication().store.consumeRateLimit(
+          failureKey(emailHash),
+          signInFailureLimit,
+          60,
+        );
       const result = await response.json().catch(() => null);
       throw new ApplicationError(
         result?.code ?? 'AUTHENTICATION_FAILED',

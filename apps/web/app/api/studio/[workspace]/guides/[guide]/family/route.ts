@@ -1,5 +1,9 @@
 import { guideFamilySchema } from '@guide/contracts';
-import { getApplication, mutationContext, requireSession } from '../../../../../../../lib/application';
+import {
+  getApplication,
+  mutationContext,
+  requireSession,
+} from '../../../../../../../lib/application';
 import { apiResponse, assertIdentifier, parseInput, readJSON } from '../../../../../../../lib/http';
 export const dynamic = 'force-dynamic';
 type Context = { params: Promise<{ workspace: string; guide: string }> };

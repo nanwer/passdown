@@ -301,13 +301,7 @@ function GuideSectionPicker({
     </div>
   );
 }
-function GuideFamilyPicker({
-  workspaceId,
-  guideId,
-}: {
-  workspaceId: string;
-  guideId: string;
-}) {
+function GuideFamilyPicker({ workspaceId, guideId }: { workspaceId: string; guideId: string }) {
   const [candidates, setCandidates] = useState<{ id: string; title: string }[]>([]);
   const [parentId, setParentId] = useState('');
   const [saved, setSaved] = useState('');
@@ -317,9 +311,7 @@ function GuideFamilyPicker({
   useEffect(() => {
     let active = true;
     void Promise.all([
-      studioFetch<{ guides: { id: string; title: string }[] }>(
-        `/api/studio/${workspaceId}/guides`,
-      ),
+      studioFetch<{ guides: { id: string; title: string }[] }>(`/api/studio/${workspaceId}/guides`),
       studioFetch<{ family: { ancestors: { id: string }[] } }>(
         `/api/studio/${workspaceId}/guides/${guideId}/family`,
       ),
@@ -348,7 +340,11 @@ function GuideFamilyPicker({
         body: JSON.stringify({ parentGuideId: next || null, sortOrder: 0 }),
       });
       setParentId(next);
-      setSaved(next ? 'Saved. This guide now sits beneath that one.' : 'Saved. This guide stands on its own.');
+      setSaved(
+        next
+          ? 'Saved. This guide now sits beneath that one.'
+          : 'Saved. This guide stands on its own.',
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : 'That relationship could not be saved.');
     } finally {
@@ -374,8 +370,8 @@ function GuideFamilyPicker({
         </select>
       </label>
       <p className="studio-hint">
-        For a range and its models: readers of the broader guide can narrow to this one, and
-        readers here can step back up. Separate from its category.
+        For a range and its models: readers of the broader guide can narrow to this one, and readers
+        here can step back up. Separate from its category.
       </p>
       {saved && <p className="studio-success">{saved}</p>}
       {error && <ErrorNotice error={error} />}
@@ -897,9 +893,7 @@ function Editor({ workspace, guideId }: { workspace: StudioWorkspace; guideId: s
               <Plus size={17} />
               Add step
             </Button>
-            <p className="studio-hint">
-              Changes stay in this tab until you save.
-            </p>
+            <p className="studio-hint">Changes stay in this tab until you save.</p>
           </aside>
           <section className="studio-editor-canvas">
             {metadata ? (
@@ -1042,11 +1036,7 @@ function Editor({ workspace, guideId }: { workspace: StudioWorkspace; guideId: s
                       )
                     }
                   />
-                  <StepPictures
-                    workspaceId={guide.workspaceId}
-                    step={step}
-                    onChange={updateStep}
-                  />
+                  <StepPictures workspaceId={guide.workspaceId} step={step} onChange={updateStep} />
                 </div>
                 {guide.document.schemaVersion === 4 && (
                   <StepRequirements

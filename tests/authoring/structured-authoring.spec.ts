@@ -634,7 +634,12 @@ test('catalog listing reports how many guides use each item and filters by statu
 
   // All equals Active plus Inactive, and the counts respond to the filters.
   const readCount = async (name: string) =>
-    Number((await tabs.getByRole('button', { name: new RegExp(`^${name}`) }).innerText()).replace(/\D/g, ''));
+    Number(
+      (await tabs.getByRole('button', { name: new RegExp(`^${name}`) }).innerText()).replace(
+        /\D/g,
+        '',
+      ),
+    );
   const [all, active, inactive] = [
     await readCount('All'),
     await readCount('Active'),
@@ -764,7 +769,12 @@ test('a picture is re-encoded, shown to readers of the guide, and hidden from ev
   expect((await visitor.request.get(`/api/media/${workspace}/${assetId}`)).status()).toBe(404);
 
   // Put it on a step and publish.
-  const guide = await draft(page.request, workspace, section.id, `Picture guide ${randomUUID().slice(0, 8)}`);
+  const guide = await draft(
+    page.request,
+    workspace,
+    section.id,
+    `Picture guide ${randomUUID().slice(0, 8)}`,
+  );
   const withPicture = {
     ...guide.document,
     steps: guide.document.steps.map((step, index) =>
@@ -802,8 +812,17 @@ test('a picture is re-encoded, shown to readers of the guide, and hidden from ev
   await anonymous.close();
 
   // A document cannot claim an asset from another workspace.
-  const otherSection = await category(page.request, 'workshop', `Other ${randomUUID().slice(0, 8)}`);
-  const otherGuide = await draft(page.request, 'workshop', otherSection.id, `Foreign ${randomUUID().slice(0, 8)}`);
+  const otherSection = await category(
+    page.request,
+    'workshop',
+    `Other ${randomUUID().slice(0, 8)}`,
+  );
+  const otherGuide = await draft(
+    page.request,
+    'workshop',
+    otherSection.id,
+    `Foreign ${randomUUID().slice(0, 8)}`,
+  );
   const stealing = await page.request.put(`/api/studio/workshop/guides/${otherGuide.id}`, {
     headers,
     data: {
@@ -998,7 +1017,9 @@ test('a guide moves between the public and internal sections, and says what it c
   // And back in again. The wording does not promise a recall it cannot make.
   await page.reload();
   await page.getByRole('button', { name: 'Guide details' }).click();
-  await expect(page.getByText('Anyone can read the published version of this guide.')).toBeVisible();
+  await expect(
+    page.getByText('Anyone can read the published version of this guide.'),
+  ).toBeVisible();
   await expect(
     page.getByText(/any licence it was published under still applies to those/),
   ).toBeVisible();

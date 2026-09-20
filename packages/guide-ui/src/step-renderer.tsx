@@ -63,13 +63,7 @@ export function StepRenderer({
  * still gets every label, in order, which a purely visual marker would deny
  * them.
  */
-function StepMedia({
-  media,
-  src,
-}: {
-  media: GuideStep['media'][number];
-  src: string;
-}) {
+function StepMedia({ media, src }: { media: GuideStep['media'][number]; src: string }) {
   const pins = media.annotations.filter((a) => a.type === 'pin');
   return (
     <figure className="step-media">

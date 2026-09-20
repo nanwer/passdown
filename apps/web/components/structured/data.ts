@@ -1,11 +1,6 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
-import type {
-  Category,
-  CategoryCounts,
-  CatalogItem,
-  CatalogUsageCounts,
-} from '@guide/contracts';
+import type { Category, CategoryCounts, CatalogItem, CatalogUsageCounts } from '@guide/contracts';
 import { studioFetch } from '../studio/transport';
 const changeEvent = 'guide-structured-data-changed';
 export function announceStructuredChange(workspaceId: string) {

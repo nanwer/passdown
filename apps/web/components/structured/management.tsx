@@ -456,25 +456,25 @@ function CategoryManagement({ workspace }: { workspace: StudioWorkspace }) {
                       {!selected.archived && blockersLoading && (
                         <p role="status">Checking what still uses this category…</p>
                       )}
-                      {!selected.archived && blockers && blockingReasons(blockers, workspace.id).length > 0 && (
-                        <div className="structured-blockers">
-                          <p>
-                            <strong>Move these first.</strong> Nothing is deleted; each of these
-                            still points at this category.
-                          </p>
-                          <ul>
-                            {blockingReasons(blockers, workspace.id).map((reason) => (
-                              <li key={reason.key}>
-                                <span className="structured-blocker-count">{reason.count}</span>
-                                {reason.label}
-                                {reason.href && (
-                                  <a href={reason.href}>{reason.action}</a>
-                                )}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
+                      {!selected.archived &&
+                        blockers &&
+                        blockingReasons(blockers, workspace.id).length > 0 && (
+                          <div className="structured-blockers">
+                            <p>
+                              <strong>Move these first.</strong> Nothing is deleted; each of these
+                              still points at this category.
+                            </p>
+                            <ul>
+                              {blockingReasons(blockers, workspace.id).map((reason) => (
+                                <li key={reason.key}>
+                                  <span className="structured-blocker-count">{reason.count}</span>
+                                  {reason.label}
+                                  {reason.href && <a href={reason.href}>{reason.action}</a>}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
                       {actionError && <ErrorNotice error={actionError} />}
                       <div className="structured-form-actions">
                         <Button
@@ -491,7 +491,8 @@ function CategoryManagement({ workspace }: { workspace: StudioWorkspace }) {
                             pending ||
                             (!selected.archived &&
                               (blockersLoading ||
-                                (blockers !== null && blockingReasons(blockers, workspace.id).length > 0)))
+                                (blockers !== null &&
+                                  blockingReasons(blockers, workspace.id).length > 0)))
                           }
                           onClick={() => void archive()}
                         >

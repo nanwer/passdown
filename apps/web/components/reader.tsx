@@ -33,7 +33,11 @@ export function Reader({
   const base = basePath ?? (team ? '/preview/workshop' : '/');
   // Relatives live beside this guide: '/guides/:id' publicly, or under the
   // workspace path when reading a members-only section.
-  const readerBase = basePath ? `${basePath}/guides` : team ? '/preview/workshop/guides' : '/guides';
+  const readerBase = basePath
+    ? `${basePath}/guides`
+    : team
+      ? '/preview/workshop/guides'
+      : '/guides';
   const sample = !('isSample' in guide) || guide.isSample;
   const synthetic = team && !persistent;
   return (
@@ -141,9 +145,7 @@ export function Reader({
             {family && family.children.length > 0 && (
               <section className="guide-family-children" aria-labelledby="family-children">
                 <h2 id="family-children">Choose your version</h2>
-                <p>
-                  This guide covers the range. These cover a particular one in more detail.
-                </p>
+                <p>This guide covers the range. These cover a particular one in more detail.</p>
                 <ul>
                   {family.children.map((child) => (
                     <li key={child.id}>

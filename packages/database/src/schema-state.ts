@@ -36,9 +36,7 @@ export function expectedMigrations(): Migration[] {
  * have diverged in a way re-running cannot repair, so it is reported
  * separately rather than being described as merely behind.
  */
-export async function readSchemaState(
-  client: Pick<pg.Client, 'query'>,
-): Promise<SchemaState> {
+export async function readSchemaState(client: Pick<pg.Client, 'query'>): Promise<SchemaState> {
   const table = await client.query(
     "SELECT to_regclass('public.schema_migration') IS NOT NULL AS present",
   );

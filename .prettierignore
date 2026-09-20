@@ -12,3 +12,7 @@ LOCAL_ACCESS.md
 
 .private/
 LICENSE
+
+# Generated: written by scripts/migration-manifest.mjs, checked byte-for-byte
+# against the migrations on disk. Reformatting it fails that check.
+packages/database/src/migration-manifest.ts
