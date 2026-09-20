@@ -74,3 +74,17 @@ Owner-only authoring; manual saves without browser draft backup; category depth 
 4. Open the same internal address in a private window. Expect 404, with no sign-in prompt and no hint that the section exists.
 5. As a visitor on the public home, expect no Public/Internal switch at all.
 6. Choose **New guide** in a public workspace. Expect a **Section** choice defaulting to Public, and a note that it cannot be changed later. Repeat in a private workspace and expect no choice, only the members-only note.
+
+## A library larger than one page
+
+Publish more than 24 guides in one workspace before starting; the page holds 24.
+
+1. Open the public library. Expect the heading total to be every guide that matched, not the number of cards, and 24 cards below it.
+2. Read the line under the results. Expect `Showing 1–24 of N guides` and a **Next** control, so nothing is cut off without saying so.
+3. Choose **Next**. Expect the following guides, `Showing 25–… of N guides`, a **Previous** control and the page to land on the results rather than the top.
+4. With a later page open, type in the search field. Expect the results to return to the first page of the new search, and the address to drop the page number.
+5. Choose a category tab, then page through it. Expect the total and every page to stay within that category and its subcategories, and the search term to survive paging.
+6. Open a category page and page through it. Expect the same, with **Next** staying on that category's address.
+7. Edit the address to a page beyond the end, such as `?page=99`. Expect a plain explanation and a way back, not an empty library.
+8. In **Browse by category**, compare each card's total with the guides that category and its branches actually hold. Expect them to agree, and a members-only guide never to be counted on the public side.
+9. Repeat steps 1–3 at 390px wide and in dark mode. Expect the summary and controls to stay readable and reachable without horizontal scrolling.

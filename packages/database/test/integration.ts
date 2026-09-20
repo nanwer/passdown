@@ -10,6 +10,7 @@ import {
 import { readConfig } from '../../../scripts/local-config.mjs';
 import { seedLocal } from '../../../scripts/seed-local';
 import { migrate, requireLocal } from '../../../scripts/migrate-local.mjs';
+import { libraryPageSize } from '@guide/contracts';
 import type { Actor } from '@guide/core';
 import { structuredChecks } from './structured-integration';
 import { verifyStructuredMigration } from './migration-integration';
@@ -161,7 +162,7 @@ try {
     assert.equal(publicDraft.version, 1);
     assert.equal(await store.getDraft(anonymous, 'public', publicDraft.id), null);
     assert.equal(await store.getDraft(actor('reader'), 'private', privateDraft.id), null);
-    assert.deepEqual(await store.listReleases(anonymous, 'public'), []);
+    assert.deepEqual((await store.listReleases(anonymous, 'public')).guides, []);
   });
   await check(
     'owner-only writes, outsider/revoked/suspended/verified checks and immutable workspace',
@@ -328,14 +329,17 @@ try {
       assert.equal(await store.getRelease(actor('suspended'), 'public', publicDraft.id), null);
       assert.equal(await store.getRelease(actor('unverified'), 'public', publicDraft.id), null);
       assert.equal(await store.getRelease(actor('owner'), 'private', publicDraft.id), null);
-      assert.deepEqual(await store.listReleases(anonymous, 'private', { search: 'Secret' }), []);
+      assert.deepEqual(
+        (await store.listReleases(anonymous, 'private', { search: 'Secret' })).guides,
+        [],
+      );
       assert.equal(
         (
           await store.listReleases(anonymous, 'public', {
             search: 'newer',
             category: 'New category',
           })
-        ).length,
+        ).total,
         1,
       );
       await owner.query("UPDATE app.membership SET active=false WHERE actor_id='reader'");
@@ -344,10 +348,13 @@ try {
   );
   await check('search uses normalized title/summary and does not search categories', async () => {
     assert.equal(
-      (await store.listReleases(anonymous, 'public', { search: 'Ｓａｖｅｄ' })).length,
+      (await store.listReleases(anonymous, 'public', { search: 'Ｓａｖｅｄ' })).total,
       1,
     );
-    assert.deepEqual(await store.listReleases(anonymous, 'public', { search: 'New category' }), []);
+    assert.deepEqual(
+      (await store.listReleases(anonymous, 'public', { search: 'New category' })).guides,
+      [],
+    );
   });
   await check(
     'published immutable snapshot survives saves; concurrent duplicate publish has single winner',
@@ -495,7 +502,7 @@ try {
         await owner.query('UPDATE app.guide SET state=$1 WHERE id=$2', [state, publicDraft.id]);
         assert.equal(await store.getRelease(anonymous, 'public', publicDraft.id), null);
         assert.deepEqual(
-          await store.listReleases(anonymous, 'public', { search: 'Unpublished' }),
+          (await store.listReleases(anonymous, 'public', { search: 'Unpublished' })).guides,
           [],
         );
         await scoped(actor('owner'), 'public', async (c) => {
@@ -625,7 +632,7 @@ try {
       }),
     );
     assert.equal((await runtime.query('SELECT * FROM app.guide')).rowCount, 0);
-    assert.equal((await store.listReleases(anonymous, 'public')).length, 1);
+    assert.equal((await store.listReleases(anonymous, 'public')).total, 1);
   });
   await check(
     'atomic bounded rate counters allow exactly the limit under concurrency and expire',
@@ -962,6 +969,117 @@ try {
     verifyStructuredMigration,
   );
   await structuredChecks({ store, owner, runtime, check, scoped, actor, anonymous, doc });
+  await check(
+    'library listing is bounded and counted in the database, and sections only narrow',
+    async () => {
+      // A workspace of its own: this check publishes more guides than any
+      // other, and the totals it asserts must not move when one is added
+      // elsewhere in this suite.
+      await owner.query(
+        "INSERT INTO app.workspace VALUES('library','Library','public'); INSERT INTO app.membership VALUES('library','owner','owner',true)",
+      );
+      const shelf = await store.createCategory(actor('owner'), 'library', {
+        domain: 'guide',
+        parentId: null,
+        name: 'Shelf',
+        description: '',
+        visibility: 'public',
+        sortOrder: 0,
+      });
+      const branch = await store.createCategory(actor('owner'), 'library', {
+        domain: 'guide',
+        parentId: shelf.id,
+        name: 'Branch',
+        description: '',
+        visibility: 'public',
+        sortOrder: 0,
+      });
+      const publish = async (title: string, audience: 'public' | 'members') => {
+        const draft = await store.createDraft(actor('owner'), 'library', {
+          document: { ...doc, title, summary: 'Shelved summary' },
+          categoryId: branch.id,
+          audience,
+        });
+        await store.publishDraft(actor('owner'), 'library', draft.id, {
+          expectedVersion: 1,
+          expectedRelease: null,
+          license: audience === 'public' ? 'CC-BY-4.0' : 'all-rights-reserved',
+        });
+        return draft.id;
+      };
+      const published = libraryPageSize + 6;
+      for (let n = 0; n < published; n++) await publish(`Shelved guide ${n}`, 'public');
+      await publish('Internal shelved guide', 'members');
+      await store.createDraft(actor('owner'), 'library', {
+        document: { ...doc, title: 'Never published' },
+        categoryId: branch.id,
+        audience: 'public',
+      });
+
+      // A visitor reads one page, and is told how large the collection is
+      // rather than being handed all of it or shown a silent truncation.
+      const first = await store.listReleases(anonymous, 'library');
+      assert.equal(first.guides.length, libraryPageSize);
+      assert.equal(first.total, published);
+      assert.equal(first.offset, 0);
+      const second = await store.listReleases(anonymous, 'library', { offset: libraryPageSize });
+      assert.equal(second.guides.length, published - libraryPageSize);
+      assert.equal(second.total, published);
+      assert.equal(
+        new Set([...first.guides, ...second.guides].map((g) => g.id)).size,
+        published,
+        'pages must not repeat or skip a guide',
+      );
+      // A parameter cannot undo the bound.
+      assert.equal((await store.listReleases(anonymous, 'library', { limit: 5000 })).limit, 100);
+
+      // Filtering happens in SQL and keeps the behavior it replaced: a
+      // category includes its branches, and search reads titles and summaries
+      // rather than category names.
+      assert.equal(
+        (await store.listReleases(anonymous, 'library', { categoryId: shelf.id })).total,
+        published,
+      );
+      assert.equal(
+        (await store.listReleases(anonymous, 'library', { search: 'Ｓｈｅｌｖｅｄ ｇｕｉｄｅ' }))
+          .total,
+        published,
+      );
+      assert.equal((await store.listReleases(anonymous, 'library', { search: 'Shelf' })).total, 0);
+      assert.equal(
+        (await store.listReleases(anonymous, 'library', { search: 'Never published' })).total,
+        0,
+      );
+
+      // The section narrows an authorized set. It never widens one: the same
+      // request as a visitor still cannot reach the internal guide.
+      assert.equal((await store.listReleases(actor('owner'), 'library')).total, published + 1);
+      assert.equal(
+        (await store.listReleases(actor('owner'), 'library', { audience: 'members' })).total,
+        1,
+      );
+      assert.equal(
+        (await store.listReleases(anonymous, 'library', { audience: 'members' })).total,
+        0,
+      );
+
+      // Browse totals come from the same authorized scope, so a visitor cannot
+      // infer the internal guide or an unpublished draft from a count.
+      const counts = async (who: Actor, audience?: 'public' | 'members') =>
+        new Map(
+          (await store.listLibraryCategoryCounts(who, 'library', audience)).map((c) => [
+            c.categoryId,
+            c,
+          ]),
+        );
+      const visitor = await counts(anonymous);
+      assert.equal(visitor.get(shelf.id)?.publishedSubtree, published);
+      assert.equal(visitor.get(branch.id)?.publishedDirect, published);
+      assert.equal(visitor.get(branch.id)?.direct, 0);
+      const internal = await counts(actor('owner'), 'members');
+      assert.equal(internal.get(shelf.id)?.publishedSubtree, 1);
+    },
+  );
   console.log(
     `${checks} persistent database/identity behavioral checks passed against guide_app_test.`,
   );

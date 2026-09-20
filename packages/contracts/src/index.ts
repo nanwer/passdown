@@ -62,6 +62,29 @@ export type PublishedGuide = {
   isSample: boolean;
   license: ContentLicense | 'local-preview-only';
 };
+/**
+ * How many published guides one library request returns.
+ *
+ * A listing has to be bounded somewhere, and the bound belongs with the
+ * contract rather than in each caller: the reader page, the category page and
+ * the public API all describe the same collection and should agree about how
+ * much of it a single response carries.
+ */
+export const libraryPageSize = 24;
+/** The largest page a caller may ask for, so a parameter cannot undo the bound. */
+export const maxLibraryPageSize = 100;
+/**
+ * One page of a published listing, with the size of the whole match beside it.
+ *
+ * `total` is what matched, not what is in `guides`. Returning both is what lets
+ * an interface say "24 of 176" instead of ending at 24 and looking complete.
+ */
+export type PublishedGuidePage = {
+  guides: PublishedGuide[];
+  total: number;
+  limit: number;
+  offset: number;
+};
 export type StudioSession = {
   user: { id: string; name: string; email: string };
   workspaces: StudioWorkspace[];

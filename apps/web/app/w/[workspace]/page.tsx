@@ -1,5 +1,10 @@
 import { notFound } from 'next/navigation';
-import { getInternalScope, getSections } from '../../../lib/queries';
+import {
+  emptyLibraryPage,
+  getInternalScope,
+  getSections,
+  readLibraryPage,
+} from '../../../lib/queries';
 import { Library } from '../../../components/library';
 import { resolveCategoryFilter } from '../../../lib/category-filter';
 export const dynamic = 'force-dynamic';
@@ -21,16 +26,25 @@ export default async function Page({
   const query = typeof paramsValue.q === 'string' ? paramsValue.q.slice(0, 200) : '';
   const category =
     typeof paramsValue.category === 'string' ? paramsValue.category.slice(0, 100) : '';
-  const [allGuides, taxonomy] = await Promise.all([scope.list(), scope.categories()]);
-  const categories = [...new Set(allGuides.map((guide) => guide.category))];
+  const [taxonomy, categoryCounts] = await Promise.all([
+    scope.categories(),
+    scope.categoryCounts(),
+  ]);
   const selected = resolveCategoryFilter(taxonomy, category);
   const filter = selected ? { categoryId: selected.id } : { category };
+  const page =
+    category && !selected
+      ? emptyLibraryPage
+      : await readLibraryPage(scope, { search: query, ...filter }, paramsValue.page);
   return (
     <Library
-      guides={category && !selected ? [] : await scope.list({ search: query, ...filter })}
-      categories={categories}
+      guides={page.guides}
+      total={page.total}
+      offset={page.offset}
+      limit={page.limit}
+      categories={[]}
       taxonomy={taxonomy}
-      categoryGuides={allGuides}
+      categoryCounts={categoryCounts}
       query={query}
       category={selected?.id ?? category}
       team

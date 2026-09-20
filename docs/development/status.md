@@ -14,6 +14,7 @@ Passdown is an early, working application for public community guides and privat
 - Public and internal sections of one public workspace: members switch between them, visitors and signed-in nonmembers see neither the switch nor the internal route.
 - Guide preparation, per-step requirements and consumption/reuse allocations, preconditions and earlier-step dependencies.
 - Shared reader, live search, keyboard navigation, responsive layouts and light/dark themes.
+- Library listings that read one bounded page from the database, filtered and counted there, and say how large the whole collection is instead of ending silently.
 - Versioned migrations, scoped repository access, validation, automated tests and public continuous checks.
 
 Recent interface fixes align catalog filters and distinguish nested category dialogs with a correctly layered backdrop, responsive sizing and shared dialog styling. Dismissing a nested picker preserves the unfinished parent form and returns focus to its trigger.

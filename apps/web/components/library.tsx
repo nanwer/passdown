@@ -2,9 +2,16 @@ import Link from 'next/link';
 import { AppShell } from '@guide/ui';
 import { GuideArtwork, GuideCard } from '@guide/guide-ui';
 import type { DemoGuide } from '@guide/testing';
-import type { PublishedGuide, Category } from '@guide/contracts';
+import {
+  libraryPageSize,
+  type PublishedGuide,
+  type Category,
+  type CategoryCounts,
+} from '@guide/contracts';
 import {
   ArrowDown,
+  ArrowLeft,
+  ArrowRight,
   ArrowUpRight,
   BookOpen,
   Globe2,
@@ -28,7 +35,10 @@ export function Library({
   workspaceName,
   taxonomy,
   selectedCategory,
-  categoryGuides = [],
+  categoryCounts = [],
+  total = guides.length,
+  offset = 0,
+  limit = libraryPageSize,
   sections,
 }: {
   guides: (DemoGuide | PublishedGuide)[];
@@ -41,7 +51,16 @@ export function Library({
   workspaceName?: string;
   taxonomy?: Category[];
   selectedCategory?: Category;
-  categoryGuides?: Pick<PublishedGuide, 'categoryPath'>[];
+  categoryCounts?: CategoryCounts[];
+  /**
+   * How many guides matched, which is not how many are on this page. A listing
+   * is bounded so its cost does not grow with the collection; saying what the
+   * page is a page of is what keeps that bound honest rather than a silent
+   * truncation.
+   */
+  total?: number;
+  offset?: number;
+  limit?: number;
   /**
    * Public and members-only views of one workspace. Omitted entirely for
    * visitors and signed-in nonmembers, so the internal section is not
@@ -58,6 +77,19 @@ export function Library({
     if (query) params.set('q', query);
     if (next) params.set('category', next);
     return `${base}${params.size ? '?' + params : ''}`;
+  };
+  const first = guides.length ? offset + 1 : 0;
+  const last = offset + guides.length;
+  const currentPage = Math.floor(offset / limit) + 1;
+  const pageCount = Math.max(Math.ceil(total / limit), 1);
+  const pageLink = (index: number) => {
+    const params = new URLSearchParams();
+    if (query) params.set('q', query);
+    if (!selectedCategory && category) params.set('category', category);
+    if (index > 1) params.set('page', String(index));
+    // The results, not the hero: a reader asking for more guides should land on
+    // them rather than at the top of a page they have already read.
+    return `${searchBase}${params.size ? '?' + params : ''}#collection`;
   };
   return (
     <AppShell
@@ -147,7 +179,7 @@ export function Library({
             categories={taxonomy}
             parentId={selectedCategory?.id ?? null}
             base={guideBase}
-            guides={categoryGuides}
+            counts={categoryCounts}
           />
         )}
         <section
@@ -166,7 +198,7 @@ export function Library({
                   : team
                     ? 'Your team’s field guide'
                     : 'A place to start'}
-                <span className="count">{guides.length}</span>
+                <span className="count">{total}</span>
               </h2>
             </div>
             <span className="collection-note">
@@ -247,7 +279,8 @@ export function Library({
             </nav>
           )}
           <p className="sr-only" role="status">
-            {guides.length} {guides.length === 1 ? 'guide' : 'guides'} found.
+            {total} {total === 1 ? 'guide' : 'guides'} found.
+            {total > guides.length && ` Showing ${first} to ${last}.`}
           </p>
           <div className="guide-results">
             {guides.length ? (
@@ -285,6 +318,36 @@ export function Library({
               </div>
             )}
           </div>
+          {total > guides.length && (
+            <nav className="library-pager" aria-label="Library pages">
+              <p>
+                {guides.length ? (
+                  <>
+                    Showing <strong>{first}</strong>–<strong>{last}</strong> of{' '}
+                    <strong>{total}</strong> guides
+                  </>
+                ) : (
+                  <>
+                    Page {currentPage} is past the end of {total} guides
+                  </>
+                )}
+              </p>
+              <div className="library-pager-links">
+                {currentPage > 1 && (
+                  <Link className="button button--secondary" href={pageLink(currentPage - 1)}>
+                    <ArrowLeft size={16} aria-hidden="true" />
+                    Previous
+                  </Link>
+                )}
+                {guides.length > 0 && currentPage < pageCount && (
+                  <Link className="button button--secondary" href={pageLink(currentPage + 1)}>
+                    Next
+                    <ArrowRight size={16} aria-hidden="true" />
+                  </Link>
+                )}
+              </div>
+            </nav>
+          )}
         </section>
         <section className="principle-strip page-width">
           <span className="strip-symbol" aria-hidden="true">

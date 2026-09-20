@@ -1,7 +1,6 @@
-import type { PublishedGuide } from '@guide/contracts';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
-import { getPublicScope } from '../../../lib/queries';
+import { getPublicScope, readLibraryPage } from '../../../lib/queries';
 import { Library } from '../../../components/library';
 export const dynamic = 'force-dynamic';
 type Props = {
@@ -24,19 +23,20 @@ export default async function Page({ params, searchParams }: Props) {
   if (!category) notFound();
   const search = await searchParams;
   const query = typeof search.q === 'string' ? search.q.slice(0, 200) : '';
-  const [allGuides, guides] = await Promise.all([
-    scope.list(),
-    scope.list({ categoryId: id, search: query }),
+  const [categoryCounts, page] = await Promise.all([
+    scope.categoryCounts(),
+    readLibraryPage(scope, { categoryId: id, search: query }, search.page),
   ]);
   return (
     <Library
-      guides={guides}
+      guides={page.guides}
+      total={page.total}
+      offset={page.offset}
+      limit={page.limit}
       categories={[]}
       taxonomy={taxonomy}
       selectedCategory={category}
-      categoryGuides={allGuides.map((guide) => ({
-        categoryPath: 'categoryPath' in guide ? (guide as PublishedGuide).categoryPath : [],
-      }))}
+      categoryCounts={categoryCounts}
       query={query}
       persistent
     />

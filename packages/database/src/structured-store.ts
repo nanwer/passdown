@@ -258,9 +258,8 @@ export function structuredStore(
     ): Promise<CategoryBlockers> {
       return transaction(actor, workspaceId, async (c) => {
         await owner(c, workspaceId);
-        const row = (
-          await c.query('SELECT * FROM app.category_blockers($1,$2)', [workspaceId, id])
-        ).rows[0];
+        const row = (await c.query('SELECT * FROM app.category_blockers($1,$2)', [workspaceId, id]))
+          .rows[0];
         if (!row) throw missing();
         return {
           activeChildren: Number(row.active_children),
@@ -285,6 +284,37 @@ export function structuredStore(
           await c.query(
             'SELECT category_id,direct,subtree,published_direct,published_subtree FROM app.category_guide_counts($1,$2)',
             [workspaceId, domain],
+          )
+        ).rows.map((row) => ({
+          categoryId: row.category_id,
+          direct: Number(row.direct),
+          subtree: Number(row.subtree),
+          publishedDirect: Number(row.published_direct),
+          publishedSubtree: Number(row.published_subtree),
+        })),
+      );
+    },
+    /**
+     * The same counts for a library reader, narrowed to one section.
+     *
+     * The browse cards used to be counted by listing every guide the reader
+     * could see and grouping in JavaScript, which read the whole library to
+     * produce a handful of numbers. This asks the database instead.
+     *
+     * It is a different question from the studio's counts above: a visitor must
+     * not learn from a total that a members-only guide exists, and the internal
+     * section counts its own guides rather than the public ones beside them.
+     */
+    async listLibraryCategoryCounts(
+      actor: Actor,
+      workspaceId: string,
+      audience?: 'public' | 'members',
+    ): Promise<CategoryCounts[]> {
+      return transaction(actor, workspaceId, async (c) =>
+        (
+          await c.query(
+            'SELECT category_id,direct,subtree,published_direct,published_subtree FROM app.category_guide_counts($1,$2,$3)',
+            [workspaceId, 'guide', audience ?? null],
           )
         ).rows.map((row) => ({
           categoryId: row.category_id,
@@ -471,9 +501,10 @@ export function structuredStore(
     async listCatalogUsage(actor: Actor, workspaceId: string): Promise<CatalogUsageCounts[]> {
       return transaction(actor, workspaceId, async (c) =>
         (
-          await c.query('SELECT item_id,draft_guides,published_guides FROM app.catalog_usage_counts($1)', [
-            workspaceId,
-          ])
+          await c.query(
+            'SELECT item_id,draft_guides,published_guides FROM app.catalog_usage_counts($1)',
+            [workspaceId],
+          )
         ).rows.map((row) => ({
           itemId: row.item_id,
           draftGuides: Number(row.draft_guides),

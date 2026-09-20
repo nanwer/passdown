@@ -711,6 +711,25 @@ button {
 .empty-state p {
   color: var(--gp-semantic-text-secondary);
 }
+.library-pager {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 26px;
+  padding-top: 20px;
+  border-top: 1px solid var(--gp-semantic-border-subtle);
+  color: var(--gp-semantic-text-secondary);
+  font-size: 12px;
+}
+.library-pager strong {
+  color: var(--gp-semantic-text-primary);
+}
+.library-pager-links {
+  display: flex;
+  gap: 10px;
+}
 .button {
   min-height: 42px;
   display: inline-flex;

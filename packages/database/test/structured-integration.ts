@@ -213,7 +213,7 @@ export async function structuredChecks({
         license: 'all-rights-reserved',
       });
       assert(
-        (await store.listReleases(anonymous, 'public', { categoryId: root.id })).some(
+        (await store.listReleases(anonymous, 'public', { categoryId: root.id })).guides.some(
           (g) => g.id === draft.id,
         ),
       );
@@ -225,7 +225,7 @@ export async function structuredChecks({
       assert.equal((await store.getRelease(anonymous, 'public', draft.id))?.categoryId, leaf.id);
       leaf = await edit(leaf, { name: 'Renamed model', parentId: other.id });
       assert(
-        (await store.listReleases(anonymous, 'public', { categoryId: other.id })).some(
+        (await store.listReleases(anonymous, 'public', { categoryId: other.id })).guides.some(
           (g) => g.id === draft.id,
         ),
       );
@@ -802,10 +802,10 @@ export async function structuredChecks({
       const internalRange = await make('Internal range', 'members');
       const publicChild = await make('Public child');
       await store.setGuideParent(who, 'public', publicChild, internalRange);
-      assert.deepEqual(
-        await store.getGuideFamily(anonymous, 'public', publicChild),
-        { ancestors: [], children: [] },
-      );
+      assert.deepEqual(await store.getGuideFamily(anonymous, 'public', publicChild), {
+        ancestors: [],
+        children: [],
+      });
       assert.deepEqual(
         (await store.getGuideFamily(who, 'public', publicChild)).ancestors.map((a) => a.title),
         ['Internal range'],
@@ -867,9 +867,8 @@ export async function structuredChecks({
       );
       assert.equal(
         Number(
-          (
-            await owner.query('SELECT count(*) FROM app.release WHERE guide_id=$1', [internal.id])
-          ).rows[0].count,
+          (await owner.query('SELECT count(*) FROM app.release WHERE guide_id=$1', [internal.id]))
+            .rows[0].count,
         ),
         1,
       );
@@ -900,7 +899,13 @@ export async function structuredChecks({
 
       // So is a members-only catalog item the published version names.
       const secretTools = await category(`Secret tools ${suffix}`, null, 'tool', 'members');
-      const secretTool = await item(`Secret driver ${suffix}`, secretTools.id, 'tool', 'public', 'members');
+      const secretTool = await item(
+        `Secret driver ${suffix}`,
+        secretTools.id,
+        'tool',
+        'public',
+        'members',
+      );
       const using = await store.createDraft(who, 'public', {
         document: {
           ...toStructuredDocument({ ...doc, title: `Uses a secret tool ${suffix}` }),
@@ -919,7 +924,13 @@ export async function structuredChecks({
       );
 
       // A private workspace has no public section to move into at all.
-      const privateCategory = await category(`Private ${suffix}`, null, 'guide', 'members', 'private');
+      const privateCategory = await category(
+        `Private ${suffix}`,
+        null,
+        'guide',
+        'members',
+        'private',
+      );
       const inPrivate = await store.createDraft(who, 'private', {
         document: { ...doc, title: `Private only ${suffix}` },
         categoryId: privateCategory.id,

@@ -8,7 +8,7 @@ Credentials are generated in `.env.local`, `apps/web/.env.local` and `LOCAL_ACCE
 
 The web process uses a constrained runtime role. Owner credentials are used only by setup/migration operations. Each store operation checks current identity/membership and sets explicit workspace scope. Draft saves require expected versions; publication creates an immutable release atomically. Changing a draft or catalog item does not change an existing release.
 
-Applied SQL migrations are checksummed and must not be edited. Add a new migration, back up data before applying it and test preservation. Active legacy drafts are upgraded with their original preparation notes intact; authors explicitly link those notes to catalog records before republishing. Existing release documents remain unchanged.
+Applied SQL migrations are checksummed and must not be edited. Add a new migration, back up data before applying it and test preservation. Most migrations only add objects; `014_bounded_library_listing.sql` adds a generated search column to `app.release`, so it rewrites that table and holds an exclusive lock on it while it runs. Apply it during a pause in writing, as you would any other schema change. Active legacy drafts are upgraded with their original preparation notes intact; authors explicitly link those notes to catalog records before republishing. Existing release documents remain unchanged.
 
 ## Test isolation
 

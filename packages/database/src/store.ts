@@ -15,10 +15,13 @@ import {
   createDraftSchema,
   saveDraftSchema,
   publishSchema,
+  libraryPageSize,
+  maxLibraryPageSize,
   type StudioWorkspace,
   type DraftSummary,
   type DraftGuide,
   type PublishedGuide,
+  type PublishedGuidePage,
   type CreateDraftInput,
   type SaveDraftInput,
   type PublishInput,
@@ -292,6 +295,18 @@ export function createApplicationStore(options: { connectionString: string }) {
             .rows[0] ?? null,
       );
     },
+    /**
+     * One bounded page of the published library, with the total that matched.
+     *
+     * Every predicate is applied in the database. Filtering here instead would
+     * mean reading every current release — each carrying its whole document —
+     * on every page view and every keystroke of live search, which is work that
+     * grows with the collection rather than with the answer.
+     *
+     * The audience argument narrows an authorized set into one section. The
+     * SQL applies the actor's read scope first and audience afterwards, so it
+     * can only ever remove guides, never reveal one.
+     */
     async listReleases(
       actor: Actor,
       workspaceId: string,
@@ -300,25 +315,36 @@ export function createApplicationStore(options: { connectionString: string }) {
         category?: string;
         categoryId?: string;
         audience?: 'public' | 'members';
+        limit?: number;
+        offset?: number;
       },
-    ): Promise<PublishedGuide[]> {
+    ): Promise<PublishedGuidePage> {
+      const limit = Math.min(
+        Math.max(Math.trunc(filter?.limit ?? libraryPageSize) || libraryPageSize, 1),
+        maxLibraryPageSize,
+      );
+      const offset = Math.max(Math.trunc(filter?.offset ?? 0) || 0, 0);
+      const search = (filter?.search ?? '').trim().slice(0, 200);
+      const predicate = [
+        workspaceId,
+        filter?.audience ?? null,
+        filter?.category || null,
+        filter?.categoryId || null,
+        search || null,
+      ];
       return transaction(actor, workspaceId, async (c) => {
-        const rows = (
-          await c.query('SELECT * FROM app.published_guides($1) ORDER BY updated_at DESC,id', [
-            workspaceId,
+        const total = Number(
+          (await c.query('SELECT app.published_guide_total($1,$2,$3,$4,$5) AS total', predicate))
+            .rows[0].total,
+        );
+        const guides = (
+          await c.query('SELECT * FROM app.published_guide_page($1,$2,$3,$4,$5,$6,$7)', [
+            ...predicate,
+            limit,
+            offset,
           ])
         ).rows.map(published);
-        const normalize = (value: string) => value.normalize('NFKC').toLocaleLowerCase('en');
-        const search = normalize((filter?.search ?? '').trim().slice(0, 200));
-        return rows.filter(
-          (r) =>
-            // published_guides already applies the actor's read scope; audience
-            // narrows an authorized set into one section, never widens it.
-            (!filter?.audience || r.audience === filter.audience) &&
-            (!filter?.category || r.category === filter.category) &&
-            (!filter?.categoryId || r.categoryPath.some((p) => p.id === filter.categoryId)) &&
-            (!search || normalize(`${r.title} ${r.summary}`).includes(search)),
-        );
+        return { guides, total, limit, offset };
       });
     },
     async getRelease(
@@ -532,10 +558,9 @@ export function createApplicationStore(options: { connectionString: string }) {
      */
     async rateLimitReached(key: string, limit: number): Promise<boolean> {
       const row = (
-        await pool.query(
-          'SELECT count FROM app.rate_limit WHERE key=$1 AND expires_at>now()',
-          [key],
-        )
+        await pool.query('SELECT count FROM app.rate_limit WHERE key=$1 AND expires_at>now()', [
+          key,
+        ])
       ).rows[0];
       return Boolean(row) && Number(row.count) >= limit;
     },
@@ -639,7 +664,11 @@ export function createApplicationStore(options: { connectionString: string }) {
             'UPDATE app.guide SET audience=$3,updated_at=clock_timestamp() WHERE workspace_id=$1 AND id=$2',
             [workspaceId, id, audience],
           );
-          const details = { from: current.audience, to: audience, release: current.current_release };
+          const details = {
+            from: current.audience,
+            to: audience,
+            release: current.current_release,
+          };
           await c.query(
             "INSERT INTO app.audit(id,workspace_id,guide_id,actor_id,action,details) VALUES($1,$2,$3,app.actor_id(),'guide.audience_changed',$4)",
             [randomUUID(), workspaceId, id, details],
@@ -714,11 +743,7 @@ export function createApplicationStore(options: { connectionString: string }) {
      * the actor may not read is simply absent — no placeholder, and no count
      * that would betray it.
      */
-    async getGuideFamily(
-      actor: Actor,
-      workspaceId: string,
-      guideId: string,
-    ): Promise<GuideFamily> {
+    async getGuideFamily(actor: Actor, workspaceId: string, guideId: string): Promise<GuideFamily> {
       return transaction(actor, workspaceId, async (c) => {
         const ancestors = (
           await c.query(

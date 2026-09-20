@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { ArrowUpRight, FolderTree, ChevronRight } from 'lucide-react';
-import type { Category, PublishedGuide } from '@guide/contracts';
+import type { Category, CategoryCounts } from '@guide/contracts';
 import './category-browse.css';
 
 export function CategoryBreadcrumbs({ category, base }: { category: Category; base: string }) {
@@ -25,13 +25,19 @@ export function CategoryBrowse({
   categories,
   parentId = null,
   base,
-  guides,
+  counts,
 }: {
   categories: Category[];
   parentId?: string | null;
   base: string;
-  guides: Pick<PublishedGuide, 'categoryPath'>[];
+  /**
+   * Published guides per category, counted by the database over the same
+   * authorized section this page reads. A category absent from the list has
+   * none the viewer may open.
+   */
+  counts: CategoryCounts[];
 }) {
+  const bySubtree = new Map(counts.map((count) => [count.categoryId, count.publishedSubtree]));
   const children = categories.filter(
     (category) => category.parentId === parentId && !category.archived,
   );
@@ -51,9 +57,7 @@ export function CategoryBrowse({
       </div>
       <div className="category-browse-grid">
         {children.map((category) => {
-          const count = guides.filter((guide) =>
-            guide.categoryPath?.some((part) => part.id === category.id),
-          ).length;
+          const count = bySubtree.get(category.id) ?? 0;
           const branches = categories.filter(
             (item) => item.parentId === category.id && !item.archived,
           ).length;
