@@ -196,8 +196,23 @@
   width: 100%;
   height: auto;
 }
-/* Percentage coordinates are relative to the stored image, so a marker stays
-   on the same detail at any rendered size. */
+/* Positions arrive as fractions of the stored image and are converted to
+   percentages when rendered, so a marker stays on the same detail at any size. */
+.step-media-arrows {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.step-media-arrows line {
+  stroke: var(--gp-semantic-action-primary-background);
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+.step-media-arrows path {
+  fill: var(--gp-semantic-action-primary-background);
+}
 .step-media-mark {
   position: absolute;
   transform: translate(-50%, -50%);

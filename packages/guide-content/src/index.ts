@@ -14,7 +14,21 @@ const bulletList = z.strictObject({
   type: z.literal('bulletList'),
   items: z.array(z.string().min(1).max(2000)).min(1).max(30),
 });
+/**
+ * Annotation coordinates are fractions of the stored image, so a mark stays on
+ * the same detail at any rendered size.
+ *
+ * They are rounded to four places on the way in and converted to a percentage
+ * by one shared function on the way out. Repeated nudging otherwise accumulates
+ * floating-point noise — 0.5 + 0.02 + 0.02 + 0.005 is 0.545, but times 100 it
+ * is 54.50000000000001 — which would both bloat every saved document and let
+ * the editor and the reader disagree about where a mark is.
+ */
 const position = z.number().min(0).max(1);
+/** A fraction of the image, to the nearest thousandth of a percent. */
+export const annotationPercent = (value: number) => `${Math.round(value * 10000) / 100}%`;
+/** The precision a coordinate is stored at: finer than a pixel on any image. */
+export const roundPosition = (value: number) => Math.round(value * 10000) / 10000;
 const annotation = z.discriminatedUnion('type', [
   z.strictObject({
     type: z.literal('pin'),

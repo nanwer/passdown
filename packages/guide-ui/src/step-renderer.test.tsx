@@ -148,3 +148,93 @@ it('renders visual panels inside real table cells and rich links without exposin
   expect(container.querySelector('p:empty')).not.toBeNull();
   expect(container.querySelector('ul ol')).toHaveAttribute('start', '2');
 });
+
+describe('annotated photographs', () => {
+  const annotated = (annotations: GuideStep['media'][number]['annotations']): GuideStep => ({
+    ...step('Undo the screw.'),
+    media: [
+      {
+        assetId: '20000000-0000-4000-8000-000000000001',
+        alt: 'The underside of the case',
+        annotations,
+      },
+    ],
+  });
+
+  it('places a marker at its fraction of the image rather than at that many percent', () => {
+    const { container } = render(
+      <StepRenderer
+        step={annotated([{ type: 'pin', x: 0.5, y: 0.25, label: 'The centre screw' }])}
+        index={0}
+        mediaSrc={(id) => `/media/${id}`}
+      />,
+    );
+    const mark = container.querySelector('.step-media-mark') as HTMLElement;
+    // 0.5 is the middle of the image. Written straight into a percentage it
+    // would be 0.5%, which is the far left edge.
+    expect(mark.style.left).toBe('50%');
+    expect(mark.style.top).toBe('25%');
+  });
+
+  it('numbers a marker to match its own entry in the legend', () => {
+    const { container } = render(
+      <StepRenderer
+        step={annotated([
+          { type: 'arrow', x: 0.1, y: 0.1, toX: 0.4, toY: 0.4, label: 'Slide this way' },
+          { type: 'pin', x: 0.8, y: 0.8, label: 'The clip' },
+        ])}
+        index={0}
+        mediaSrc={(id) => `/media/${id}`}
+      />,
+    );
+    const marks = [...container.querySelectorAll('.step-media-mark')].map((m) => m.textContent);
+    // The legend is an ordered list over every annotation, so a pin that is
+    // second overall must not present itself as the first.
+    expect(marks).toEqual(['1', '2']);
+    const legend = [...container.querySelectorAll('.step-media-legend li')].map(
+      (li) => li.textContent,
+    );
+    expect(legend).toEqual(['Slide this way', 'The clip']);
+  });
+
+  it('draws an arrow to where it points, with its own arrowhead', () => {
+    const { container } = render(
+      <StepRenderer
+        step={annotated([
+          { type: 'arrow', x: 0.2, y: 0.3, toX: 0.7, toY: 0.9, label: 'Lift here' },
+        ])}
+        index={0}
+        mediaSrc={(id) => `/media/${id}`}
+      />,
+    );
+    const line = container.querySelector('.step-media-arrows line') as SVGLineElement;
+    expect(line.getAttribute('x1')).toBe('20%');
+    expect(line.getAttribute('y1')).toBe('30%');
+    // Without these the arrow is a dot at its own tail: it knows where it
+    // starts and never draws where it points.
+    expect(line.getAttribute('x2')).toBe('70%');
+    expect(line.getAttribute('y2')).toBe('90%');
+    const head = container.querySelector('.step-media-arrows marker') as SVGMarkerElement;
+    expect(line.getAttribute('marker-end')).toBe(`url(#${head.id})`);
+    // Two images on one page must not share one definition.
+    expect(head.id).toContain('20000000-0000-4000-8000-000000000001');
+  });
+
+  it('keeps every label readable when the overlay is not', () => {
+    render(
+      <StepRenderer
+        step={annotated([
+          { type: 'pin', x: 0.5, y: 0.5, label: 'The centre screw' },
+          { type: 'arrow', x: 0.1, y: 0.1, toX: 0.2, toY: 0.2, label: 'Slide this way' },
+        ])}
+        index={0}
+        mediaSrc={(id) => `/media/${id}`}
+      />,
+    );
+    // Markers are decorative; the legend carries the meaning.
+    expect(screen.getByRole('list', { name: '' }).tagName).toBe('OL');
+    expect(screen.getByText('The centre screw')).toBeVisible();
+    expect(screen.getByText('Slide this way')).toBeVisible();
+    expect(screen.getByRole('img', { name: 'The underside of the case' })).toBeVisible();
+  });
+});

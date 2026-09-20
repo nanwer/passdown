@@ -1,4 +1,5 @@
 import { StepRequirementsSummary } from './requirements';
+import { annotationPercent } from '@guide/content';
 import type { GuideDocument, GuideStep, TextRun, RichNode, RichMark } from '@guide/content';
 import { Info, TriangleAlert, CircleAlert, CircleCheck, GitBranch, StickyNote } from 'lucide-react';
 import { Fragment, createElement, type ReactNode } from 'react';
@@ -64,19 +65,54 @@ export function StepRenderer({
  * them.
  */
 function StepMedia({ media, src }: { media: GuideStep['media'][number]; src: string }) {
-  const pins = media.annotations.filter((a) => a.type === 'pin');
+  const percent = annotationPercent;
+  const arrows = media.annotations.filter((a) => a.type === 'arrow');
+  // One arrowhead definition per image. The id is derived from the asset so two
+  // images on a page cannot borrow each other's marker.
+  const head = `step-media-arrowhead-${media.assetId}`;
   return (
     <figure className="step-media">
       <div className="step-media-frame">
         <img src={src} alt={media.alt} loading="lazy" decoding="async" />
+        {arrows.length > 0 && (
+          <svg className="step-media-arrows" aria-hidden="true">
+            <defs>
+              {/* markerUnits scales the head with the stroke rather than with
+                  the viewport, so it keeps its shape at any image size. */}
+              <marker
+                id={head}
+                markerWidth="6"
+                markerHeight="6"
+                refX="5"
+                refY="3"
+                orient="auto"
+                markerUnits="strokeWidth"
+              >
+                <path d="M0,0 L6,3 L0,6 Z" />
+              </marker>
+            </defs>
+            {arrows.map((arrow, index) => (
+              <line
+                key={index}
+                x1={percent(arrow.x)}
+                y1={percent(arrow.y)}
+                x2={percent(arrow.toX)}
+                y2={percent(arrow.toY)}
+                markerEnd={`url(#${head})`}
+              />
+            ))}
+          </svg>
+        )}
         {media.annotations.map((annotation, index) => (
           <span
             key={index}
             className={`step-media-mark step-media-mark--${annotation.type}`}
-            style={{ left: `${annotation.x}%`, top: `${annotation.y}%` }}
+            style={{ left: percent(annotation.x), top: percent(annotation.y) }}
             aria-hidden="true"
           >
-            {annotation.type === 'pin' ? pins.indexOf(annotation) + 1 : ''}
+            {/* Numbered by position in the list, so a marker and its legend
+                entry always carry the same number. */}
+            {index + 1}
           </span>
         ))}
       </div>

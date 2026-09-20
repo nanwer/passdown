@@ -825,3 +825,81 @@
   display: grid;
   gap: 4px;
 }
+
+/* Drawing on a photograph. The overlay is the quick path; the list below is
+   the one that works without a pointer, and is what a reader ends up with. */
+.studio-annotate {
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+}
+.studio-annotate-frame {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  border: 1px solid var(--gp-semantic-border-subtle);
+  border-radius: 10px;
+  cursor: crosshair;
+}
+.studio-annotate-frame img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.studio-annotate-arrows {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.studio-annotate-arrows line {
+  stroke: var(--gp-semantic-action-primary-background);
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+.studio-annotate-handle {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  min-width: 26px;
+  height: 26px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 2px solid var(--gp-semantic-surface-raised);
+  background: var(--gp-semantic-action-primary-background);
+  color: var(--gp-semantic-action-primary-foreground);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: grab;
+}
+.studio-annotate-handle.selected {
+  outline: 2px solid var(--gp-semantic-focus-ring);
+  outline-offset: 2px;
+}
+.studio-annotate-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.studio-annotate-tools .studio-hint {
+  flex: 1 1 260px;
+  margin: 0;
+}
+.studio-annotate-list {
+  margin: 0;
+  padding-left: 22px;
+  display: grid;
+  gap: 8px;
+}
+.studio-annotate-list li {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.studio-annotate-list input {
+  flex: 1;
+}

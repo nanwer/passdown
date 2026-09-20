@@ -1,5 +1,11 @@
 'use client';
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from 'react';
 import {
   ArrowDown,
   ArrowUp,
@@ -18,6 +24,8 @@ import {
   toStructuredDocument,
   getRequirementIssues,
   type GuideStep,
+  annotationPercent,
+  roundPosition,
 } from '@guide/content';
 import type {
   ContentLicense,
@@ -43,6 +51,207 @@ function fingerprint(guide: DraftGuide) {
  * asking later would mean the author's next save failed for a reason that
  * arrived long after the choice that caused it.
  */
+type Annotation = GuideStep['media'][number]['annotations'][number];
+/** A handle is one movable end: a pin has one, an arrow has a tail and a head. */
+type Handle = { index: number; end: 'from' | 'to' };
+
+/**
+ * Drawing on a photograph.
+ *
+ * The overlay is the quick way — click where you mean — but it is not the only
+ * way. Every marker is a button that can be focused and nudged with the arrow
+ * keys, and every label is an ordinary text field in the list below, so the
+ * whole feature works without a pointer. The list is also what a reader gets:
+ * markers are decorative, and the numbered labels carry the meaning.
+ */
+function PictureAnnotations({
+  src,
+  annotations,
+  onChange,
+}: {
+  src: string;
+  annotations: Annotation[];
+  onChange: (annotations: Annotation[]) => void;
+}) {
+  const [focused, setFocused] = useState<Handle | null>(null);
+  const frame = useRef<HTMLDivElement>(null);
+
+  const clamp = (value: number) => roundPosition(Math.min(Math.max(value, 0), 1));
+  const replace = (index: number, changes: Partial<Annotation>) =>
+    onChange(annotations.map((a, i) => (i === index ? ({ ...a, ...changes } as Annotation) : a)));
+
+  /** Where a pointer event landed, as a fraction of the image. */
+  const pointAt = (event: { clientX: number; clientY: number }) => {
+    const box = frame.current?.getBoundingClientRect();
+    if (!box || !box.width || !box.height) return null;
+    return {
+      x: clamp((event.clientX - box.left) / box.width),
+      y: clamp((event.clientY - box.top) / box.height),
+    };
+  };
+
+  const add = (type: Annotation['type'], at?: { x: number; y: number }) => {
+    if (annotations.length >= 30) return;
+    const point = at ?? { x: 0.5, y: 0.5 };
+    const next: Annotation =
+      type === 'pin'
+        ? { type: 'pin', ...point, label: '' }
+        : {
+            type: 'arrow',
+            ...point,
+            toX: clamp(point.x + 0.2),
+            toY: clamp(point.y + 0.2),
+            label: '',
+          };
+    onChange([...annotations, next]);
+    setFocused({ index: annotations.length, end: 'from' });
+  };
+
+  const move = (handle: Handle, dx: number, dy: number) => {
+    const current = annotations[handle.index];
+    if (!current) return;
+    if (handle.end === 'to' && current.type === 'arrow')
+      replace(handle.index, { toX: clamp(current.toX + dx), toY: clamp(current.toY + dy) });
+    else replace(handle.index, { x: clamp(current.x + dx), y: clamp(current.y + dy) });
+  };
+
+  const nudge = (handle: Handle) => (event: ReactKeyboardEvent<HTMLButtonElement>) => {
+    // Shift is the fine adjustment, for placing a marker on a small detail.
+    const step = event.shiftKey ? 0.005 : 0.02;
+    const by: Record<string, [number, number]> = {
+      ArrowLeft: [-step, 0],
+      ArrowRight: [step, 0],
+      ArrowUp: [0, -step],
+      ArrowDown: [0, step],
+    };
+    const delta = by[event.key];
+    if (!delta) return;
+    event.preventDefault();
+    move(handle, delta[0], delta[1]);
+  };
+
+  const handles: (Handle & { x: number; y: number; label: string })[] = annotations.flatMap(
+    (a, index) => [
+      { index, end: 'from' as const, x: a.x, y: a.y, label: `${index + 1}` },
+      ...(a.type === 'arrow'
+        ? [{ index, end: 'to' as const, x: a.toX, y: a.toY, label: `${index + 1}` }]
+        : []),
+    ],
+  );
+
+  const describe = (handle: Handle) => {
+    const a = annotations[handle.index];
+    const what = a?.label?.trim() || `Mark ${handle.index + 1}`;
+    if (a?.type !== 'arrow') return `${what}. Arrow keys move it.`;
+    return `${what}, ${handle.end === 'from' ? 'tail' : 'point'}. Arrow keys move it.`;
+  };
+
+  return (
+    <div className="studio-annotate">
+      <div
+        className="studio-annotate-frame"
+        ref={frame}
+        onClick={(event) => {
+          // Only a click on the image itself adds a mark; a click on an
+          // existing one is selecting it, not making another.
+          if (
+            event.target !== event.currentTarget &&
+            (event.target as HTMLElement).tagName !== 'IMG'
+          )
+            return;
+          const point = pointAt(event);
+          if (point) add('pin', point);
+        }}
+      >
+        <img src={src} alt="" />
+        <svg className="studio-annotate-arrows" aria-hidden="true">
+          {annotations.map((a, index) =>
+            a.type === 'arrow' ? (
+              <line
+                key={index}
+                x1={annotationPercent(a.x)}
+                y1={annotationPercent(a.y)}
+                x2={annotationPercent(a.toX)}
+                y2={annotationPercent(a.toY)}
+              />
+            ) : null,
+          )}
+        </svg>
+        {handles.map((handle) => (
+          <button
+            key={`${handle.index}-${handle.end}`}
+            type="button"
+            className={
+              focused && focused.index === handle.index && focused.end === handle.end
+                ? 'studio-annotate-handle selected'
+                : 'studio-annotate-handle'
+            }
+            style={{ left: annotationPercent(handle.x), top: annotationPercent(handle.y) }}
+            aria-label={describe(handle)}
+            onFocus={() => setFocused({ index: handle.index, end: handle.end })}
+            onKeyDown={nudge({ index: handle.index, end: handle.end })}
+          >
+            {handle.end === 'from' ? handle.label : ''}
+          </button>
+        ))}
+      </div>
+      <div className="studio-annotate-tools">
+        <Button
+          type="button"
+          variant="secondary"
+          disabled={annotations.length >= 30}
+          onClick={() => add('pin')}
+        >
+          Add a mark
+        </Button>
+        <Button
+          type="button"
+          variant="secondary"
+          disabled={annotations.length >= 30}
+          onClick={() => add('arrow')}
+        >
+          Add an arrow
+        </Button>
+        <p className="studio-hint">
+          Click the picture to place a mark, or add one and move it with the arrow keys. Hold shift
+          to move it a little at a time. Every label is read out with the step, so write what the
+          mark is pointing at.
+        </p>
+      </div>
+      {annotations.length > 0 && (
+        <ol className="studio-annotate-list">
+          {annotations.map((a, index) => (
+            <li key={index}>
+              <label>
+                <span className="sr-only">
+                  {a.type === 'arrow' ? 'Arrow' : 'Mark'} {index + 1} label
+                </span>
+                <input
+                  value={a.label}
+                  maxLength={80}
+                  placeholder={a.type === 'arrow' ? 'Slide it this way' : 'The centre screw'}
+                  onChange={(event) => replace(index, { label: event.target.value })}
+                />
+              </label>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => {
+                  onChange(annotations.filter((_, i) => i !== index));
+                  setFocused(null);
+                }}
+              >
+                <Trash2 size={15} />
+                Remove
+              </Button>
+            </li>
+          ))}
+        </ol>
+      )}
+    </div>
+  );
+}
+
 function StepPictures({
   workspaceId,
   step,
@@ -99,6 +308,18 @@ function StepPictures({
               }
             />
           </label>
+          <PictureAnnotations
+            src={`/api/media/${workspaceId}/${media.assetId}`}
+            annotations={media.annotations}
+            onChange={(annotations) =>
+              onChange({
+                ...step,
+                media: step.media.map((m) =>
+                  m.assetId === media.assetId ? { ...m, annotations } : m,
+                ),
+              })
+            }
+          />
           <Button
             type="button"
             variant="secondary"
@@ -109,7 +330,7 @@ function StepPictures({
               })
             }
           >
-            Remove
+            Remove picture
           </Button>
         </div>
       ))}

@@ -1092,3 +1092,97 @@ test('a guide moves between the public and internal sections, and says what it c
       .violations,
   ).toEqual([]);
 });
+
+test('an author marks up a photograph, and the marks reach the reader with their labels', async ({
+  page,
+  browser,
+}) => {
+  const sharp = (await import('sharp')).default;
+  await login(page.request);
+  const workspace = 'repair-collective';
+  const suffix = randomUUID().slice(0, 8);
+  const section = await category(page.request, workspace, `Marked up ${suffix}`);
+
+  const picture = await sharp({
+    create: { width: 400, height: 300, channels: 3, background: '#3b5e52' },
+  })
+    .jpeg()
+    .toBuffer();
+  const uploaded = await page.request.post(`/api/studio/${workspace}/assets`, {
+    headers,
+    multipart: { file: { name: 'case.jpg', mimeType: 'image/jpeg', buffer: picture } },
+  });
+  expect(uploaded.status(), await uploaded.text()).toBe(201);
+  const assetId = (await uploaded.json()).asset.id as string;
+
+  const guide = await draft(page.request, workspace, section.id, `Marked guide ${suffix}`);
+  await api(page.request, `/api/studio/${workspace}/guides/${guide.id}`, 'PUT', {
+    expectedVersion: guide.version,
+    document: {
+      ...guide.document,
+      steps: guide.document.steps.map((step, index) =>
+        index === 0
+          ? { ...step, media: [{ assetId, alt: 'The underside of the case', annotations: [] }] }
+          : step,
+      ),
+    },
+    categoryId: section.id,
+  });
+
+  await page.goto(`/studio/${workspace}/${guide.id}`);
+  const marks = page.locator('.studio-annotate-handle');
+  await expect(marks).toHaveCount(0);
+
+  // A mark added from the keyboard lands in the middle and moves from there.
+  await page.getByRole('button', { name: 'Add a mark' }).click();
+  await expect(marks).toHaveCount(1);
+  await expect(marks.first()).toHaveAttribute('style', /left:\s?50%/);
+  await marks.first().focus();
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('ArrowDown');
+  await expect(marks.first()).toHaveAttribute('style', /left:\s?54%/);
+  await expect(marks.first()).toHaveAttribute('style', /top:\s?52%/);
+  // Shift is the fine adjustment, not another coarse step.
+  await page.keyboard.press('Shift+ArrowRight');
+  await expect(marks.first()).toHaveAttribute('style', /left:\s?54\.5%/);
+  await page.getByRole('textbox', { name: 'Mark 1 label' }).fill('The centre screw');
+
+  // An arrow has two ends, and the second one moves independently.
+  await page.getByRole('button', { name: 'Add an arrow' }).click();
+  await expect(marks).toHaveCount(3);
+  await page.getByRole('textbox', { name: 'Arrow 2 label' }).fill('Slide the cover this way');
+  const arrowPoint = page.getByRole('button', { name: /point\. Arrow keys move it/ });
+  await arrowPoint.focus();
+  await page.keyboard.press('ArrowLeft');
+  await expect(arrowPoint).toHaveAttribute('style', /left:\s?68%/);
+
+  // Clicking the picture puts a mark where the pointer is, not in the middle.
+  await page.locator('.studio-annotate-frame img').click({ position: { x: 40, y: 30 } });
+  await expect(marks).toHaveCount(4);
+  await page.getByRole('textbox', { name: 'Mark 3 label' }).fill('The corner clip');
+
+  await publish(page);
+
+  // What the reader gets: the drawing, and every label in a list beside it.
+  const anonymous = await browser.newContext();
+  const visitor = await anonymous.newPage();
+  await visitor.goto(`/guides/${guide.id}`);
+  await expect(visitor.getByAltText('The underside of the case')).toBeVisible();
+  const legend = visitor.locator('.step-media-legend li');
+  await expect(legend).toHaveText([
+    'The centre screw',
+    'Slide the cover this way',
+    'The corner clip',
+  ]);
+  // The marker numbers match the legend, and sit where the author put them.
+  await expect(visitor.locator('.step-media-mark').first()).toHaveAttribute('style', /left:\s?54\.5%/);
+  await expect(visitor.locator('.step-media-mark').first()).toHaveText('1');
+  await expect(visitor.locator('.step-media-arrows line')).toHaveCount(1);
+
+  expect(
+    (await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze())
+      .violations,
+  ).toEqual([]);
+  await anonymous.close();
+});
