@@ -12,7 +12,7 @@ This roadmap describes direction, not a delivery schedule. Priorities can change
 - Reusable tool, material and replacement-part catalogs with exact specifications and versioned details.
 - Guide preparation lists, step requirements, consumption/reuse distinctions and dependencies on earlier steps.
 - Manual draft saves, conflict checks and immutable publication snapshots.
-- Step photographs with numbered marks and arrows drawn onto them, re-encoded on upload so camera metadata does not travel with them, and readable only through a guide the reader may already open.
+- Step photographs with numbered marks and arrows drawn onto them, captions and ordering, reuse of a picture across steps, and delivery at the size a screen needs. Re-encoded on upload so camera metadata does not travel with them, and readable only through a guide the reader may already open.
 - Guide families: a broader guide above its models, with a trail up and a list down, where a relative the reader cannot open is absent rather than withheld.
 - Moving a published guide between a workspace's public and internal sections, refused with reasons when it would expose something that is not itself public.
 - Search as you type, category browsing, responsive interfaces and light/dark themes.
@@ -21,9 +21,9 @@ The [README](README.md) explains how to run and try these features. Current auth
 
 ## Next: complete the authoring experience
 
-### Finish photos, and add attachments
+### Attachments, and the rest of uploading
 
-Pictures on steps work, with required alternative text, and their permissions already follow the guides that use them. What remains is most of what makes them comfortable: captions, reordering, reusing a picture already uploaded rather than uploading it again, upload progress, and a clear path back from a failed or rejected upload. Serve a size suited to the screen rather than one image for every reader.
+Pictures are done: alternative text, captions, ordering, marks and arrows, reuse across steps, and a size suited to the screen. What is left of uploading is the part that shows while it happens — progress on a slow connection, and a clear path back from a file that was refused or failed midway.
 
 Then non-image attachments: documents a guide needs, with viewing and downloading.
 
