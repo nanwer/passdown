@@ -461,7 +461,7 @@ function CreateGuide({ workspace }: { workspace: StudioWorkspace }) {
               <fieldset className="studio-fieldset">
                 <legend>Section</legend>
                 <p className="studio-hint">
-                  Chosen once. A guide cannot move between sections after it is created.
+                  You can move a guide between sections later, from Guide details.
                 </p>
                 <label className="studio-choice">
                   <input
