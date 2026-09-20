@@ -15,12 +15,14 @@ import {
   createDraftSchema,
   saveDraftSchema,
   publishSchema,
+  assetPageSize,
   libraryPageSize,
   maxLibraryPageSize,
   type StudioWorkspace,
   type DraftSummary,
   type DraftGuide,
   type PublishedGuide,
+  type WorkspaceAsset,
   type PublishedGuidePage,
   type CreateDraftInput,
   type SaveDraftInput,
@@ -607,6 +609,48 @@ export function createApplicationStore(options: { connectionString: string }) {
      * live reference rather than by possession of the identifier, so a
      * withdrawn release stops granting access to its pictures.
      */
+    /**
+     * Pictures already in this workspace, newest first, for an author choosing
+     * one again rather than uploading it a second time.
+     *
+     * Owner-only and bounded, like every other listing: a workspace that has
+     * been running for years must not answer this by reading its whole history.
+     */
+    async listAssets(
+      actor: Actor,
+      workspaceId: string,
+      options?: { limit?: number; offset?: number },
+    ): Promise<{ assets: WorkspaceAsset[]; total: number }> {
+      const limit = Math.min(
+        Math.max(Math.trunc(options?.limit ?? assetPageSize) || assetPageSize, 1),
+        maxLibraryPageSize,
+      );
+      const offset = Math.max(Math.trunc(options?.offset ?? 0) || 0, 0);
+      return transaction(actor, workspaceId, async (c) => {
+        await owner(c, workspaceId);
+        const total = Number(
+          (
+            await c.query('SELECT count(*) AS total FROM app.asset WHERE workspace_id=$1', [
+              workspaceId,
+            ])
+          ).rows[0].total,
+        );
+        const assets = (
+          await c.query(
+            `SELECT id,width,height,byte_size,created_at FROM app.asset
+             WHERE workspace_id=$1 ORDER BY created_at DESC, id LIMIT $2 OFFSET $3`,
+            [workspaceId, limit, offset],
+          )
+        ).rows.map((row) => ({
+          id: row.id as string,
+          width: row.width as number,
+          height: row.height as number,
+          byteSize: Number(row.byte_size),
+          createdAt: (row.created_at as Date).toISOString(),
+        }));
+        return { assets, total };
+      });
+    },
     async assetReadable(actor: Actor, workspaceId: string, assetId: string): Promise<boolean> {
       return transaction(actor, workspaceId, async (c) => {
         const row = (

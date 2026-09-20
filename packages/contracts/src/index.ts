@@ -73,6 +73,15 @@ export type PublishedGuide = {
 export const libraryPageSize = 24;
 /** The largest page a caller may ask for, so a parameter cannot undo the bound. */
 export const maxLibraryPageSize = 100;
+/** One screenful of previously uploaded pictures, for choosing among them. */
+export const assetPageSize = 24;
+export type WorkspaceAsset = {
+  id: string;
+  width: number;
+  height: number;
+  byteSize: number;
+  createdAt: string;
+};
 /**
  * One page of a published listing, with the size of the whole match beside it.
  *

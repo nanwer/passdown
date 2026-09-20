@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import { ApplicationError } from '@guide/contracts';
-import { mutationContext } from '../../../../../lib/application';
+import { ApplicationError, assetPageSize, maxLibraryPageSize } from '@guide/contracts';
+import { mutationContext, requireSession, getApplication } from '../../../../../lib/application';
 import { apiResponse, assertIdentifier } from '../../../../../lib/http';
 import { maxUploadBytes, storeUpload } from '../../../../../lib/media';
 export const dynamic = 'force-dynamic';
@@ -37,6 +37,39 @@ export function POST(request: Request, context: Context) {
     return Response.json(
       { asset: { id, width: stored.width, height: stored.height } },
       { status: 201 },
+    );
+  });
+}
+
+/**
+ * Pictures already in this workspace, so an author can use one again instead
+ * of uploading the same photograph to a second step.
+ */
+export function GET(request: Request, context: Context) {
+  return apiResponse(async () => {
+    const { actor } = await requireSession(request);
+    const { workspace } = await context.params;
+    assertIdentifier(workspace);
+    const params = new URL(request.url).searchParams;
+    const bounded = (raw: string | null, fallback: number, max: number, name: string) => {
+      if (!raw) return fallback;
+      const value = Number(raw);
+      if (!Number.isInteger(value) || value < 0 || value > max)
+        throw new ApplicationError(
+          'INVALID_QUERY',
+          `${name} must be a whole number between 0 and ${max}.`,
+          422,
+        );
+      return value;
+    };
+    return Response.json(
+      await getApplication().store.listAssets(actor, workspace, {
+        limit: Math.max(
+          bounded(params.get('limit'), assetPageSize, maxLibraryPageSize, 'limit'),
+          1,
+        ),
+        offset: bounded(params.get('offset'), 0, 100000, 'offset'),
+      }),
     );
   });
 }

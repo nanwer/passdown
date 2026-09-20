@@ -29,6 +29,7 @@ import {
 } from '@guide/content';
 import type {
   ContentLicense,
+  WorkspaceAsset,
   DraftGuide,
   GuidePublicBlocker,
   StudioWorkspace,
@@ -252,6 +253,107 @@ function PictureAnnotations({
   );
 }
 
+/**
+ * Choosing a picture already in this workspace.
+ *
+ * The same photograph often belongs on several steps — the same bench, the
+ * same model of fridge — and uploading it again would store it twice and give
+ * it a second identity, so one of the two would drift out of use without
+ * anyone noticing. Thumbnails are requested at the smallest served width,
+ * because a grid of pictures is exactly where the full size would be wasteful.
+ */
+function ReusePicture({
+  workspaceId,
+  used,
+  onPick,
+}: {
+  workspaceId: string;
+  used: string[];
+  onPick: (assetId: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [assets, setAssets] = useState<WorkspaceAsset[] | null>(null);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!open) return;
+    let active = true;
+    setAssets(null);
+    setError('');
+    void studioFetch<{ assets: WorkspaceAsset[]; total: number }>(
+      `/api/studio/${workspaceId}/assets`,
+    )
+      .then((result) => {
+        if (active) setAssets(result.assets);
+      })
+      .catch((e) => {
+        if (active) {
+          setAssets([]);
+          setError(e instanceof Error ? e.message : 'Those pictures could not be listed.');
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [open, workspaceId]);
+
+  const available = (assets ?? []).filter((asset) => !used.includes(asset.id));
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={setOpen}
+      title="Use a picture again"
+      description="Pictures already added to this workspace. Choosing one adds it to this step without uploading it a second time."
+      size="wide"
+      trigger={
+        <Button type="button" variant="secondary">
+          <Copy size={16} />
+          Use one already added
+        </Button>
+      }
+    >
+      {error && <ErrorNotice error={error} />}
+      {assets === null ? (
+        <p className="studio-hint">Looking for pictures…</p>
+      ) : available.length === 0 ? (
+        <p className="studio-hint">
+          {assets.length === 0
+            ? 'No pictures have been added to this workspace yet.'
+            : 'Every picture in this workspace is already on this step.'}
+        </p>
+      ) : (
+        <ul className="studio-reuse-grid">
+          {available.map((asset) => (
+            <li key={asset.id}>
+              <button
+                type="button"
+                onClick={() => {
+                  onPick(asset.id);
+                  setOpen(false);
+                }}
+              >
+                <img
+                  src={`/api/media/${workspaceId}/${asset.id}?w=400`}
+                  alt=""
+                  loading="lazy"
+                  decoding="async"
+                />
+                <span>
+                  {asset.width} × {asset.height}
+                  {/* The picture is the identifier here; the date only tells
+                      two similar ones apart. */}
+                  <small>{new Date(asset.createdAt).toLocaleDateString()}</small>
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Dialog>
+  );
+}
+
 function StepPictures({
   workspaceId,
   step,
@@ -412,19 +514,31 @@ function StepPictures({
         </div>
       ) : (
         step.media.length < 10 && (
-          <label className="studio-picture-add">
-            <span>{busy ? 'Adding\u2026' : 'Add a picture'}</span>
-            <input
-              ref={fileInput}
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              disabled={busy}
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) void upload(file);
+          <div className="studio-picture-actions">
+            <label className="studio-picture-add">
+              <span>{busy ? 'Adding\u2026' : 'Add a picture'}</span>
+              <input
+                ref={fileInput}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                disabled={busy}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) void upload(file);
+                }}
+              />
+            </label>
+            <ReusePicture
+              workspaceId={workspaceId}
+              used={step.media.map((m) => m.assetId)}
+              // A reused picture still needs its own description: the same
+              // photograph illustrates a different thing on a different step.
+              onPick={(assetId) => {
+                setPending({ id: assetId });
+                setAlt('');
               }}
             />
-          </label>
+          </div>
         )
       )}
       {error && <ErrorNotice error={error} />}
@@ -1197,7 +1311,9 @@ function Editor({ workspace, guideId }: { workspace: StudioWorkspace; guideId: s
                   document={guide.document}
                   step={step}
                   index={index}
-                  mediaSrc={(assetId) => `/api/media/${guide.workspaceId}/${assetId}`}
+                  mediaSrc={(assetId, width) =>
+                    `/api/media/${guide.workspaceId}/${assetId}${width ? `?w=${width}` : ''}`
+                  }
                 />
               </div>
             ) : (

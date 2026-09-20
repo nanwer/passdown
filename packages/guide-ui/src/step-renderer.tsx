@@ -1,5 +1,5 @@
 import { StepRequirementsSummary } from './requirements';
-import { annotationPercent } from '@guide/content';
+import { annotationPercent, servedImageWidths } from '@guide/content';
 import type { GuideDocument, GuideStep, TextRun, RichNode, RichMark } from '@guide/content';
 import { Info, TriangleAlert, CircleAlert, CircleCheck, GitBranch, StickyNote } from 'lucide-react';
 import { Fragment, createElement, type ReactNode } from 'react';
@@ -20,7 +20,8 @@ export function StepRenderer({
    * this component stays independent of routing, and omitted where images
    * cannot be served — a preview of unsaved work, or a text-only export.
    */
-  mediaSrc?: (assetId: string) => string;
+  /** Where a picture is served from. A width asks for that rendering of it. */
+  mediaSrc?: (assetId: string, width?: number) => string;
 }) {
   return (
     <section className="reader-step" id={`step-${step.id}`} aria-labelledby={`heading-${step.id}`}>
@@ -45,7 +46,12 @@ export function StepRenderer({
           {step.media.length > 0 &&
             (mediaSrc ? (
               step.media.map((media) => (
-                <StepMedia key={media.assetId} media={media} src={mediaSrc(media.assetId)} />
+                <StepMedia
+                  key={media.assetId}
+                  media={media}
+                  src={mediaSrc(media.assetId)}
+                  widths={(width) => mediaSrc(media.assetId, width)}
+                />
               ))
             ) : (
               <p className="media-unavailable">Pictures appear once this guide is saved.</p>
@@ -64,7 +70,15 @@ export function StepRenderer({
  * still gets every label, in order, which a purely visual marker would deny
  * them.
  */
-function StepMedia({ media, src }: { media: GuideStep['media'][number]; src: string }) {
+function StepMedia({
+  media,
+  src,
+  widths,
+}: {
+  media: GuideStep['media'][number];
+  src: string;
+  widths?: (width: number) => string;
+}) {
   const percent = annotationPercent;
   const arrows = media.annotations.filter((a) => a.type === 'arrow');
   // One arrowhead definition per image. The id is derived from the asset so two
@@ -73,7 +87,18 @@ function StepMedia({ media, src }: { media: GuideStep['media'][number]; src: str
   return (
     <figure className="step-media">
       <div className="step-media-frame">
-        <img src={src} alt={media.alt} loading="lazy" decoding="async" />
+        <img
+          src={src}
+          // The browser knows the screen and the connection; it picks. sizes
+          // says the picture is the column width, so a phone takes the 400.
+          srcSet={
+            widths ? servedImageWidths.map((w) => `${widths(w)} ${w}w`).join(', ') : undefined
+          }
+          sizes="(max-width: 760px) 100vw, 720px"
+          alt={media.alt}
+          loading="lazy"
+          decoding="async"
+        />
         {arrows.length > 0 && (
           <svg className="step-media-arrows" aria-hidden="true">
             <defs>

@@ -28,7 +28,8 @@ export function Reader({
   // only a persisted guide gets a media source.
   const mediaSrc =
     persistent && 'workspaceId' in guide
-      ? (assetId: string) => `/api/media/${guide.workspaceId}/${assetId}`
+      ? (assetId: string, width?: number) =>
+          `/api/media/${guide.workspaceId}/${assetId}${width ? `?w=${width}` : ''}`
       : undefined;
   const base = basePath ?? (team ? '/preview/workshop' : '/');
   // Relatives live beside this guide: '/guides/:id' publicly, or under the

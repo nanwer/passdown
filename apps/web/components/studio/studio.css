@@ -914,3 +914,43 @@
   display: flex;
   gap: 2px;
 }
+
+.studio-picture-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.studio-reuse-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
+}
+.studio-reuse-grid button {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  padding: 6px;
+  border: 1px solid var(--gp-semantic-border-control);
+  border-radius: 10px;
+  background: var(--gp-semantic-surface-raised);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  font-size: 12px;
+}
+.studio-reuse-grid img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: 6px;
+  background: var(--gp-semantic-surface-sunken);
+}
+.studio-reuse-grid small {
+  display: block;
+  color: var(--gp-semantic-text-secondary);
+}

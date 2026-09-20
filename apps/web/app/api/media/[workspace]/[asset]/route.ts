@@ -1,6 +1,7 @@
 import { currentActor, getApplication, isConfigured } from '../../../../../lib/application';
 import { apiResponse, assertIdentifier } from '../../../../../lib/http';
 import { readStoredAsset } from '../../../../../lib/media';
+import { servedImageWidths, type ServedImageWidth } from '@guide/content';
 export const dynamic = 'force-dynamic';
 type Context = { params: Promise<{ workspace: string; asset: string }> };
 
@@ -26,7 +27,13 @@ export function GET(request: Request, context: Context) {
     const actor = await currentActor(request.headers);
     if (!(await getApplication().store.assetReadable(actor, workspace, asset))) return notFound();
 
-    const bytes = await readStoredAsset(workspace, asset);
+    // An allow-list, not a number: a free-form width would let one caller ask
+    // the server to render the same picture at a thousand sizes.
+    const requested = Number(new URL(request.url).searchParams.get('w'));
+    const width = servedImageWidths.find((w) => w === requested) as ServedImageWidth | undefined;
+    if (new URL(request.url).searchParams.has('w') && !width) return notFound();
+
+    const bytes = await readStoredAsset(workspace, asset, width);
     return new Response(new Uint8Array(bytes), {
       headers: {
         'Content-Type': 'image/webp',

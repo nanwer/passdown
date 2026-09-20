@@ -25,6 +25,21 @@ const bulletList = z.strictObject({
  * the editor and the reader disagree about where a mark is.
  */
 const position = z.number().min(0).max(1);
+/**
+ * The widths a picture is offered at.
+ *
+ * Every request for an image is authorized individually, so nothing shared may
+ * cache one and a reader fetches it afresh. That makes the size sent to a
+ * phone a recurring cost, not a one-off — which matters most to the person
+ * this application is for, following a repair on mobile data in a workshop.
+ *
+ * Three widths, because the set is an allow-list: a request for anything else
+ * is refused, so no caller can make the server produce an unbounded number of
+ * renderings of the same picture.
+ */
+export const servedImageWidths = [400, 800, 1600] as const;
+export type ServedImageWidth = (typeof servedImageWidths)[number];
+
 /** A fraction of the image, to the nearest thousandth of a percent. */
 export const annotationPercent = (value: number) => `${Math.round(value * 10000) / 100}%`;
 /** The precision a coordinate is stored at: finer than a pixel on any image. */

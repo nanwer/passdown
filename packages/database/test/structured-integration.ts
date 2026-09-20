@@ -963,4 +963,55 @@ export async function structuredChecks({
       );
     },
   );
+
+  await check(
+    'the picture chooser lists a workspace to its owner alone, bounded and in scope',
+    async () => {
+      const suffix = randomUUID().slice(0, 8);
+      const made: string[] = [];
+      for (let n = 0; n < 3; n += 1) {
+        const id = randomUUID();
+        await store.createAsset(who, 'public', {
+          id,
+          contentHash: 'a'.repeat(64),
+          mediaType: 'image/webp',
+          byteSize: 1000 + n,
+          width: 800,
+          height: 600,
+        });
+        made.push(id);
+      }
+
+      const owned = await store.listAssets(who, 'public');
+      assert(made.every((id) => owned.assets.some((a) => a.id === id)));
+      assert.equal(owned.total >= 3, true);
+      // Newest first, so the picture just added is the one to hand.
+      assert.equal(owned.assets[0]!.id, made[made.length - 1]);
+
+      // Bounded like every other listing, and a parameter cannot undo it.
+      assert.equal((await store.listAssets(who, 'public', { limit: 2 })).assets.length, 2);
+      assert.equal(
+        (await store.listAssets(who, 'public', { limit: 5000 })).assets.length <= 100,
+        true,
+      );
+      const page = await store.listAssets(who, 'public', { limit: 1, offset: 1 });
+      assert.equal(page.assets.length, 1);
+      assert.notEqual(page.assets[0]!.id, owned.assets[0]!.id);
+
+      // Everyone else is refused. A reader of a workspace can open the guides
+      // they may read; that is not the same as leafing through every
+      // photograph the workspace holds, including ones no guide uses yet.
+      await denied(store.listAssets(anonymous, 'public'), 404);
+      await denied(store.listAssets(actor('outsider'), 'public'), 404);
+      await denied(store.listAssets(actor('reader'), 'private'), 404);
+      await denied(store.listAssets(actor('suspended'), 'private'), 404);
+
+      // And the listing never reaches past its own workspace.
+      const elsewhere = await store.listAssets(who, 'private');
+      assert.equal(
+        elsewhere.assets.some((a) => made.includes(a.id)),
+        false,
+      );
+    },
+  );
 }

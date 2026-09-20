@@ -1265,3 +1265,173 @@ test('pictures carry captions and can be put in order', async ({ page, browser }
   await expect(images.nth(1)).toHaveAttribute('alt', 'The case from above');
   await anonymous.close();
 });
+
+test('a picture is offered at several widths, and a narrow screen takes a small one', async ({
+  page,
+  browser,
+}) => {
+  const sharp = (await import('sharp')).default;
+  await login(page.request);
+  const workspace = 'repair-collective';
+  const suffix = randomUUID().slice(0, 8);
+  const section = await category(page.request, workspace, `Widths ${suffix}`);
+
+  // Detailed noise rather than flat colour, so the encoder cannot make every
+  // size the same handful of bytes and hide a rendering that never shrank.
+  const noise = Buffer.alloc(2000 * 1500 * 3);
+  for (let i = 0; i < noise.length; i++) noise[i] = (i * 2654435761) % 256;
+  const original = await sharp(noise, { raw: { width: 2000, height: 1500, channels: 3 } })
+    .jpeg()
+    .toBuffer();
+  const uploaded = await page.request.post(`/api/studio/${workspace}/assets`, {
+    headers,
+    multipart: { file: { name: 'detail.jpg', mimeType: 'image/jpeg', buffer: original } },
+  });
+  expect(uploaded.status(), await uploaded.text()).toBe(201);
+  const assetId = (await uploaded.json()).asset.id as string;
+
+  const guide = await draft(page.request, workspace, section.id, `Wide guide ${suffix}`);
+  await api(page.request, `/api/studio/${workspace}/guides/${guide.id}`, 'PUT', {
+    expectedVersion: guide.version,
+    document: {
+      ...guide.document,
+      steps: guide.document.steps.map((step, index) =>
+        index === 0
+          ? { ...step, media: [{ assetId, alt: 'A detailed panel', caption: '', annotations: [] }] }
+          : step,
+      ),
+    },
+    categoryId: section.id,
+  });
+  await api(page.request, `/api/studio/${workspace}/guides/${guide.id}/publish`, 'POST', {
+    expectedVersion: guide.version + 1,
+    expectedRelease: null,
+    license: 'all-rights-reserved',
+  });
+
+  const anonymous = await browser.newContext();
+  const visitor = await anonymous.newPage();
+  const base = `/api/media/${workspace}/${assetId}`;
+  const sizeOf = async (query: string) => {
+    const response = await visitor.request.get(`${base}${query}`);
+    expect(response.status(), query || 'full').toBe(200);
+    expect(response.headers()['content-type']).toBe('image/webp');
+    return (await response.body()).byteLength;
+  };
+  const [small, medium, full] = [await sizeOf('?w=400'), await sizeOf('?w=800'), await sizeOf('')];
+  // The point of the exercise: a phone is not made to download the big one.
+  expect(small).toBeLessThan(medium);
+  expect(medium).toBeLessThan(full);
+  // Built once and kept, so the second request is the same bytes.
+  expect(await sizeOf('?w=400')).toBe(small);
+
+  // A width outside the allow-list is refused rather than rendered, so no
+  // caller can ask the server for a thousand versions of one picture.
+  expect((await visitor.request.get(`${base}?w=777`)).status()).toBe(404);
+  expect((await visitor.request.get(`${base}?w=99999`)).status()).toBe(404);
+
+  // The reader offers every width and lets the browser choose.
+  await visitor.goto(`/guides/${guide.id}`);
+  const image = visitor.getByAltText('A detailed panel');
+  await expect(image).toBeVisible();
+  const srcset = await image.getAttribute('srcset');
+  expect(srcset).toContain('w=400 400w');
+  expect(srcset).toContain('w=800 800w');
+  expect(await image.getAttribute('sizes')).toContain('100vw');
+
+  // A picture narrower than the width asked for is not enlarged to fill it.
+  const smallUpload = await sharp({
+    create: { width: 300, height: 200, channels: 3, background: '#1e3d34' },
+  })
+    .jpeg()
+    .toBuffer();
+  const secondary = await page.request.post(`/api/studio/${workspace}/assets`, {
+    headers,
+    multipart: { file: { name: 'small.jpg', mimeType: 'image/jpeg', buffer: smallUpload } },
+  });
+  const smallId = (await secondary.json()).asset.id as string;
+  const asOwner = async (query: string) =>
+    (await page.request.get(`/api/media/${workspace}/${smallId}${query}`, { headers })).body();
+  expect((await asOwner('?w=800')).byteLength).toBe((await asOwner('')).byteLength);
+
+  await anonymous.close();
+});
+
+test('a picture already in the workspace can be used again on another step', async ({
+  page,
+  browser,
+}) => {
+  const sharp = (await import('sharp')).default;
+  await login(page.request);
+  const workspace = 'repair-collective';
+  const suffix = randomUUID().slice(0, 8);
+  const section = await category(page.request, workspace, `Reused ${suffix}`);
+
+  const bytes = await sharp({
+    create: { width: 320, height: 240, channels: 3, background: '#35506b' },
+  })
+    .jpeg()
+    .toBuffer();
+  const uploaded = await page.request.post(`/api/studio/${workspace}/assets`, {
+    headers,
+    multipart: { file: { name: 'bench.jpg', mimeType: 'image/jpeg', buffer: bytes } },
+  });
+  expect(uploaded.status(), await uploaded.text()).toBe(201);
+  const assetId = (await uploaded.json()).asset.id as string;
+
+  const guide = await draft(page.request, workspace, section.id, `Reuse guide ${suffix}`);
+  await api(page.request, `/api/studio/${workspace}/guides/${guide.id}`, 'PUT', {
+    expectedVersion: guide.version,
+    document: {
+      ...guide.document,
+      steps: guide.document.steps.map((step, index) =>
+        index === 0
+          ? { ...step, media: [{ assetId, alt: 'The bench, clear', caption: '', annotations: [] }] }
+          : step,
+      ),
+    },
+    categoryId: section.id,
+  });
+
+  // On the second step, the same picture is offered rather than uploaded again.
+  await page.goto(`/studio/${workspace}/${guide.id}`);
+  await page.getByRole('button', { name: /^02/ }).click();
+  await page.getByRole('button', { name: 'Use one already added' }).click();
+  const chooser = page.getByRole('dialog');
+  await expect(chooser.getByRole('button', { name: /320 × 240/ })).toBeVisible();
+  // The grid asks for the smallest rendering, not the full-size picture.
+  await expect(chooser.locator('img').first()).toHaveAttribute('src', /w=400$/);
+  await chooser.getByRole('button', { name: /320 × 240/ }).click();
+  await expect(chooser).toHaveCount(0);
+
+  // It still needs its own description: the same photograph shows a different
+  // thing on a different step.
+  await page
+    .getByRole('textbox', { name: 'Describe this picture' })
+    .fill('The bench with the tools laid out');
+  await page.getByRole('button', { name: 'Add to step' }).click();
+
+  await publish(page);
+
+  const anonymous = await browser.newContext();
+  const visitor = await anonymous.newPage();
+  await visitor.goto(`/guides/${guide.id}`);
+  // One stored picture, two steps, two descriptions.
+  await expect(visitor.getByAltText('The bench, clear')).toBeVisible();
+  await expect(visitor.getByAltText('The bench with the tools laid out')).toBeVisible();
+  const sources = await visitor
+    .locator('.step-media img')
+    .evaluateAll((nodes) => nodes.map((n) => (n as HTMLImageElement).getAttribute('src')));
+  expect(new Set(sources).size).toBe(1);
+
+  // A picture already on this step is not offered a second time. Asserted
+  // against this picture rather than against an empty chooser: other guides in
+  // this workspace have pictures too, and a test that assumed otherwise would
+  // pass alone and fail in company.
+  await page.goto(`/studio/${workspace}/${guide.id}`);
+  await page.getByRole('button', { name: 'Use one already added' }).click();
+  const reopened = page.getByRole('dialog');
+  await expect(reopened).toBeVisible();
+  await expect(reopened.locator(`img[src*="${assetId}"]`)).toHaveCount(0);
+  await anonymous.close();
+});

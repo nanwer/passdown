@@ -4,6 +4,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import sharp, { type Metadata, type Sharp } from 'sharp';
 import { ApplicationError } from '@guide/contracts';
+import { type ServedImageWidth } from '@guide/content';
 
 /**
  * Turning an upload into bytes this application is willing to serve.
@@ -44,7 +45,7 @@ function mediaRoot() {
  * read cannot wander between tenants, and the id is random rather than derived
  * from the filename a visitor chose.
  */
-function assetPath(workspaceId: string, assetId: string, variant: 'display') {
+function assetPath(workspaceId: string, assetId: string, variant: `w${number}` | 'display') {
   if (!/^[a-z0-9][a-z0-9-]{0,99}$/.test(workspaceId) || !/^[0-9a-f-]{36}$/.test(assetId))
     throw new ApplicationError('VALIDATION_ERROR', 'Invalid asset reference.', 422);
   return join(mediaRoot(), workspaceId, `${assetId}.${variant}.webp`);
@@ -118,11 +119,48 @@ export async function storeUpload(
   };
 }
 
-/** Reads stored bytes. Callers must authorize the asset first. */
-export async function readStoredAsset(workspaceId: string, assetId: string): Promise<Buffer> {
+/**
+ * Reads stored bytes at a requested width. Callers must authorize the asset
+ * first.
+ *
+ * Narrower renderings are produced on demand and kept, rather than at upload.
+ * That way a picture added before this existed is served small too, an upload
+ * stays one decode rather than four, and a width nobody ever asks for is never
+ * computed. The width must come from the allow-list, so the number of files a
+ * caller can cause is bounded at one per size.
+ */
+export async function readStoredAsset(
+  workspaceId: string,
+  assetId: string,
+  width?: ServedImageWidth,
+): Promise<Buffer> {
+  const missing = () => new ApplicationError('NOT_FOUND', 'Record not found.', 404);
+  const full = async () => {
+    try {
+      return await readFile(assetPath(workspaceId, assetId, 'display'));
+    } catch {
+      throw missing();
+    }
+  };
+  if (!width) return full();
+
+  const path = assetPath(workspaceId, assetId, `w${width}`);
   try {
-    return await readFile(assetPath(workspaceId, assetId, 'display'));
+    return await readFile(path);
   } catch {
-    throw new ApplicationError('NOT_FOUND', 'Record not found.', 404);
+    // Not rendered yet. Fall through and make it.
   }
+
+  const source = await full();
+  const metadata = await sharp(source).metadata();
+  // A picture already narrower than the request is its own smallest useful
+  // rendering; enlarging it would cost bytes and add nothing.
+  if (!metadata.width || metadata.width <= width) return source;
+  const resized = await sharp(source)
+    .resize({ width, withoutEnlargement: true })
+    .webp({ quality: 82 })
+    .toBuffer();
+  await mkdir(dirname(path), { recursive: true });
+  await writeFile(path, resized, { mode: 0o600 });
+  return resized;
 }
