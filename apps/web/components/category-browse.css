@@ -129,3 +129,16 @@
 .library-toolbar--category {
   margin-bottom: 28px;
 }
+
+/* A picture takes the place the folder mark held, at the same size, so a grid
+   of things with pictures and things without still lines up. */
+.category-browse-image {
+  display: block;
+  width: 56px;
+  height: 56px;
+  flex: 0 0 56px;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid var(--gp-semantic-border-subtle);
+  background: var(--gp-semantic-surface-sunken);
+}

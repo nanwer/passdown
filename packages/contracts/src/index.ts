@@ -156,6 +156,12 @@ export type Category = Omit<CreateCategoryInput, 'code'> & {
   archived: boolean;
   version: number;
   path: CategoryPath;
+  /**
+   * The picture shown for this thing, or null. Carried on the listing rather
+   * than fetched per row so a gallery renders in one request — which is what
+   * makes a picture grid affordable as the default way to browse.
+   */
+  imageAssetId: string | null;
 };
 /**
  * Distinct guides assigned to a category. `direct` counts guides whose own

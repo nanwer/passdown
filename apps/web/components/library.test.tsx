@@ -119,6 +119,7 @@ it('browse cards count guides from the database totals, not from the listed page
       archived: false,
       version: 1,
       sortOrder: 0,
+      imageAssetId: null,
       path: [{ id: 'category-1', name: 'Bicycles' }],
     },
   ];

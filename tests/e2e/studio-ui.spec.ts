@@ -16,6 +16,7 @@ test.beforeEach(async ({ page }) => {
             archived: false,
             version: 1,
             sortOrder: 0,
+            imageAssetId: null,
             path: [{ id: '55555555-5555-4555-8555-555555555555', name: 'Testing' }],
           },
         ],

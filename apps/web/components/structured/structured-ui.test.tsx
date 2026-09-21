@@ -30,6 +30,7 @@ const categories: Category[] = names.map((name, index) => ({
   archived: false,
   version: 1,
   sortOrder: 0,
+  imageAssetId: null,
   path: names
     .slice(0, index + 1)
     .map((name, i) => ({ id: `00000000-0000-4000-8000-${String(i + 1).padStart(12, '0')}`, name })),

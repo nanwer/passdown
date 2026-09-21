@@ -1527,3 +1527,85 @@ test('a thing is added inside another from the row itself, and shows up there', 
   // And the support code is no longer shown to an author.
   await expect(page.locator('.category-code')).toHaveCount(0);
 });
+
+test('a thing gets a picture, and it reaches exactly the readers the thing does', async ({
+  page,
+  browser,
+}) => {
+  const sharp = (await import('sharp')).default;
+  await login(page.request);
+  const workspace = 'repair-collective';
+  const suffix = randomUUID().slice(0, 8);
+  const open = await category(page.request, workspace, `Bicycles ${suffix}`);
+
+  await page.goto(`/studio/${workspace}/categories`);
+  await page.getByRole('button', { name: `Bicycles ${suffix}`, exact: true }).click();
+  const details = page.getByRole('region', { name: 'Details' });
+  await expect(details.locator('.structured-thing-image')).toHaveCount(0);
+
+  const bytes = await sharp({
+    create: { width: 400, height: 300, channels: 3, background: '#2f6f5e' },
+  })
+    .jpeg()
+    .toBuffer();
+  await details
+    .locator('input[type=file]')
+    .setInputFiles({ name: 'bicycle.jpg', mimeType: 'image/jpeg', buffer: bytes });
+  await expect(details.locator('.structured-thing-image')).toBeVisible({ timeout: 15000 });
+
+  // A visitor browsing sees the picture on the card, not a folder mark.
+  const anonymous = await browser.newContext();
+  const visitor = await anonymous.newPage();
+  await visitor.goto('/');
+  const card = visitor.locator('.category-browse-card').filter({ hasText: `Bicycles ${suffix}` });
+  await expect(card).toBeVisible();
+  await expect(card.locator('.category-browse-image')).toBeVisible();
+  const src = await card.locator('.category-browse-image').getAttribute('src');
+  expect(src).toContain('w=400');
+  expect((await visitor.request.get(src!)).status()).toBe(200);
+
+  // The same picture on a members-only thing is not served to that visitor,
+  // and the thing itself does not appear for them at all.
+  const closed = await api<{ category: Category }>(
+    page.request,
+    `/api/studio/${workspace}/categories`,
+    'POST',
+    {
+      domain: 'guide',
+      parentId: null,
+      name: `Members only ${suffix}`,
+      description: '',
+      visibility: 'members',
+      sortOrder: 0,
+    },
+  );
+  const uploaded = await page.request.post(`/api/studio/${workspace}/assets`, {
+    headers,
+    multipart: { file: { name: 'secret.jpg', mimeType: 'image/jpeg', buffer: bytes } },
+  });
+  const secretAsset = (await uploaded.json()).asset.id as string;
+  const linked = await page.request.put(
+    `/api/studio/${workspace}/categories/${closed.category.id}/image`,
+    { headers, data: { assetId: secretAsset } },
+  );
+  expect(linked.status(), await linked.text()).toBe(200);
+
+  expect((await visitor.request.get(`/api/media/${workspace}/${secretAsset}`)).status()).toBe(404);
+  await visitor.reload();
+  await expect(
+    visitor.locator('.category-browse-card').filter({ hasText: `Members only ${suffix}` }),
+  ).toHaveCount(0);
+
+  // Removing it puts the folder mark back and stops serving the bytes.
+  await page.reload();
+  await page.getByRole('button', { name: `Bicycles ${suffix}`, exact: true }).click();
+  await page
+    .getByRole('region', { name: 'Details' })
+    .getByRole('button', { name: 'Remove' })
+    .click();
+  await expect(
+    page.getByRole('region', { name: 'Details' }).locator('.structured-thing-image'),
+  ).toHaveCount(0);
+  expect((await visitor.request.get(src!)).status()).toBe(404);
+  await anonymous.close();
+});

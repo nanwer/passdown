@@ -66,6 +66,7 @@ export function categoryDTO(row: Row): Category {
     version: row.version,
     sortOrder: row.sort_order,
     path: row.path,
+    imageAssetId: row.image_asset_id ?? null,
   };
 }
 export function catalogDTO(row: Row): CatalogItem {
@@ -336,6 +337,29 @@ export function structuredStore(
             data.sortOrder,
           ],
         );
+        return (await category(c, workspaceId, id))!;
+      });
+    },
+    /**
+     * Sets or clears the picture shown for a thing.
+     *
+     * Kept apart from updateCategory, which carries an expectedVersion and is
+     * about renaming and moving. A picture is not a rename, and making someone
+     * resolve a version conflict to change one would be a poor trade.
+     */
+    async setCategoryImage(
+      actor: Actor,
+      workspaceId: string,
+      id: string,
+      assetId: string | null,
+    ): Promise<Category> {
+      return transaction(actor, workspaceId, async (c) => {
+        await owner(c, workspaceId);
+        const updated = await c.query(
+          'UPDATE app.category SET image_asset_id=$3 WHERE workspace_id=$1 AND id=$2',
+          [workspaceId, id, assetId],
+        );
+        if (!updated.rowCount) throw missing();
         return (await category(c, workspaceId, id))!;
       });
     },

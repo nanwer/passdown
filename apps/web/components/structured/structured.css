@@ -916,3 +916,29 @@
     opacity: 1;
   }
 }
+
+.structured-thing-picture {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+}
+.structured-thing-image {
+  display: block;
+  width: 96px;
+  height: 96px;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid var(--gp-semantic-border-subtle);
+  background: var(--gp-semantic-surface-sunken);
+}
+.structured-thing-picture-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  font-size: 13px;
+}
+.structured-thing-picture-actions progress {
+  width: 120px;
+  height: 8px;
+}

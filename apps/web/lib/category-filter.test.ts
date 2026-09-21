@@ -8,6 +8,7 @@ const category = (id: string, name: string, parentId: string | null = null): Cat
   parentId,
   code: `GC-${id}`,
   workspaceId: 'repair-collective',
+  imageAssetId: null,
   domain: 'guide',
   description: '',
   visibility: 'public',

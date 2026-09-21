@@ -70,9 +70,22 @@ export function CategoryBrowse({
               href={`${base}/categories/${category.id}`}
               key={category.id}
             >
-              <span className="category-browse-icon">
-                <FolderTree size={22} aria-hidden="true" />
-              </span>
+              {/* A picture where there is one, the folder mark where there is
+                  not. Browsing a tree works by recognition, and the label may
+                  be a model number nobody reads. */}
+              {category.imageAssetId ? (
+                <img
+                  className="category-browse-image"
+                  src={`/api/media/${category.workspaceId}/${category.imageAssetId}?w=400`}
+                  alt=""
+                  loading="lazy"
+                  decoding="async"
+                />
+              ) : (
+                <span className="category-browse-icon">
+                  <FolderTree size={22} aria-hidden="true" />
+                </span>
+              )}
               <div>
                 <h3>{category.name}</h3>
                 {category.description && <p>{category.description}</p>}

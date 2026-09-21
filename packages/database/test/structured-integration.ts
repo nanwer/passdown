@@ -983,4 +983,78 @@ export async function structuredChecks({
       );
     },
   );
+
+  await check("a thing's picture is readable exactly as far as the thing is", async () => {
+    const suffix = randomUUID().slice(0, 8);
+    const openShelf = await category(`Open shelf ${suffix}`);
+    const closedShelf = await category(`Closed shelf ${suffix}`, null, 'guide', 'members');
+    const childOfClosed = await category(
+      `Inside the closed one ${suffix}`,
+      closedShelf.id,
+      'guide',
+      'members',
+    );
+
+    const picture = async () => {
+      const id = randomUUID();
+      await store.createAsset(who, 'public', {
+        id,
+        contentHash: 'b'.repeat(64),
+        mediaType: 'image/webp',
+        byteSize: 4096,
+        width: 800,
+        height: 600,
+      });
+      return id;
+    };
+    const openPicture = await picture();
+    const closedPicture = await picture();
+    const childPicture = await picture();
+
+    await store.setCategoryImage(who, 'public', openShelf.id, openPicture);
+    await store.setCategoryImage(who, 'public', closedShelf.id, closedPicture);
+    await store.setCategoryImage(who, 'public', childOfClosed.id, childPicture);
+
+    // An owner sees all three, and the id comes back on the thing itself so
+    // a gallery needs one request rather than one per row.
+    const owned = await store.listCategories(who, 'public', { domain: 'guide' });
+    assert.equal(owned.find((c) => c.id === openShelf.id)?.imageAssetId, openPicture);
+    assert.equal(owned.find((c) => c.id === closedShelf.id)?.imageAssetId, closedPicture);
+
+    // A visitor may fetch the picture of a thing they can see.
+    assert.equal(await store.assetReadable(anonymous, 'public', openPicture), true);
+
+    // And not the picture of one they cannot — nor of anything filed beneath
+    // it, which is the case a rule written only against the thing itself
+    // would miss.
+    assert.equal(await store.assetReadable(anonymous, 'public', closedPicture), false);
+    assert.equal(await store.assetReadable(anonymous, 'public', childPicture), false);
+    assert.equal(await store.assetReadable(actor('outsider'), 'public', closedPicture), false);
+    assert.equal(await store.assetReadable(actor('suspended'), 'public', openPicture), false);
+
+    // Nor from another workspace, whoever is asking.
+    assert.equal(await store.assetReadable(who, 'private', openPicture), false);
+
+    // Clearing it takes the access with it.
+    await store.setCategoryImage(who, 'public', openShelf.id, null);
+    assert.equal(await store.assetReadable(anonymous, 'public', openPicture), false);
+    assert.equal(
+      (await store.listCategories(who, 'public', { domain: 'guide' })).find(
+        (c) => c.id === openShelf.id,
+      )?.imageAssetId,
+      null,
+    );
+
+    // A picture belonging to another workspace cannot be borrowed.
+    const foreign = randomUUID();
+    await store.createAsset(who, 'private', {
+      id: foreign,
+      contentHash: 'c'.repeat(64),
+      mediaType: 'image/webp',
+      byteSize: 2048,
+      width: 400,
+      height: 300,
+    });
+    await assert.rejects(store.setCategoryImage(who, 'public', openShelf.id, foreign));
+  });
 }

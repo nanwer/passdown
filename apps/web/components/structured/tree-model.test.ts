@@ -13,6 +13,7 @@ const root: Category = {
   archived: false,
   version: 1,
   sortOrder: 0,
+  imageAssetId: null,
   path: [{ id: 'root', name: 'Electronics' }],
 };
 const child: Category = {

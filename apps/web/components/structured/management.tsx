@@ -23,7 +23,7 @@ import type {
   StudioWorkspace,
 } from '@guide/contracts';
 import { SessionGate, ErrorNotice } from '../studio/frame';
-import { studioFetch } from '../studio/transport';
+import { studioFetch, studioUpload } from '../studio/transport';
 import { useCategories, useCatalog, announceStructuredChange } from './data';
 import { CategoryTree } from './category-tree';
 import { CategoryDialog } from './category-picker';
@@ -133,6 +133,114 @@ function ManagementHeader({
     </>
   );
 }
+/**
+ * The picture shown for a thing.
+ *
+ * Uploading reuses the media route, so the bytes are re-encoded and stripped of
+ * camera metadata on the way in exactly as a step photograph is. Which picture
+ * a thing shows is recorded separately; who may see it is never decided here —
+ * an asset is readable exactly as far as the thing it belongs to is, and that
+ * rule lives in the database.
+ */
+function ThingPicture({
+  workspaceId,
+  category,
+  onChanged,
+}: {
+  workspaceId: string;
+  category: Category;
+  onChanged: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [error, setError] = useState('');
+  const fileInput = useRef<HTMLInputElement>(null);
+
+  async function choose(file: File) {
+    setBusy(true);
+    setError('');
+    setProgress(0);
+    try {
+      const uploaded = await studioUpload<{ asset: { id: string } }>(
+        `/api/studio/${workspaceId}/assets`,
+        file,
+        setProgress,
+      );
+      await studioFetch(`/api/studio/${workspaceId}/categories/${category.id}/image`, {
+        method: 'PUT',
+        body: JSON.stringify({ assetId: uploaded.asset.id }),
+      });
+      onChanged();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'That picture could not be added.');
+    } finally {
+      setBusy(false);
+      if (fileInput.current) fileInput.current.value = '';
+    }
+  }
+
+  async function clear() {
+    setBusy(true);
+    setError('');
+    try {
+      await studioFetch(`/api/studio/${workspaceId}/categories/${category.id}/image`, {
+        method: 'PUT',
+        body: JSON.stringify({ assetId: null }),
+      });
+      onChanged();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'That picture could not be removed.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="structured-thing-picture">
+      {category.imageAssetId ? (
+        <img
+          src={`/api/media/${workspaceId}/${category.imageAssetId}?w=400`}
+          alt=""
+          className="structured-thing-image"
+        />
+      ) : (
+        <span className="structured-detail-icon">
+          <FolderTree size={28} />
+        </span>
+      )}
+      <div className="structured-thing-picture-actions">
+        {busy ? (
+          <label>
+            Adding
+            <progress value={progress} max={1} />
+          </label>
+        ) : (
+          <>
+            <label className="studio-picture-add">
+              <span>{category.imageAssetId ? 'Replace picture' : 'Add a picture'}</span>
+              <input
+                ref={fileInput}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (file) void choose(file);
+                }}
+              />
+            </label>
+            {category.imageAssetId && (
+              <Button type="button" variant="ghost" onClick={() => void clear()}>
+                Remove
+              </Button>
+            )}
+          </>
+        )}
+      </div>
+      {error && <ErrorNotice error={error} />}
+    </div>
+  );
+}
+
 export function CategoryManagementPage({ workspaceId }: { workspaceId: string }) {
   return (
     <SessionGate workspaceId={workspaceId}>
@@ -336,9 +444,11 @@ function CategoryManagement({ workspace }: { workspace: StudioWorkspace }) {
         <section className="structured-detail-panel" aria-label="Details">
           {selected ? (
             <>
-              <span className="structured-detail-icon">
-                <FolderTree size={28} />
-              </span>
+              <ThingPicture
+                workspaceId={workspace.id}
+                category={selected}
+                onChanged={() => refresh()}
+              />
               <p className="structured-breadcrumb">{categoryPath(selected)}</p>
               <h2>{selected.name}</h2>
               <div className="structured-inline-meta">
