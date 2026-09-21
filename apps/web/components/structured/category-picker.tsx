@@ -171,7 +171,7 @@ export function CategoryPicker({
                   />
                 </div>
               )}
-              {allowCreate && workspace.role === 'owner' && (
+              {allowCreate && workspace.role === 'manage' && (
                 <div className="structured-picker-footer">
                   <Button type="button" variant="secondary" onClick={() => setCreating(true)}>
                     <FolderPlus size={16} />

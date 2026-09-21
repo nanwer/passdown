@@ -36,7 +36,7 @@ const workspace: StudioWorkspace = {
   id: id(1),
   name: 'Workspace',
   audience: 'public',
-  role: 'owner',
+  role: 'manage',
 };
 const item: CatalogItem = {
   id: id(2),

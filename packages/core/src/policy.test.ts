@@ -7,9 +7,8 @@ const user = { kind: 'user' as const, id: 'alex', active: true };
 const membership = {
   workspaceId: 'team',
   actorId: 'alex',
-  role: 'reader' as const,
+  role: 'view' as const,
   active: true,
-  grants: [],
 };
 const guide = {
   id: 'brakes',
@@ -63,22 +62,28 @@ describe('centralized policy', () => {
   it('does not grant draft access to a member reader', () => {
     expect(can('readDraft', privateContext)).toBe(false);
   });
-  it('keeps author capabilities scoped to their workspace', () => {
-    const author = { ...membership, role: 'author' as const };
-    expect(can('editDraft', { ...privateContext, membership: author })).toBe(true);
-    expect(
-      can('editDraft', { ...privateContext, membership: { ...author, workspaceId: 'repair' } }),
-    ).toBe(false);
-    expect(can('publish', { ...privateContext, membership: author })).toBe(false);
-    expect(
-      can('publish', { ...privateContext, membership: { ...author, grants: ['publisher'] } }),
-    ).toBe(true);
+  it('separates what view may do from what manage may do', () => {
+    const manager = { ...membership, role: 'manage' as const };
+    // View is exactly "read what has been published to members" and nothing
+    // more. These four used to be spread across three roles and three grants.
+    for (const action of ['readDraft', 'editDraft', 'review', 'publish'] as const) {
+      expect(can(action, { ...privateContext, membership }), `view may not ${action}`).toBe(false);
+      expect(can(action, { ...privateContext, membership: manager }), `manage may ${action}`).toBe(
+        true,
+      );
+    }
+    expect(can('readRelease', { ...privateContext, membership })).toBe(true);
   });
-  it('treats review permission as eligibility, never approval or self-review bypass', () => {
+  it('keeps a permission scoped to the workspace it was granted in', () => {
+    const manager = { ...membership, role: 'manage' as const };
+    expect(can('editDraft', { ...privateContext, membership: manager })).toBe(true);
     expect(
-      can('review', { ...privateContext, membership: { ...membership, grants: ['reviewer'] } }),
-    ).toBe(true);
-    expect(can('review', privateContext)).toBe(false);
+      can('editDraft', { ...privateContext, membership: { ...manager, workspaceId: 'repair' } }),
+    ).toBe(false);
+  });
+  it('gives a non-member nothing beyond a public release', () => {
+    expect(can('readDraft', { ...privateContext, membership: null })).toBe(false);
+    expect(can('readRelease', { ...privateContext, membership: null })).toBe(false);
   });
 });
 describe('runtime-authorized query scopes', () => {

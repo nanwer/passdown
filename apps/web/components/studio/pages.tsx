@@ -100,7 +100,7 @@ export function Workspaces() {
                 </span>
                 <h2>{workspace.name}</h2>
                 <p>
-                  {workspace.role === 'owner'
+                  {workspace.role === 'manage'
                     ? 'Create, edit and publish your guides.'
                     : 'Browse the published workspace library. Authoring is currently owner-only.'}
                 </p>
@@ -135,7 +135,7 @@ function GuideList({ workspace }: { workspace: StudioWorkspace }) {
   const [status, setStatus] = useState('all');
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
-    if (workspace.role !== 'owner') return;
+    if (workspace.role !== 'manage') return;
     let active = true;
     studioFetch<{ guides: DraftSummary[] }>(`/api/studio/${workspace.id}/guides`)
       .then((data) => {
@@ -174,13 +174,13 @@ function GuideList({ workspace }: { workspace: StudioWorkspace }) {
           <h1>Your guides</h1>
           <p>Good instructions start with a first draft.</p>
         </div>
-        {workspace.role === 'owner' && (
+        {workspace.role === 'manage' && (
           <a className="button button--primary" href={`/studio/${workspace.id}/new`}>
             <Plus size={18} /> New guide
           </a>
         )}
       </div>
-      {workspace.role !== 'owner' ? (
+      {workspace.role !== 'manage' ? (
         <div className="studio-card">
           <h2>Explore your workspace</h2>
           <p>Authoring is currently available to workspace owners.</p>
@@ -495,7 +495,7 @@ function CreateGuide({ workspace }: { workspace: StudioWorkspace }) {
         <h1>Start with the essentials.</h1>
         <p>You can refine everything as you write. Nothing is published yet.</p>
       </div>
-      {workspace.role !== 'owner' ? (
+      {workspace.role !== 'manage' ? (
         <ErrorNotice error="Only workspace owners can create guides in this preview." />
       ) : (
         document && (

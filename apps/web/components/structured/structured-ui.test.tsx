@@ -15,7 +15,7 @@ const workspace: StudioWorkspace = {
   id: 'public',
   name: 'Repair collective',
   audience: 'public',
-  role: 'owner',
+  role: 'manage',
 };
 const names = ['Electronics', 'Computers', 'Laptops', 'Maker', 'Model'];
 const categories: Category[] = names.map((name, index) => ({

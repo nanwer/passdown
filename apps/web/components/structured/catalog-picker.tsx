@@ -140,7 +140,7 @@ export function CatalogPicker({
                 )}
               </div>
             )}
-            {workspace.role === 'owner' && (
+            {workspace.role === 'manage' && (
               <div className="structured-picker-footer">
                 <Button type="button" variant="secondary" onClick={() => setCreating(true)}>
                   <Plus size={16} />

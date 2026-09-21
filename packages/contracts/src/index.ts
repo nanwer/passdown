@@ -48,7 +48,13 @@ export type StudioWorkspace = {
   id: string;
   name: string;
   audience: 'public' | 'private';
-  role: 'owner' | 'reader' | 'author' | 'admin' | 'contributor';
+  /**
+   * What this person may do in this workspace. Manage is everything; view is
+   * reading what has been published to members. There is deliberately nothing
+   * between the two — the database enforced exactly this split long before it
+   * was named, through a single predicate repeated in nineteen policies.
+   */
+  role: 'manage' | 'view';
 };
 export type DraftSummary = {
   id: string;

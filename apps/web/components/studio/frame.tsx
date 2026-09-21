@@ -28,7 +28,7 @@ export function Frame({
         </a>
         <nav aria-label="Studio navigation">
           <a href="/studio">Workspaces</a>
-          {workspace?.role === 'owner' && (
+          {workspace?.role === 'manage' && (
             <>
               <a href={`/studio/${workspace.id}`}>Guides</a>
               <a href={`/studio/${workspace.id}/categories`}>

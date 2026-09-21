@@ -307,7 +307,7 @@ function CategoryManagement({ workspace }: { workspace: StudioWorkspace }) {
     status === 'all' ? true : status === 'active' ? !category.archived : category.archived,
   );
   const selected = categories.find((category) => category.id === selectedId);
-  const owner = workspace.role === 'owner';
+  const owner = workspace.role === 'manage';
   async function archive() {
     if (!selected) return;
     setPending(true);
@@ -659,7 +659,7 @@ function CatalogManagement({ workspace }: { workspace: StudioWorkspace }) {
   const visible = matching.filter((item) =>
     status === 'all' ? true : status === 'active' ? !item.archived : item.archived,
   );
-  const owner = workspace.role === 'owner';
+  const owner = workspace.role === 'manage';
   return (
     <main className="studio-container structured-management" id="main" tabIndex={-1}>
       <ManagementHeader workspace={workspace} active="catalog" />
@@ -919,7 +919,7 @@ function CatalogDetail({
           <p>This item is ready for its first guide.</p>
         )}
       </div>
-      {workspace.role === 'owner' && (
+      {workspace.role === 'manage' && (
         <div className="structured-detail-actions">
           <CatalogDialog
             workspace={workspace}

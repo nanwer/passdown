@@ -42,7 +42,7 @@ await owner.query(
   "INSERT INTO auth_user(id,name,email,email_verified,active) VALUES('owner','Owner','owner@test.local',true,true),('mixed','Mixed','mixed@test.local',true,true),('reader','Reader','reader@test.local',true,true),('outsider','Outsider','outsider@test.local',true,true),('suspended','Suspended','suspended@test.local',true,false),('unverified','Unverified','unverified@test.local',false,true)",
 );
 await owner.query(
-  "INSERT INTO app.workspace VALUES('public','Public','public'),('private','Private','private'); INSERT INTO app.membership VALUES('public','owner','owner',true),('private','owner','owner',true),('public','mixed','owner',true),('private','mixed','reader',true),('private','reader','reader',true),('private','suspended','owner',true),('private','unverified','owner',true)",
+  "INSERT INTO app.workspace VALUES('public','Public','public'),('private','Private','private'); INSERT INTO app.membership VALUES('public','owner','manage',true),('private','owner','manage',true),('public','mixed','manage',true),('private','mixed','view',true),('private','reader','view',true),('private','suspended','manage',true),('private','unverified','manage',true)",
 );
 const store = createApplicationStore({ connectionString: runtimeURL.href });
 const runtime = new pg.Pool({ connectionString: runtimeURL.href, max: 1 });
@@ -536,7 +536,7 @@ try {
       await assert.rejects(runtime.query('CREATE TABLE app.illegal(id int)'));
       await assert.rejects(runtime.query("UPDATE app.release SET license='all-rights-reserved'"));
       await assert.rejects(runtime.query('DELETE FROM app.audit'));
-      await assert.rejects(runtime.query("UPDATE app.membership SET role='owner'"));
+      await assert.rejects(runtime.query("UPDATE app.membership SET role='manage'"));
     },
   );
   await check(
@@ -966,6 +966,40 @@ try {
       assert.equal((await readSchemaState(owner)).ok, true);
     },
   );
+  await check('no policy or function decides access by a role that no longer exists', async () => {
+    // Nineteen policies and two functions compared a role to 'owner'. Migration
+    // 019 moved every one of them onto app.member_manages, and this is the
+    // invariant that says so — a policy left behind would not fail a test, it
+    // would silently deny everyone, because no membership can hold that word
+    // any more.
+    const stale = await owner.query(`
+      SELECT tablename || '.' || policyname AS name FROM pg_policies
+      WHERE schemaname='app'
+        AND (coalesce(qual,'') LIKE '%owner%' OR coalesce(with_check,'') LIKE '%owner%')
+      UNION ALL
+      SELECT 'function ' || p.proname FROM pg_proc p
+      JOIN pg_namespace n ON n.oid = p.pronamespace
+      WHERE n.nspname='app' AND p.prokind='f' AND pg_get_functiondef(p.oid) LIKE '%''owner''%'`);
+    assert.deepEqual(
+      stale.rows.map((r: { name: string }) => r.name),
+      [],
+      'these still decide access by a role the schema no longer permits',
+    );
+
+    // And the rename really did reach every one of them.
+    const managing = await owner.query(
+      `SELECT count(*)::int n FROM pg_policies WHERE schemaname='app'
+         AND (coalesce(qual,'') LIKE '%member_manages%' OR coalesce(with_check,'') LIKE '%member_manages%')`,
+    );
+    assert.equal(managing.rows[0].n, 19);
+
+    // The column cannot hold anything else, whatever the application believes.
+    await assert.rejects(
+      owner.query("UPDATE app.membership SET role='author' WHERE workspace_id='public'"),
+      /membership_role_check/,
+    );
+  });
+
   await check(
     'drift between the application and the database is named, in both directions',
     async () => {
@@ -1038,7 +1072,7 @@ try {
       // other, and the totals it asserts must not move when one is added
       // elsewhere in this suite.
       await owner.query(
-        "INSERT INTO app.workspace VALUES('library','Library','public'); INSERT INTO app.membership VALUES('library','owner','owner',true)",
+        "INSERT INTO app.workspace VALUES('library','Library','public'); INSERT INTO app.membership VALUES('library','owner','manage',true)",
       );
       const shelf = await store.createCategory(actor('owner'), 'library', {
         domain: 'guide',

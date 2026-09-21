@@ -6,9 +6,8 @@ export const actorSchema = z.discriminatedUnion('kind', [
 const membershipSchema = z.object({
   workspaceId: z.string().min(1),
   actorId: z.string().min(1),
-  role: z.enum(['reader', 'contributor', 'author', 'admin', 'owner']),
+  role: z.enum(['manage', 'view']),
   active: z.boolean(),
-  grants: z.array(z.enum(['reviewer', 'publisher', 'moderator'])),
 });
 const workspaceSchema = z.object({
   id: z.string().min(1),
@@ -50,20 +49,13 @@ export function can(action: Action, input: unknown): boolean {
     return (workspace.audience === 'public' && guide.audience === 'public') || !!member;
   }
   if (!member) return false;
-  const manages = member.role === 'owner' || member.role === 'admin';
-  if (action === 'readDraft')
-    return (
-      manages ||
-      member.role === 'author' ||
-      member.grants.includes('reviewer') ||
-      member.grants.includes('publisher')
-    );
-  if (action === 'editDraft') return manages || member.role === 'author';
-  if (action === 'review') return manages || member.grants.includes('reviewer');
-  if (action === 'publish') return manages || member.grants.includes('publisher');
-  if (action === 'moderate') return manages || member.grants.includes('moderator');
-  return false;
+  // Reading what has been published to members is what view means; everything
+  // past that is manage. There is deliberately nothing in between, which is why
+  // the roles and grants that used to be weighed here are gone — they described
+  // distinctions the database never made.
+  return member.role === 'manage';
 }
+
 export function isWorkspaceReadable(
   actor: Actor,
   workspace: Workspace,

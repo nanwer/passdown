@@ -324,7 +324,7 @@ export function createApplicationStore(options: { connectionString: string }) {
         [workspaceId],
       )
     ).rows[0];
-    if (!row || row.role !== 'owner') throw missing();
+    if (!row || row.role !== 'manage') throw missing();
     return row;
   }
   async function lockedDraft(client: pg.PoolClient, workspaceId: string, id: string) {

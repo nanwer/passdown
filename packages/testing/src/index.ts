@@ -18,7 +18,7 @@ const workspaces: Workspace[] = [
   { id: 'workshop', name: 'Workshop operations', audience: 'private' },
 ];
 const memberships: Membership[] = [
-  { actorId: 'demo-reader', workspaceId: 'workshop', role: 'reader', active: true, grants: [] },
+  { actorId: 'demo-reader', workspaceId: 'workshop', role: 'view', active: true },
 ];
 const paragraph = (text: string) => ({
   type: 'paragraph' as const,

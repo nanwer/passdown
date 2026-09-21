@@ -37,7 +37,7 @@ export async function seedLocal(config: Record<string, string>) {
       "INSERT INTO app.workspace(id,name,audience) VALUES('repair-collective','Repair collective','public'),('workshop','Workshop operations','private') ON CONFLICT(id) DO NOTHING",
     );
     await client.query(
-      "INSERT INTO app.membership(workspace_id,actor_id,role) VALUES('repair-collective',$1,'owner'),('workshop',$1,'owner') ON CONFLICT(workspace_id,actor_id) DO NOTHING",
+      "INSERT INTO app.membership(workspace_id,actor_id,role) VALUES('repair-collective',$1,'manage'),('workshop',$1,'manage') ON CONFLICT(workspace_id,actor_id) DO NOTHING",
       [user.id],
     );
     // Fixture identity is used only to extract original illustrative content during operator setup.
