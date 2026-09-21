@@ -1,15 +1,6 @@
 'use client';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import {
-  ArrowUpRight,
-  BookOpen,
-  ChevronDown,
-  Globe2,
-  Layers3,
-  Moon,
-  Sun,
-  LockKeyhole,
-} from 'lucide-react';
+import { BookOpen, ChevronDown, Globe2, Moon, Sun, LockKeyhole } from 'lucide-react';
 export function ThemeToggle() {
   const [dark, setDark] = useState(false);
   useEffect(() => {
@@ -107,7 +98,7 @@ export function AppShell({
   footerNote = 'Original sample guides · Read-only development preview',
 }: {
   children: ReactNode;
-  active?: 'library' | 'components';
+  active?: 'library';
   team?: boolean;
   actions?: ReactNode;
   libraryHref?: string;
@@ -152,14 +143,6 @@ export function AppShell({
             <BookOpen size={17} />
             {libraryLabel}
           </a>
-          <a
-            className={active === 'components' ? 'active' : ''}
-            href="/components"
-            aria-current={active === 'components' ? 'page' : undefined}
-          >
-            <Layers3 size={17} />
-            Design workshop
-          </a>
         </nav>
         <div className="header-actions">
           <ThemeToggle />
@@ -173,9 +156,6 @@ export function AppShell({
           Made to be understood.
         </a>
         <span>{footerNote}</span>
-        <a href="/components">
-          Explore the design system <ArrowUpRight size={14} />
-        </a>
       </footer>
     </div>
   );

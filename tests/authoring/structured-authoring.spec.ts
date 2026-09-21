@@ -1661,3 +1661,50 @@ test('a guide is given a kind of work, and the title writes itself from it', asy
   expect(stored.ok()).toBe(true);
   expect((await stored.json()).guide.guideType).toEqual({ key: 'inspection', subject: 'Warping' });
 });
+
+test('a dialog traps focus, closes on Escape and hands focus back', async ({ page }) => {
+  // This used to run against the design workshop page's example dialog. That
+  // page is gone, and every dialog left in the product is behind a sign-in, so
+  // the check moved here and now runs against one people actually open.
+  await login(page.request);
+  await page.goto('/studio/workshop/new');
+
+  const trigger = page.getByRole('button', { name: /^What is this about/ }).last();
+  await trigger.click();
+  const dialog = page.getByRole('dialog').last();
+  await expect(dialog).toBeVisible();
+
+  // Tab well past the number of controls in the dialog. Stopping at four only
+  // proves the dialog has four focusable things; the trap is the thing that
+  // stops the fifth tab landing on the page behind it.
+  for (let i = 0; i < 25; i++) {
+    await page.keyboard.press('Tab');
+    expect(
+      await dialog.evaluate((node) => node.contains(document.activeElement)),
+      `focus left the dialog on tab ${i + 1}`,
+    ).toBe(true);
+  }
+
+  await page.keyboard.press('Escape');
+  await expect(dialog).not.toBeVisible();
+  await expect(trigger).toBeFocused();
+});
+
+test('a dialog stays inside a narrow viewport', async ({ page }) => {
+  await login(page.request);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/studio/workshop/new');
+  await page
+    .getByRole('button', { name: /^What is this about/ })
+    .last()
+    .click();
+  const dialog = page.getByRole('dialog').last();
+  await expect(dialog).toBeVisible();
+  const box = await dialog.boundingBox();
+  expect(box).not.toBeNull();
+  expect(box!.x).toBeGreaterThanOrEqual(0);
+  expect(box!.x + box!.width).toBeLessThanOrEqual(390);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  );
+});

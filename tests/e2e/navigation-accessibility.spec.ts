@@ -142,33 +142,36 @@ for (const viewport of [
     await teamWorkspace.focus();
     await expectFullyReachable(teamWorkspace);
 
-    await page.goto('/components');
-    await page.getByRole('button', { name: 'Open example dialog' }).click();
-    await expectNoHorizontalOverflow(page);
-    const dialog = page.getByRole('dialog');
-    const box = await dialog.boundingBox();
-    expect(box).not.toBeNull();
-    expect(box!.x).toBeGreaterThanOrEqual(0);
-    expect(box!.x + box!.width).toBeLessThanOrEqual(viewport.width);
-    const closeDialog = page.getByRole('button', { name: 'Close dialog' });
-    await closeDialog.focus();
-    await expectFullyReachable(closeDialog);
+    // Dialog geometry at this width moved to the authoring suite with the
+    // design workshop page; every remaining dialog needs a sign-in.
   });
 }
 
 test('forced colors retain visible control boundaries and reduced motion removes smooth scrolling', async ({
   page,
 }) => {
+  // The design workshop page used to supply a .button and a .spinner on a
+  // public URL. The sign-in form is now the only unauthenticated page with a
+  // real button, so the motion readings happen there and the forced-colour
+  // reading stays on the library, which is where the workspace control lives.
   await page.emulateMedia({ forcedColors: 'none', reducedMotion: 'no-preference' });
-  await page.goto('/components');
-  const normalMotion = await page.evaluate(() => ({
-    buttonTransition: getComputedStyle(document.querySelector('.button')!).transitionDuration,
-    spinnerAnimation: getComputedStyle(document.querySelector('.spinner')!).animationName,
-  }));
-  expect(normalMotion.buttonTransition).not.toBe('0s');
-  expect(normalMotion.spinnerAnimation).toBe('spin');
+  await page.goto('/sign-in');
+  const normalMotion = await page.evaluate(
+    () => getComputedStyle(document.querySelector('.button')!).transitionDuration,
+  );
+  expect(normalMotion).not.toBe('0s');
 
   await page.emulateMedia({ forcedColors: 'active', reducedMotion: 'reduce' });
+  await page.reload();
+  const adapted = await page.evaluate(() => ({
+    buttonTransition: getComputedStyle(document.querySelector('.button')!).transitionDuration,
+    rootScroll: getComputedStyle(document.documentElement).scrollBehavior,
+  }));
+  expect(adapted.buttonTransition).toBe('0s');
+  expect(adapted.rootScroll).toBe('auto');
+
+  await page.goto('/');
+
   const trigger = workspaceTrigger(page);
   await trigger.click();
   const forcedColorBoundary = await trigger.evaluate((node) => {
@@ -184,15 +187,4 @@ test('forced colors retain visible control boundaries and reduced motion removes
   });
   expect(forcedColorBoundary.borderColor).toBe(forcedColorBoundary.systemCanvasText);
   await expect(page.getByRole('group', { name: 'Choose workspace' })).toBeVisible();
-  await page.getByRole('button', { name: 'Open example dialog' }).click();
-  const adapted = await page.evaluate(() => ({
-    buttonTransition: getComputedStyle(document.querySelector('.button')!).transitionDuration,
-    dialogBorderColor: getComputedStyle(document.querySelector('[role="dialog"]')!).borderColor,
-    rootScroll: getComputedStyle(document.documentElement).scrollBehavior,
-    spinnerAnimation: getComputedStyle(document.querySelector('.spinner')!).animationName,
-  }));
-  expect(adapted.dialogBorderColor).toBe(forcedColorBoundary.systemCanvasText);
-  expect(adapted.buttonTransition).toBe('0s');
-  expect(adapted.spinnerAnimation).toBe('none');
-  expect(adapted.rootScroll).toBe('auto');
 });

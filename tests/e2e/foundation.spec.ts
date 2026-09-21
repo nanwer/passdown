@@ -39,29 +39,20 @@ test('team preview is clearly synthetic and reuses the reader', async ({ page })
   await page.getByRole('heading', { name: 'Prepare a shared workbench' }).click();
   await expect(page.locator('.reader-step')).toHaveCount(5);
 });
-test('theme persists and dialog restores focus after Escape', async ({ page }) => {
-  await page.goto('/components');
+test('theme persists across a reload', async ({ page }) => {
+  await page.goto('/sign-in');
   await page.getByRole('button', { name: 'Switch to dark theme' }).click();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
   await page.reload();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
-  const trigger = page.getByRole('button', { name: 'Open example dialog' });
-  await trigger.click();
-  await expect(page.getByRole('dialog')).toBeVisible();
-  for (let i = 0; i < 4; i++) {
-    await page.keyboard.press('Tab');
-    expect(
-      await page.getByRole('dialog').evaluate((dialog) => dialog.contains(document.activeElement)),
-    ).toBe(true);
-  }
-  await page.keyboard.press('Escape');
-  await expect(page.getByRole('dialog')).not.toBeVisible();
-  await expect(trigger).toBeFocused();
 });
+// The focus trap, Escape and focus restoration that used to be checked here
+// moved to the authoring suite when the design workshop page went. They need a
+// dialog, and every remaining dialog is behind a sign-in.
 for (const theme of ['light', 'dark']) {
   test(`library and reader have no detected axe violations in ${theme}`, async ({ page }) => {
     await page.addInitScript((value) => localStorage.setItem('guide-theme', value), theme);
-    for (const url of ['/', '/guides/bicycle-brake', '/components', '/preview/workshop']) {
+    for (const url of ['/', '/guides/bicycle-brake', '/sign-in', '/preview/workshop']) {
       await page.goto(url);
       const results = await new AxeBuilder({ page })
         .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
@@ -72,7 +63,7 @@ for (const theme of ['light', 'dark']) {
 }
 test('mobile library and reader fit the viewport', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  for (const url of ['/', '/guides/bicycle-brake', '/components']) {
+  for (const url of ['/', '/guides/bicycle-brake', '/sign-in']) {
     await page.goto(url);
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
