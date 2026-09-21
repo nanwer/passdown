@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { words } from '../lib/vocabulary';
 import { AppShell } from '@guide/ui';
 import { GuideArtwork, GuideCard } from '@guide/guide-ui';
 import type { DemoGuide } from '@guide/testing';
@@ -256,7 +257,7 @@ export function Library({
             </div>
           </div>
           {!selectedCategory && (
-            <nav className="category-tabs" aria-label="Guide categories">
+            <nav className="category-tabs" aria-label={`Guide ${words.things}`}>
               <LibraryCategoryLink href={link('')} base={base} category="" current={!category}>
                 {t.allCategories}
               </LibraryCategoryLink>

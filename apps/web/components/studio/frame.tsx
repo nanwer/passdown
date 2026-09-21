@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState, type ReactNode } from 'react';
 import { BookOpen, ArrowLeft, LogOut, PenLine, FolderTree, Wrench } from 'lucide-react';
+import { words } from '../../lib/vocabulary';
 import { Button, ThemeToggle } from '@guide/ui';
 import type { StudioSession, StudioWorkspace } from '@guide/contracts';
 import { StudioError, studioFetch } from './transport';
@@ -31,7 +32,7 @@ export function Frame({
             <>
               <a href={`/studio/${workspace.id}`}>Guides</a>
               <a href={`/studio/${workspace.id}/categories`}>
-                <FolderTree size={17} /> Categories
+                <FolderTree size={17} /> {words.Things}
               </a>
               <a href={`/studio/${workspace.id}/catalog`}>
                 <Wrench size={17} /> Catalog

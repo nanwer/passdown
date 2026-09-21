@@ -25,7 +25,7 @@ test('choosing a category during the debounce uses the current input', async ({ 
   await page.goto('/');
   await page.getByRole('searchbox').fill('keyboard');
   await page
-    .getByRole('navigation', { name: 'Guide categories' })
+    .getByRole('navigation', { name: 'Guide things' })
     .getByRole('link', { name: 'Electronics', exact: true })
     .click();
 

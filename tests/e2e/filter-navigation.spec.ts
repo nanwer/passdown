@@ -45,13 +45,13 @@ for (const viewport of [
       for (const [label, count] of workspace.filters) {
         const before = await scrollToFilters(page);
         await page
-          .getByRole('navigation', { name: 'Guide categories' })
+          .getByRole('navigation', { name: 'Guide things' })
           .getByRole('link', { name: label, exact: true })
           .click();
         await expect(page.locator('.guide-card')).toHaveCount(count);
         await expect(
           page
-            .getByRole('navigation', { name: 'Guide categories' })
+            .getByRole('navigation', { name: 'Guide things' })
             .getByRole('link', { name: label, exact: true }),
         ).toHaveAttribute('aria-current', 'true');
         await expect(page.getByRole('status')).toHaveText(
