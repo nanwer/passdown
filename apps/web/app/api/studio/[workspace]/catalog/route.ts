@@ -1,4 +1,4 @@
-import { createCatalogItemSchema, catalogKindSchema } from '@guide/contracts';
+import { createCatalogItemSchema } from '@guide/contracts';
 import { getApplication, mutationContext, requireSession } from '../../../../../lib/application';
 import { apiResponse, assertIdentifier, parseInput, readJSON } from '../../../../../lib/http';
 export const dynamic = 'force-dynamic';
@@ -11,9 +11,6 @@ export function GET(request: Request, context: Context) {
     const url = new URL(request.url);
     const store = getApplication().store;
     const items = await store.listCatalogItems(actor, workspace, {
-      kind: url.searchParams.has('kind')
-        ? parseInput(catalogKindSchema, url.searchParams.get('kind'))
-        : undefined,
       includeArchived: url.searchParams.get('includeArchived') === 'true',
       search: url.searchParams.get('search') ?? undefined,
     });

@@ -31,7 +31,6 @@ export function filterCatalog(
   items: CatalogItem[],
   options: {
     search?: string;
-    kind?: CatalogItem['kind'];
     includeArchived?: boolean;
     visibility?: Category['visibility'];
   },
@@ -40,7 +39,6 @@ export function filterCatalog(
   return items.filter(
     (item) =>
       (options.includeArchived || !item.archived) &&
-      (!options.kind || item.kind === options.kind) &&
       (!options.visibility || options.visibility === 'members' || item.visibility === 'public') &&
       [item.name, item.specification, item.manufacturer, item.model, item.partNumber]
         .join(' ')

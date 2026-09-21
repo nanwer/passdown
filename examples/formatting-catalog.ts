@@ -47,14 +47,12 @@ export async function prepareFormattingExample(document: GuideDocument, api: Exa
       (item) =>
         !item.archived &&
         item.name === original.label &&
-        item.kind === kind &&
         item.visibility === 'public' &&
         item.specification === '',
     );
     if (!item) {
       item = (
         await api(`${root}/catalog`, 'POST', {
-          kind,
           name: original.label,
           specification: '',
           description: 'A generic item used in the formatting demonstration.',

@@ -45,7 +45,6 @@ const toolCategory: Category = {
 const item: CatalogItem = {
   id: 'item',
   workspaceId: 'public',
-  kind: 'tool',
   name: 'Phillips screwdriver',
   specification: '#00',
   description: '',
@@ -153,7 +152,7 @@ describe('structured authoring pickers', () => {
     expect(selected).toHaveBeenCalledTimes(1);
     expect(selected).toHaveBeenCalledWith(item);
   });
-  it('keeps existing catalog kinds fixed while allowing specification edits', async () => {
+  it('lets an existing item be corrected without changing what it is', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(
@@ -166,7 +165,10 @@ describe('structured authoring pickers', () => {
     render(
       <CatalogForm workspace={workspace} initial={item} onSaved={() => {}} onCancel={() => {}} />,
     );
-    expect(screen.getByRole('combobox', { name: 'Item type' })).toBeDisabled();
+    // An item no longer declares a permanent type, so there is nothing to lock
+    // down here. What a guide does with it is the guide's business, and the
+    // details that identify the item stay editable.
+    expect(screen.queryByRole('combobox', { name: 'Item type' })).toBeNull();
     expect(screen.getByRole('textbox', { name: 'Specification / size' })).not.toBeDisabled();
   });
 });

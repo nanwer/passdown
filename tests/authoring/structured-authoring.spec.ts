@@ -311,7 +311,6 @@ test('catalog selection, step allocations, prerequisites and reviewed updates pr
     `/api/studio/${workspace}/catalog`,
     'POST',
     {
-      kind: 'part',
       name: partName,
       specification: 'M2 × 4 mm',
       description: 'New replacement screws.',
@@ -399,7 +398,6 @@ test('catalog selection, step allocations, prerequisites and reviewed updates pr
     'Clear and dry the work surface.',
   );
   const updatedFields = {
-    kind: tool.kind,
     name: tool.name,
     specification: 'Phillips #00 · updated grip',
     description: tool.description,
@@ -580,7 +578,6 @@ test('catalog listing reports how many guides use each item and filters by statu
   const workspace = 'repair-collective';
   const unused = (
     await api<{ item: CatalogItem }>(page.request, `/api/studio/${workspace}/catalog`, 'POST', {
-      kind: 'tool',
       name: `Unused driver ${randomUUID().slice(0, 8)}`,
       specification: 'Phillips #1',
       description: 'Never referenced by a guide.',

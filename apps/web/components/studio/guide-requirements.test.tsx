@@ -41,7 +41,6 @@ const workspace: StudioWorkspace = {
 const item: CatalogItem = {
   id: id(2),
   workspaceId: id(1),
-  kind: 'tool' as const,
   name: 'Precision driver',
   specification: 'Phillips #00',
   description: '',

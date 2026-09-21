@@ -640,7 +640,6 @@ function CatalogManagement({ workspace }: { workspace: StudioWorkspace }) {
   const { items, usage, error, loading, refresh } = useCatalog(workspace.id, { withUsage: true });
   const { categories, error: categoryError } = useCategories(workspace.id);
   const [search, setSearch] = useState('');
-  const [kind, setKind] = useState<CatalogItem['kind'] | 'all'>('all');
   const [selectedId, setSelected] = useState<string | null>(null);
   const [status, setStatus] = useState<'all' | 'active' | 'inactive'>('active');
   const [notice, setNotice] = useState('');
@@ -650,7 +649,6 @@ function CatalogManagement({ workspace }: { workspace: StudioWorkspace }) {
   // status narrows it, so All always equals Active plus Inactive.
   const matching = filterCatalog(items, {
     search,
-    kind: kind === 'all' ? undefined : kind,
     includeArchived: true,
   });
   const statusCounts = {
@@ -678,7 +676,6 @@ function CatalogManagement({ workspace }: { workspace: StudioWorkspace }) {
         {owner && (
           <CatalogDialog
             workspace={workspace}
-            initialKind={kind === 'all' ? 'tool' : kind}
             initialName={search}
             trigger={
               <Button type="button">
@@ -700,15 +697,6 @@ function CatalogManagement({ workspace }: { workspace: StudioWorkspace }) {
       )}
       <div className="catalog-management-grid">
         <aside className="structured-tree-panel">
-          <label>
-            What do you need?
-            <select value={kind} onChange={(event) => setKind(event.target.value as typeof kind)}>
-              <option value="all">Tools, materials and parts</option>
-              <option value="tool">Tools</option>
-              <option value="material">Materials</option>
-              <option value="part">Replacement parts</option>
-            </select>
-          </label>
           <div className="structured-status-tabs" role="group" aria-label="Item status">
             {(['all', 'active', 'inactive'] as const).map((option) => (
               <button
@@ -771,16 +759,14 @@ function CatalogManagement({ workspace }: { workspace: StudioWorkspace }) {
                     onClick={() => setSelected(item.id)}
                   >
                     <span className="catalog-kind-icon">
-                      {item.kind === 'tool' ? <Wrench size={20} /> : <Package size={20} />}
+                      <Package size={20} />
                     </span>
                     <span className="catalog-item-copy">
                       <strong>{item.name}</strong>
                       <span>{item.specification || 'General specification'}</span>
                     </span>
                     {describeUsage(usageById.get(item.id))}
-                    <span className="structured-kind-label">
-                      {item.archived ? 'Inactive' : item.kind}
-                    </span>
+                    {item.archived && <span className="structured-kind-label">Inactive</span>}
                   </button>
                 </li>
               ))}
@@ -844,7 +830,6 @@ function CatalogDetail({
       await studioFetch(`/api/studio/${workspace.id}/catalog/${item.id}`, {
         method: 'PATCH',
         body: JSON.stringify({
-          kind: item.kind,
           name: item.name,
           specification: item.specification,
           description: item.description,
@@ -888,10 +873,6 @@ function CatalogDetail({
       </div>
       <p>{item.description || 'No description yet.'}</p>
       <dl className="structured-facts">
-        <div>
-          <dt>Type</dt>
-          <dd>{item.kind}</dd>
-        </div>
         <div>
           <dt>Default unit</dt>
           <dd>{item.defaultUnit}</dd>

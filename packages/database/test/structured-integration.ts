@@ -54,15 +54,14 @@ export async function structuredChecks({
     });
   const item = (
     name: string,
-    kind: 'tool' | 'material' | 'part' = 'tool',
+    role: 'keep' | 'use' = 'keep',
     workspace = 'public',
     visibility: 'public' | 'members' = 'public',
   ) =>
     store.createCatalogItem(who, workspace, {
       name,
-      kind,
       visibility,
-      specification: kind === 'tool' ? 'Phillips #00' : 'M2 × 4 mm',
+      specification: role === 'keep' ? 'Phillips #00' : 'M2 × 4 mm',
       description: 'Exact test specification',
       manufacturer: '',
       model: '',
@@ -71,7 +70,6 @@ export async function structuredChecks({
     });
   const editItem = (i: CatalogItem, changes: Partial<CatalogItem>) =>
     store.updateCatalogItem(who, i.workspaceId, i.id, {
-      kind: i.kind,
       name: i.name,
       visibility: i.visibility,
       specification: i.specification,
@@ -86,11 +84,14 @@ export async function structuredChecks({
     });
   const denied = (promise: Promise<unknown>, status = 422) =>
     assert.rejects(promise, (e: any) => e.status === status);
-  const requirement = (i: CatalogItem): GuideRequirement => ({
+  const requirement = (
+    i: CatalogItem,
+    role: GuideRequirement['role'] = 'keep',
+  ): GuideRequirement => ({
     id: randomUUID(),
     itemId: i.id,
     itemVersion: i.version,
-    role: i.kind === 'tool' ? ('keep' as const) : ('use' as const),
+    role,
     name: i.name,
     specification: i.specification,
     description: i.description,
@@ -402,7 +403,7 @@ export async function structuredChecks({
     'catalog: exact variants, searchable descendant categories, duplicate identifiers and wrong domains',
     async () => {
       driver = await item('Small screwdriver');
-      part = await item('Replacement screw', 'part');
+      part = await item('Replacement screw', 'use');
       const driver0 = await item('Other screwdriver');
       await editItem(driver0, { specification: 'Phillips #0' });
       // Searching an exact specification is what the catalog is for; two
@@ -411,7 +412,12 @@ export async function structuredChecks({
       driver = await editItem(driver, { manufacturer: 'Maker', partNumber: 'DR-00' });
       const otherDriver = await item('Duplicate identifier candidate');
       await denied(editItem(otherDriver, { manufacturer: ' maker ', partNumber: 'dr-00' }));
-      await denied(editItem(driver, { defaultUnit: 'ml' }));
+      // An item may now carry any unit. "Counted in whole each or pair" was a
+      // rule about keeping something, and it moved to the guide's role with the
+      // rest of the distinction; the document schema enforces it there.
+      driver = await editItem(driver, { defaultUnit: 'ml' });
+      assert.equal(driver.defaultUnit, 'ml');
+      driver = await editItem(driver, { defaultUnit: 'each' });
       const stale = driver;
       driver = await editItem(driver, { description: 'Revision two' });
       await denied(editItem(stale, { description: 'Overwrite' }), 409);
@@ -437,7 +443,7 @@ export async function structuredChecks({
           audience: 'public',
         }),
       );
-      const privateItem = await item('Secret torque tool', 'tool', 'private', 'members');
+      const privateItem = await item('Secret torque tool', 'keep', 'private', 'members');
       await denied(
         store.createDraft(who, 'public', {
           document: { ...selectedDocument, requirements: [requirement(privateItem)] },
@@ -517,7 +523,7 @@ export async function structuredChecks({
   await check(
     'catalog: making an item public does not expose a previously restricted version',
     async () => {
-      const privateVersion = await item('Initially restricted item', 'tool', 'public', 'members');
+      const privateVersion = await item('Initially restricted item', 'keep', 'public', 'members');
       const document = {
         ...toStructuredDocument(doc),
         requirements: [requirement(privateVersion)],
@@ -571,7 +577,7 @@ export async function structuredChecks({
           license: 'all-rights-reserved',
         }),
       );
-      const req = requirement(part),
+      const req = requirement(part, 'use'),
         base = toStructuredDocument(doc);
       const bad = {
         ...base,
@@ -680,7 +686,6 @@ export async function structuredChecks({
       await denied(
         store.createCatalogItem(actor('suspended'), 'private', {
           name: 'No',
-          kind: 'tool',
           visibility: 'members',
           specification: '',
           description: '',
@@ -874,7 +879,7 @@ export async function structuredChecks({
       );
 
       // So is a members-only catalog item the published version names.
-      const secretTool = await item(`Secret driver ${suffix}`, 'tool', 'public', 'members');
+      const secretTool = await item(`Secret driver ${suffix}`, 'keep', 'public', 'members');
       const using = await store.createDraft(who, 'public', {
         document: {
           ...toStructuredDocument({ ...doc, title: `Uses a secret tool ${suffix}` }),

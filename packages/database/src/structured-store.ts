@@ -73,7 +73,6 @@ export function catalogDTO(row: Row): CatalogItem {
   return {
     id: row.id,
     workspaceId: row.workspace_id,
-    kind: row.kind,
     name: row.name,
     specification: row.specification,
     description: row.description,
@@ -404,7 +403,6 @@ export function structuredStore(
       actor: Actor,
       workspaceId: string,
       filter?: {
-        kind?: CatalogKind;
         search?: string;
         includeArchived?: boolean;
       },
@@ -412,8 +410,8 @@ export function structuredStore(
       return transaction(actor, workspaceId, async (c) => {
         const rows = (
           await c.query(
-            `${itemQuery} WHERE workspace_id=$1 AND ($2::text IS NULL OR kind=$2) AND ($3 OR NOT archived) ORDER BY app.normalized_name(name),specification,id`,
-            [workspaceId, filter?.kind ?? null, filter?.includeArchived === true],
+            `${itemQuery} WHERE workspace_id=$1 AND ($2 OR NOT archived) ORDER BY app.normalized_name(name),specification,id`,
+            [workspaceId, filter?.includeArchived === true],
           )
         ).rows.map(catalogDTO);
         const q = (filter?.search ?? '')
@@ -441,11 +439,10 @@ export function structuredStore(
         await lockStructured(c, workspaceId);
         const id = randomUUID();
         await c.query(
-          'INSERT INTO app.catalog_item(id,workspace_id,kind,name,specification,description,manufacturer,model,part_number,default_unit,visibility) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)',
+          'INSERT INTO app.catalog_item(id,workspace_id,name,specification,description,manufacturer,model,part_number,default_unit,visibility) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',
           [
             id,
             workspaceId,
-            data.kind,
             data.name,
             data.specification,
             data.description,
@@ -478,11 +475,10 @@ export function structuredStore(
             409,
           );
         await c.query(
-          'UPDATE app.catalog_item SET kind=$3,name=$4,specification=$5,description=$6,manufacturer=$7,model=$8,part_number=$9,default_unit=$10,visibility=$11,archived=$12,version=version+1 WHERE workspace_id=$1 AND id=$2',
+          'UPDATE app.catalog_item SET name=$3,specification=$4,description=$5,manufacturer=$6,model=$7,part_number=$8,default_unit=$9,visibility=$10,archived=$11,version=version+1 WHERE workspace_id=$1 AND id=$2',
           [
             workspaceId,
             id,
-            data.kind,
             data.name,
             data.specification,
             data.description,

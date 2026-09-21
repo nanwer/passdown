@@ -189,7 +189,6 @@ export type CategoryBlockers = {
   activeItems: number;
 };
 export const catalogFields = {
-  kind: catalogKindSchema,
   name: z.string().trim().min(1).max(160),
   specification: z.string().trim().max(500).default(''),
   description: z.string().trim().max(2000).default(''),
@@ -199,28 +198,12 @@ export const catalogFields = {
   defaultUnit: catalogUnitSchema,
   visibility: z.enum(['public', 'members']),
 };
-export const createCatalogItemSchema = z.strictObject(catalogFields).superRefine((item, ctx) => {
-  if (item.kind === 'tool' && !['each', 'pair'].includes(item.defaultUnit))
-    ctx.addIssue({
-      code: 'custom',
-      path: ['defaultUnit'],
-      message: 'Tools use each or pair units.',
-    });
+export const createCatalogItemSchema = z.strictObject(catalogFields);
+export const updateCatalogItemSchema = z.strictObject({
+  ...catalogFields,
+  expectedVersion: z.number().int().min(1),
+  archived: z.boolean().default(false),
 });
-export const updateCatalogItemSchema = z
-  .strictObject({
-    ...catalogFields,
-    expectedVersion: z.number().int().min(1),
-    archived: z.boolean().default(false),
-  })
-  .superRefine((item, ctx) => {
-    if (item.kind === 'tool' && !['each', 'pair'].includes(item.defaultUnit))
-      ctx.addIssue({
-        code: 'custom',
-        path: ['defaultUnit'],
-        message: 'Tools use each or pair units.',
-      });
-  });
 export type CreateCatalogItemInput = z.infer<typeof createCatalogItemSchema>;
 export type UpdateCatalogItemInput = z.infer<typeof updateCatalogItemSchema>;
 export type CatalogItem = CreateCatalogItemInput & {

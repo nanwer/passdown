@@ -17,7 +17,6 @@ export interface CatalogPickerProps {
   selectedIds?: string[];
   visibility?: Category['visibility'];
   label?: string;
-  kind?: CatalogItem['kind'];
   disabled?: boolean;
 }
 export function CatalogPicker({
@@ -26,7 +25,6 @@ export function CatalogPicker({
   selectedIds = [],
   visibility,
   label = 'Add from catalog',
-  kind,
   disabled = false,
 }: CatalogPickerProps) {
   const { items, error, loading, refresh } = useCatalog(workspace.id);
@@ -34,10 +32,8 @@ export function CatalogPicker({
   const [open, setOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [search, setSearch] = useState('');
-  const [filterKind, setKind] = useState<CatalogItem['kind'] | 'all'>(kind ?? 'all');
   const available = filterCatalog(items, {
     search,
-    kind: kind ?? (filterKind === 'all' ? undefined : filterKind),
     visibility,
   });
   return (
@@ -71,7 +67,6 @@ export function CatalogPicker({
             <CatalogForm
               workspace={workspace}
               initialName={search}
-              initialKind={kind ?? (filterKind === 'all' ? 'tool' : filterKind)}
               visibility={visibility}
               onCancel={() => setCreating(false)}
               onSaved={(item) => {
@@ -93,24 +88,6 @@ export function CatalogPicker({
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
               />
-            </div>
-            <div className="structured-picker-filters">
-              {!kind && (
-                <label>
-                  What do you need?
-                  <select
-                    value={filterKind}
-                    onChange={(event) => {
-                      setKind(event.target.value as typeof filterKind);
-                    }}
-                  >
-                    <option value="all">Tools, materials and parts</option>
-                    <option value="tool">Tools</option>
-                    <option value="material">Materials</option>
-                    <option value="part">Replacement parts</option>
-                  </select>
-                </label>
-              )}
             </div>
             {error ? (
               <>
@@ -135,8 +112,8 @@ export function CatalogPicker({
                             setOpen(false);
                           }}
                         >
-                          <span className={`catalog-kind-icon catalog-kind-icon--${item.kind}`}>
-                            {item.kind === 'tool' ? <Wrench size={20} /> : <Package size={20} />}
+                          <span className="catalog-kind-icon">
+                            <Package size={20} />
                           </span>
                           <span className="catalog-item-copy">
                             <strong>{item.name}</strong>
@@ -193,7 +170,6 @@ export function CatalogForm({
   workspace,
   initial,
   initialName = '',
-  initialKind = 'tool',
   initialCategoryId = null,
   visibility,
   onSaved,
@@ -202,13 +178,11 @@ export function CatalogForm({
   workspace: StudioWorkspace;
   initial?: CatalogItem;
   initialName?: string;
-  initialKind?: CatalogItem['kind'];
   initialCategoryId?: string | null;
   visibility?: Category['visibility'];
   onSaved: (item: CatalogItem) => void;
   onCancel: () => void;
 }) {
-  const [kind, setKind] = useState<CatalogItem['kind']>(initial?.kind ?? initialKind);
   const [name, setName] = useState(initial?.name ?? initialName);
   const [specification, setSpecification] = useState(initial?.specification ?? '');
   const [description, setDescription] = useState(initial?.description ?? '');
@@ -239,7 +213,6 @@ export function CatalogForm({
         {
           method: initial ? 'PATCH' : 'POST',
           body: JSON.stringify({
-            kind,
             name: name.trim(),
             specification: specification.trim(),
             description: description.trim(),
@@ -280,35 +253,17 @@ export function CatalogForm({
     >
       <div className="structured-fields-row">
         <label>
-          Item type
-          <select
-            value={kind}
-            onChange={(event) => {
-              const next = event.target.value as CatalogItem['kind'];
-              setKind(next);
-              if (next === 'tool') setUnit('each');
-            }}
-            disabled={pending || !!initial}
-          >
-            <option value="tool">Reusable tool</option>
-            <option value="material">Consumable material</option>
-            <option value="part">Replacement part</option>
-          </select>
-        </label>
-        <label>
           Default unit
           <select
             value={defaultUnit}
             disabled={pending}
             onChange={(event) => setUnit(event.target.value as CatalogItem['defaultUnit'])}
           >
-            {Object.entries(unitLabels)
-              .filter(([unit]) => kind !== 'tool' || unit === 'each' || unit === 'pair')
-              .map(([unit, label]) => (
-                <option key={unit} value={unit}>
-                  {label}
-                </option>
-              ))}
+            {Object.entries(unitLabels).map(([unit, label]) => (
+              <option key={unit} value={unit}>
+                {label}
+              </option>
+            ))}
           </select>
         </label>
       </div>
@@ -427,7 +382,6 @@ export function CatalogForm({
 export function CatalogDialog({
   workspace,
   initial,
-  initialKind,
   initialCategoryId,
   initialName,
   trigger,
@@ -435,7 +389,6 @@ export function CatalogDialog({
 }: {
   workspace: StudioWorkspace;
   initial?: CatalogItem;
-  initialKind?: CatalogItem['kind'];
   initialCategoryId?: string | null;
   initialName?: string;
   trigger: ReactElement;
@@ -459,7 +412,6 @@ export function CatalogDialog({
         <CatalogForm
           workspace={workspace}
           initial={initial}
-          initialKind={initialKind}
           initialCategoryId={initialCategoryId}
           initialName={initialName}
           onSaved={(item) => {

@@ -53,7 +53,6 @@ describe('structured selection rules', () => {
     const item: CatalogItem = {
       id: 'screwdriver',
       workspaceId: 'public',
-      kind: 'tool',
       name: 'Phillips screwdriver',
       specification: '#00',
       description: '',
