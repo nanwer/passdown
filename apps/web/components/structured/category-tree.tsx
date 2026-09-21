@@ -1,6 +1,6 @@
 'use client';
-import { useState } from 'react';
-import { ChevronDown, ChevronRight, Folder, FolderOpen, Check } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { ChevronDown, ChevronRight, Folder, FolderOpen, Check, Plus } from 'lucide-react';
 import type { Category, CategoryCounts } from '@guide/contracts';
 import { categoryPath, searchCategories } from './tree-model';
 import './structured.css';
@@ -12,6 +12,12 @@ export interface CategoryTreeProps {
   label?: string;
   /** Distinct-guide totals by category id. Omitted on selection-only surfaces. */
   counts?: Map<string, CategoryCounts>;
+  /**
+   * Offered per row where creating is possible. Position then comes from the
+   * row you pressed rather than from a field asking where to put it.
+   */
+  onAddChild?: (category: Category) => void;
+  addChildLabel?: (category: Category) => string;
 }
 /**
  * "12 guides" with the breakdown behind it, or null when nothing is assigned.
@@ -36,6 +42,8 @@ export function CategoryTree({
   query = '',
   label = 'Category tree',
   counts,
+  onAddChild,
+  addChildLabel = (category) => `Add something inside ${category.name}`,
 }: CategoryTreeProps) {
   /**
    * Code and totals describe a row; they are not part of its name. Keeping them
@@ -45,15 +53,12 @@ export function CategoryTree({
   function rowExtras(category: Category) {
     const described = describeCount(counts?.get(category.id));
     const descriptionId = `category-description-${category.id}`;
-    const description = [category.code, described?.full].filter(Boolean).join('. ');
+    const description = described?.full ?? '';
     return {
       descriptionId,
       describedBy: description ? descriptionId : undefined,
       badges: (
         <>
-          <small className="category-code" aria-hidden="true">
-            {category.code}
-          </small>
           {described && (
             <small className="category-count" aria-hidden="true" title={described.full}>
               {described.short}
@@ -69,6 +74,28 @@ export function CategoryTree({
     };
   }
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  /**
+   * A branch the viewer has folded away stays folded — until something inside
+   * it becomes the selection. Creating a child of a collapsed parent used to
+   * leave it invisible, which reads as the creation having failed.
+   */
+  useEffect(() => {
+    if (!value) return;
+    const byId = new Map(categories.map((category) => [category.id, category]));
+    const ancestors = new Set<string>();
+    let current = byId.get(value)?.parentId ?? null;
+    while (current) {
+      ancestors.add(current);
+      current = byId.get(current)?.parentId ?? null;
+    }
+    if (!ancestors.size) return;
+    setCollapsed((folded) => {
+      if (![...ancestors].some((id) => folded.has(id))) return folded;
+      const next = new Set(folded);
+      for (const id of ancestors) next.delete(id);
+      return next;
+    });
+  }, [value, categories]);
   const sorted = searchCategories(categories, query);
   if (!sorted.length)
     return (
@@ -157,6 +184,16 @@ export function CategoryTree({
                   {category.archived && <small>Archived</small>}
                   {value === category.id && <Check size={15} aria-hidden="true" />}
                 </button>
+                {onAddChild && !category.archived && (
+                  <button
+                    type="button"
+                    className="category-add-child"
+                    aria-label={addChildLabel(category)}
+                    onClick={() => onAddChild(category)}
+                  >
+                    <Plus size={15} aria-hidden="true" />
+                  </button>
+                )}
                 {extras.description}
               </div>
               {children && open && branch(category.id)}

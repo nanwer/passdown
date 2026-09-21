@@ -147,6 +147,7 @@ function CategoryManagement({ workspace }: { workspace: StudioWorkspace }) {
   // One tree remains. The variable stays so the picker and the counts keep
   // their shape until the column itself is retired.
   const domain: Category['domain'] = 'guide';
+  const [addingInside, setAddingInside] = useState<Category | null>(null);
   const [query, setQuery] = useState('');
   const [selectedId, setSelected] = useState<string | null>(null);
   const [status, setStatus] = useState<'all' | 'active' | 'inactive'>('active');
@@ -295,8 +296,8 @@ function CategoryManagement({ workspace }: { workspace: StudioWorkspace }) {
                 Try again
               </Button>
             </>
-          ) : loading ? (
-            <p role="status">Loading categories…</p>
+          ) : loading && !categories.length ? (
+            <p role="status">Loading…</p>
           ) : (
             <CategoryTree
               categories={visible}
@@ -306,6 +307,28 @@ function CategoryManagement({ workspace }: { workspace: StudioWorkspace }) {
               onSelect={(category) => {
                 setSelected(category.id);
                 setActionError('');
+              }}
+              onAddChild={(category) => setAddingInside(category)}
+              addChildLabel={(category) => `Add a ${words.thing} inside ${category.name}`}
+            />
+          )}
+          {/* Driven by the row that was pressed, so there is no field asking
+              where the new one should go. */}
+          {addingInside && (
+            <CategoryDialog
+              key={`inside-${addingInside.id}`}
+              workspace={workspace}
+              domain={domain}
+              categories={categories}
+              initialParent={addingInside.id}
+              open
+              onOpenChange={(next) => {
+                if (!next) setAddingInside(null);
+              }}
+              onSaved={(category) => {
+                setSelected(category.id);
+                setNotice(`Added inside ${addingInside.name}.`);
+                setAddingInside(null);
               }}
             />
           )}

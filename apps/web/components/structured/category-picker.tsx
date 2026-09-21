@@ -394,16 +394,23 @@ export function CategoryDialog({
   initialParent,
   trigger,
   onSaved,
+  open: controlledOpen,
+  onOpenChange,
 }: {
   workspace: StudioWorkspace;
   domain: Category['domain'];
   categories: Category[];
   initial?: Category;
   initialParent?: string | null;
-  trigger: ReactElement;
+  /** Omitted when the dialog is driven by `open` rather than by a control. */
+  trigger?: ReactElement;
   onSaved?: (category: Category) => void;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
-  const [open, setOpen] = useState(false);
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const open = controlledOpen ?? uncontrolledOpen;
+  const setOpen = onOpenChange ?? setUncontrolledOpen;
   return (
     <Dialog
       size="wide"

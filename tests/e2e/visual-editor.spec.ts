@@ -530,17 +530,22 @@ test('hover targets the table under the pointer independently of the caret and e
   await expect(
     page.getByRole('region', { name: 'Scrollable instruction table 2', exact: true }),
   ).toBeVisible();
+  // The scan below judges a finished editor, so settle one first. Typing into a
+  // header reaches the document a moment after the keystroke, and on a loaded
+  // machine the scan could arrive first and report every header as empty — a
+  // true reading of a state no reader ever sees.
+  //
+  // This waits before the hover, not after: hovering a boundary renders a
+  // preview column, so a header count taken mid-interaction is a different
+  // shape again and would make this assertion flake in the other direction.
+  await expect(first.locator('th')).toHaveText(['First table', 'Quantity', 'Status']);
+  await expect(second.locator('th')).toHaveText(['Second table', 'Quantity', 'Status']);
+
   await hoverBoundary(page, first.locator('th').first(), 'right', 'top');
   const plus = page.getByRole('button', { name: 'Insert column at position 2', exact: true });
   await expect(plus).toBeVisible();
   await plus.hover();
   await expect(page.locator('.rte-table-insertion-line--column')).toHaveClass(/is-emphasized/);
-  // The scan judges a finished editor, so wait for one. Typing into a header
-  // reaches the document a moment after the keystroke, and under a loaded
-  // machine the scan could arrive first and report every header as empty —
-  // a true reading of a state no reader ever sees.
-  await expect(first.locator('th')).toHaveText(['First table', 'Quantity', 'Status']);
-  await expect(second.locator('th')).toHaveText(['Second table', 'Quantity', 'Status']);
   expect(
     (
       await new AxeBuilder({ page })

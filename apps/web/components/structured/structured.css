@@ -882,3 +882,37 @@
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
+
+/* Adding something inside a row, from the row itself. Quiet until the row is
+   hovered or the button is focused, so a long tree does not read as a column
+   of plus signs — but always present in the document, so a keyboard reaches it
+   in order rather than never. */
+.category-add-child {
+  flex: 0 0 26px;
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: none;
+  color: var(--gp-semantic-text-secondary);
+  cursor: pointer;
+  opacity: 0;
+}
+.category-tree-row:hover .category-add-child,
+.category-add-child:focus-visible {
+  opacity: 1;
+  border-color: var(--gp-semantic-border-control);
+  background: var(--gp-semantic-surface-raised);
+}
+.category-add-child:hover {
+  color: var(--gp-semantic-text-primary);
+}
+@media (hover: none) {
+  /* Nothing hovers on a touch screen, so the control is simply there. */
+  .category-add-child {
+    opacity: 1;
+  }
+}

@@ -542,8 +542,11 @@ test('deactivation explains what still uses a category and only unblocks once th
   await expect(row).toBeVisible();
   await row.click();
 
-  // The code is shown, and describes the row without becoming its name.
-  await expect(page.getByText(target.code, { exact: true }).first()).toBeVisible();
+  // The code is no longer shown to an author. It still exists, still never
+  // changes, and is still what support would ask for — it is simply not
+  // something the person filing a guide has any use for.
+  await expect(page.getByText(target.code, { exact: true })).toHaveCount(0);
+  expect(target.code).toMatch(/^GC-\d+$/);
 
   await page.getByRole('button', { name: 'Archive', exact: true }).click();
   const blockers = page.locator('.structured-blockers');
@@ -1459,4 +1462,68 @@ test('adding a picture from the page: progress, refusal, retry and removal', asy
   await page.getByRole('button', { name: 'Remove picture' }).first().click();
   await expect(page.getByRole('textbox', { name: 'Description' })).toHaveCount(1);
   await expect(page.getByRole('textbox', { name: 'Description' })).toHaveValue('The bench again');
+});
+
+test('a thing is added inside another from the row itself, and shows up there', async ({
+  page,
+}) => {
+  await login(page.request);
+  const workspace = 'repair-collective';
+  const suffix = randomUUID().slice(0, 8);
+  const parent = await category(page.request, workspace, `Home ${suffix}`);
+
+  await page.goto(`/studio/${workspace}/categories`);
+  const row = page.locator('.category-tree-row').filter({ hasText: `Home ${suffix}` });
+  await expect(row).toBeVisible();
+
+  // Added from the row, so nothing asks where it should go.
+  await row.getByRole('button', { name: `Add a thing inside Home ${suffix}` }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByText(`Inside Home ${suffix}`)).toBeVisible();
+  await dialog.getByRole('textbox', { name: 'Name', exact: true }).fill('Kitchen');
+  await dialog.getByRole('button', { name: 'Add thing', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+
+  // It is filed underneath, and visible without hunting for it.
+  await expect(
+    page.getByRole('region', { name: 'Details' }).getByRole('heading', { name: 'Kitchen' }),
+  ).toBeVisible();
+  const tree = await api<{ categories: Category[] }>(
+    page.request,
+    `/api/studio/${workspace}/categories`,
+  );
+  const child = tree.categories.find(
+    (item) => item.name === 'Kitchen' && item.parentId === parent.id,
+  );
+  expect(child, 'the new thing should be filed inside the one it was added from').toBeTruthy();
+
+  // Go deeper, from the child's own row.
+  const childRow = page.locator('.category-tree-row').filter({ hasText: 'Kitchen' });
+  await childRow.getByRole('button', { name: 'Add a thing inside Kitchen' }).click();
+  await page
+    .getByRole('dialog')
+    .getByRole('textbox', { name: 'Name', exact: true })
+    .fill('Fridges');
+  await page.getByRole('dialog').getByRole('button', { name: 'Add thing', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.locator('.category-tree-row').filter({ hasText: 'Fridges' })).toBeVisible();
+
+  // Fold the branch away, then add into it. A new thing created inside
+  // something currently folded used to stay hidden, which reads as the
+  // creation having silently failed.
+  await page.getByRole('button', { name: `Collapse Home ${suffix}` }).click();
+  await expect(page.locator('.category-tree-row').filter({ hasText: 'Kitchen' })).toHaveCount(0);
+  const topRow = page.locator('.category-tree-row').filter({ hasText: `Home ${suffix}` });
+  await topRow.getByRole('button', { name: `Add a thing inside Home ${suffix}` }).click();
+  await page
+    .getByRole('dialog')
+    .getByRole('textbox', { name: 'Name', exact: true })
+    .fill('Bathroom');
+  await page.getByRole('dialog').getByRole('button', { name: 'Add thing', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.locator('.category-tree-row').filter({ hasText: 'Bathroom' })).toBeVisible();
+
+  // And the support code is no longer shown to an author.
+  await expect(page.locator('.category-code')).toHaveCount(0);
 });

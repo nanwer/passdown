@@ -24,7 +24,8 @@ export function Dialog({
   closeDisabled = false,
   size = 'standard',
 }: {
-  trigger: ReactElement;
+  /** Omitted when the dialog is opened by its `open` prop rather than a control. */
+  trigger?: ReactElement;
   title: string;
   description: string;
   children: ReactNode;
@@ -38,7 +39,7 @@ export function Dialog({
   const layer = { '--dialog-depth': depth } as CSSProperties;
   return (
     <Primitive.Root open={open} onOpenChange={onOpenChange}>
-      <Primitive.Trigger asChild>{trigger}</Primitive.Trigger>
+      {trigger && <Primitive.Trigger asChild>{trigger}</Primitive.Trigger>}
       <Primitive.Portal>
         <Primitive.Overlay className="dialog-overlay" style={layer} />
         <Primitive.Content
