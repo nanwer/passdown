@@ -236,13 +236,18 @@ export function createApplicationStore(options: { connectionString: string }) {
         throw conflict();
       }
       if (code === '40001' || code === '40P01') throw conflict();
-      // A function or table the application expects is absent, which in
-      // practice means the database is behind the migrations on disk. Say so,
-      // rather than reporting a generic outage the reader cannot act on.
-      if (code === '42883' || code === '42P01')
+      // A function, table or column the application named is not there. Either
+      // the database is behind the migrations this build ships with, or the
+      // process is older than the database and is still asking for something a
+      // later migration removed — a dropped column reads exactly like this, and
+      // it is what a long-running dev server hits after a migration lands.
+      //
+      // Either way it is drift between two versions, and naming that is far
+      // more use than the generic outage this used to fall through to.
+      if (code === '42883' || code === '42P01' || code === '42703')
         throw new ApplicationError(
-          'SCHEMA_BEHIND',
-          'This database is missing a migration the application needs. Run pnpm local:migrate, then try again.',
+          'SCHEMA_MISMATCH',
+          'The application and this database are not on the same schema. Apply any pending migrations, and restart the application if it has been running since before the last one.',
           503,
         );
       throw error;

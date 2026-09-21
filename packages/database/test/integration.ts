@@ -6,6 +6,7 @@ import {
   createIdentity,
   readSchemaState,
   describeSchemaState,
+  describeSchemaDrift,
 } from '../src/index';
 import { readConfig } from '../../../scripts/local-config.mjs';
 import { seedLocal } from '../../../scripts/seed-local';
@@ -963,6 +964,66 @@ try {
         );
       }
       assert.equal((await readSchemaState(owner)).ok, true);
+    },
+  );
+  await check(
+    'drift between the application and the database is named, in both directions',
+    async () => {
+      // A column the application names that is not there. This is what a
+      // process running since before a migration hits — a dropped column reads
+      // exactly like this — and it used to fall through to "the service is
+      // unavailable", which names nothing an operator can act on.
+      //
+      // createCatalogItem names `model` in its INSERT, so the rename is enough
+      // to reproduce it without any row having to exist first. Renaming rather
+      // than dropping keeps the type, constraints and data exactly as they were
+      // when it goes back.
+      await owner.query('ALTER TABLE app.catalog_item RENAME COLUMN model TO model_drift_test');
+      try {
+        await assert.rejects(
+          store.createCatalogItem(actor('owner'), 'public', {
+            name: 'Drift',
+            specification: '',
+            description: '',
+            manufacturer: '',
+            model: '',
+            partNumber: '',
+            defaultUnit: 'each',
+            visibility: 'public',
+          }),
+          (error: { status?: number; code?: string }) =>
+            error.status === 503 && error.code === 'SCHEMA_MISMATCH',
+        );
+      } finally {
+        await owner.query('ALTER TABLE app.catalog_item RENAME COLUMN model_drift_test TO model');
+      }
+      // And the rename really did go back, so nothing after this check is
+      // running against a half-restored table.
+      assert.deepEqual(
+        (await store.listCatalogItems(actor('owner'), 'public')).map((i) => i.name),
+        [],
+      );
+
+      // A database carrying a migration this build has never heard of is
+      // served, and said so. Refusing would turn a rolling deploy into an
+      // outage: the new version migrates while old instances still answer.
+      await owner.query(
+        "INSERT INTO public.schema_migration(name,checksum) VALUES('999_from_a_later_build.sql',$1)",
+        ['f'.repeat(64)],
+      );
+      try {
+        const state = await readSchemaState(owner);
+        assert.equal(state.ok, true, 'a database ahead of the build is still serveable');
+        assert.equal(describeSchemaState(state), null);
+        const drift = describeSchemaDrift(state);
+        assert(drift?.includes('999_from_a_later_build.sql'));
+        assert(drift?.includes('older than the schema'));
+      } finally {
+        await owner.query(
+          "DELETE FROM public.schema_migration WHERE name='999_from_a_later_build.sql'",
+        );
+      }
+      assert.equal(describeSchemaDrift(await readSchemaState(owner)), null);
     },
   );
   await check(

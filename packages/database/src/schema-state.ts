@@ -19,7 +19,17 @@ import { migrationManifest } from './migration-manifest';
 
 export type Migration = { name: string; checksum: string };
 export type SchemaState =
-  | { ok: true; applied: number }
+  /**
+   * `ahead` names migrations the database has applied that this build knows
+   * nothing about — the application is older than the schema it is talking to.
+   *
+   * That is reported, not refused. During a rolling deploy the new version
+   * applies its migrations while old instances are still serving, and refusing
+   * there would turn an ordinary release into an outage. It is still worth
+   * saying: a long-running process against a database that has moved on is
+   * exactly how a dropped column becomes an unrelated request failure.
+   */
+  | { ok: true; applied: number; ahead: string[] }
   | { ok: false; reason: 'pending'; pending: string[]; applied: number }
   | { ok: false; reason: 'changed'; changed: string[]; applied: number }
   | { ok: false; reason: 'uninitialized' };
@@ -53,10 +63,16 @@ export async function readSchemaState(client: Pick<pg.Client, 'query'>): Promise
   if (changed.length) return { ok: false, reason: 'changed', changed, applied: applied.size };
   const pending = expected.filter(({ name }) => !applied.has(name)).map(({ name }) => name);
   if (pending.length) return { ok: false, reason: 'pending', pending, applied: applied.size };
-  return { ok: true, applied: applied.size };
+  const known = new Set(expected.map(({ name }) => name));
+  const ahead = [...applied.keys()].filter((name) => !known.has(name)).sort();
+  return { ok: true, applied: applied.size, ahead };
 }
 
-/** One sentence an operator can act on, or null when the schema is current. */
+/**
+ * One sentence an operator can act on when the database cannot be served, or
+ * null when it can. Being ahead of the build does not stop it being served, so
+ * it is not reported here — see describeSchemaDrift.
+ */
 export function describeSchemaState(state: SchemaState): string | null {
   if (state.ok) return null;
   if (state.reason === 'uninitialized')
@@ -66,4 +82,17 @@ export function describeSchemaState(state: SchemaState): string | null {
   return `This database is missing ${state.pending.length} migration${
     state.pending.length === 1 ? '' : 's'
   } (${state.pending.join(', ')}). Run pnpm local:migrate, then start again.`;
+}
+
+/**
+ * A warning worth logging even though the database is serveable: it has
+ * migrations this build has never heard of. Usually a process that has been
+ * running since before the last deploy, which will fail on whatever the newer
+ * schema changed rather than on anything it can name.
+ */
+export function describeSchemaDrift(state: SchemaState): string | null {
+  if (!state.ok || !state.ahead.length) return null;
+  return `This database has ${state.ahead.length} migration${
+    state.ahead.length === 1 ? '' : 's'
+  } this build does not know about (${state.ahead.join(', ')}). The application is older than the schema it is using; restart it on the current build.`;
 }

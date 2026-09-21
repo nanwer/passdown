@@ -1,5 +1,5 @@
 import 'server-only';
-import { describeSchemaState } from '@guide/database';
+import { describeSchemaDrift, describeSchemaState } from '@guide/database';
 import { getApplication, isConfigured } from './application';
 
 /**
@@ -11,8 +11,11 @@ import { getApplication, isConfigured } from './application';
 export async function reportSchemaState(): Promise<void> {
   if (!isConfigured()) return;
   let message: string | null;
+  let drift: string | null;
   try {
-    message = describeSchemaState(await getApplication().store.schemaState());
+    const state = await getApplication().store.schemaState();
+    message = describeSchemaState(state);
+    drift = describeSchemaDrift(state);
   } catch (error) {
     // An unreachable database is a different problem, already reported by the
     // health endpoint and by individual requests. Do not mistake it for drift.
@@ -23,4 +26,5 @@ export async function reportSchemaState(): Promise<void> {
     return;
   }
   if (message) console.error(`\nPassdown cannot serve this database.\n  ${message}\n`);
+  else if (drift) console.warn(`\nPassdown is behind this database.\n  ${drift}\n`);
 }
