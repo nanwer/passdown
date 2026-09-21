@@ -1674,14 +1674,21 @@ test('a dialog traps focus, closes on Escape and hands focus back', async ({ pag
   const dialog = page.getByRole('dialog').last();
   await expect(dialog).toBeVisible();
 
-  // Tab well past the number of controls in the dialog. Stopping at four only
-  // proves the dialog has four focusable things; the trap is the thing that
-  // stops the fifth tab landing on the page behind it.
-  for (let i = 0; i < 25; i++) {
+  // Tab past the end of the dialog's own controls. A fixed count proves
+  // nothing — it only shows the dialog holds that many focusable things — so
+  // count them and go round twice. The trap is what stops the tab after the
+  // last control landing on the page behind.
+  const focusable = await dialog.evaluate(
+    (node) =>
+      node.querySelectorAll('a[href],button,input,select,textarea,[tabindex]:not([tabindex="-1"])')
+        .length,
+  );
+  expect(focusable).toBeGreaterThan(1);
+  for (let i = 0; i < focusable * 2 + 2; i++) {
     await page.keyboard.press('Tab');
     expect(
       await dialog.evaluate((node) => node.contains(document.activeElement)),
-      `focus left the dialog on tab ${i + 1}`,
+      `focus left the dialog on tab ${i + 1} of ${focusable * 2 + 2}`,
     ).toBe(true);
   }
 
