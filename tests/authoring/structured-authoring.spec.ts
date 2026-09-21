@@ -1,5 +1,6 @@
 import { test, expect, type APIRequestContext, type Page } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
+import pg from 'pg';
 import AxeBuilder from '@axe-core/playwright';
 import { readConfig } from '../../scripts/local-config.mjs';
 import { toStructuredDocument } from '../../packages/guide-content/src/index';
@@ -1714,4 +1715,60 @@ test('a dialog stays inside a narrow viewport', async ({ page }) => {
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
   );
+});
+
+test('an account created for someone cannot do anything until it picks a password', async ({
+  page,
+}) => {
+  await login(page.request);
+  const config = readConfig();
+
+  // Put the signed-in owner back into the state the first-run administrator
+  // starts in. Going through the database rather than the API because no route
+  // sets this flag — the bootstrap does, once, before the app serves anything.
+  // The authoring server runs against its own database, not the development
+  // one, so pointing at GUIDE_OWNER_DATABASE_URL would update a row nobody
+  // under test can see — which is exactly what it did on the first run.
+  const ownerURL = new URL(config.GUIDE_OWNER_DATABASE_URL!);
+  ownerURL.pathname = '/guide_app_e2e';
+  const db = new pg.Client({ connectionString: ownerURL.href });
+  await db.connect();
+  const restore = async () =>
+    db.query('UPDATE public.auth_user SET must_change_password=false WHERE email=$1', [
+      config.GUIDE_LOCAL_OWNER_EMAIL,
+    ]);
+  try {
+    await db.query('UPDATE public.auth_user SET must_change_password=true WHERE email=$1', [
+      config.GUIDE_LOCAL_OWNER_EMAIL,
+    ]);
+
+    // The API refuses, not only the browser. This is the half SonarQube left
+    // open by exempting its own /api routes.
+    const refused = await page.request.get('/api/studio/workshop/guide-types');
+    expect(refused.status()).toBe(403);
+    expect((await refused.json()).error.code).toBe('PASSWORD_CHANGE_REQUIRED');
+
+    // And the studio shows the one thing this account may do.
+    await page.goto('/studio/workshop');
+    await expect(page.getByRole('heading', { name: 'Choose your own password.' })).toBeVisible();
+    await expect(page.getByRole('link', { name: /Things/ })).toHaveCount(0);
+
+    // A wrong current password is refused without saying which field was wrong.
+    await page.getByLabel('Current password', { exact: true }).fill('not-the-password');
+    await page.getByLabel('New password', { exact: true }).fill('a-much-longer-password');
+    await page.getByLabel('New password again', { exact: true }).fill('a-much-longer-password');
+    await page.getByRole('button', { name: 'Change password', exact: true }).click();
+    await expect(page.getByText('That current password is not right.')).toBeVisible();
+
+    // Mismatched confirmation never reaches the server.
+    await page
+      .getByLabel('Current password', { exact: true })
+      .fill(config.GUIDE_LOCAL_OWNER_PASSWORD!);
+    await page.getByLabel('New password again', { exact: true }).fill('something-else-entirely');
+    await page.getByRole('button', { name: 'Change password', exact: true }).click();
+    await expect(page.getByText('Those two do not match.')).toBeVisible();
+  } finally {
+    await restore();
+    await db.end();
+  }
 });

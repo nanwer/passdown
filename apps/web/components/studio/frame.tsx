@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { BookOpen, ArrowLeft, LogOut, PenLine, FolderTree, Wrench } from 'lucide-react';
 import { words } from '../../lib/vocabulary';
 import { Button, ThemeToggle } from '@guide/ui';
@@ -74,6 +74,7 @@ export function SessionGate({
 }) {
   const [session, setSession] = useState<StudioSession>();
   const [error, setError] = useState('');
+  const [mustChangePassword, setMustChangePassword] = useState(false);
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     let active = true;
@@ -87,6 +88,13 @@ export function SessionGate({
           window.location.replace(
             `/sign-in?returnTo=${encodeURIComponent(window.location.pathname)}`,
           );
+          return;
+        }
+        // The account exists and is signed in; it simply cannot do anything
+        // until the password it was given has been replaced. Every studio
+        // route refuses it, so there is nowhere else to send them.
+        if (e instanceof StudioError && e.code === 'PASSWORD_CHANGE_REQUIRED') {
+          setMustChangePassword(true);
           return;
         }
         setError(e instanceof Error ? e.message : 'Unable to load your session.');
@@ -111,7 +119,14 @@ export function SessionGate({
       user={session?.user.name}
       onSignOut={session ? () => void signOut() : undefined}
     >
-      {!session ? (
+      {mustChangePassword ? (
+        <ChangePassword
+          onChanged={() => {
+            setMustChangePassword(false);
+            setAttempt(attempt + 1);
+          }}
+        />
+      ) : !session ? (
         <main className="studio-container" id="main" tabIndex={-1}>
           {error ? (
             <>
@@ -144,5 +159,101 @@ export function SessionGate({
         </>
       )}
     </Frame>
+  );
+}
+
+/**
+ * The only thing an account may do before its first password is replaced.
+ *
+ * Shown in place of the studio rather than at its own address: every route
+ * refuses this account, so a redirect would only be a longer way of arriving
+ * here. The fields are ordinary password inputs — the person types their own
+ * secret, which is the one place a password belongs.
+ */
+function ChangePassword({ onChanged }: { onChanged: () => void }) {
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState('');
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (pending) return;
+    const fields = new FormData(event.currentTarget);
+    const newPassword = String(fields.get('newPassword') ?? '');
+    if (newPassword !== String(fields.get('confirmPassword') ?? '')) {
+      setError('Those two do not match.');
+      return;
+    }
+    setPending(true);
+    setError('');
+    try {
+      await studioFetch('/api/studio/password', {
+        method: 'POST',
+        body: JSON.stringify({
+          currentPassword: String(fields.get('currentPassword') ?? ''),
+          newPassword,
+        }),
+      });
+      onChanged();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Unable to change the password.');
+      setPending(false);
+    }
+  }
+
+  return (
+    <main className="studio-container studio-narrow" id="main" tabIndex={-1}>
+      <div className="studio-page-heading">
+        <h1>Choose your own password.</h1>
+        <p>
+          This account was created with a password that was generated for it. Replace it before
+          going any further — nothing else will work until you do.
+        </p>
+      </div>
+      <form className="studio-card studio-form" onSubmit={submit}>
+        {error && <ErrorNotice error={error} />}
+        <label>
+          Current password
+          <input
+            name="currentPassword"
+            type="password"
+            autoComplete="current-password"
+            required
+            maxLength={200}
+          />
+        </label>
+        <label>
+          New password
+          <input
+            name="newPassword"
+            type="password"
+            autoComplete="new-password"
+            aria-describedby="new-password-hint"
+            required
+            minLength={12}
+            maxLength={200}
+          />
+        </label>
+        {/* Described rather than labelled: inside the label this text becomes
+            part of the field's name, so it is read out as "New password at
+            least twelve characters" every time the field is announced. */}
+        <p className="studio-hint" id="new-password-hint">
+          At least twelve characters.
+        </p>
+        <label>
+          New password again
+          <input
+            name="confirmPassword"
+            type="password"
+            autoComplete="new-password"
+            required
+            minLength={12}
+            maxLength={200}
+          />
+        </label>
+        <Button type="submit" loading={pending}>
+          Change password
+        </Button>
+      </form>
+    </main>
   );
 }

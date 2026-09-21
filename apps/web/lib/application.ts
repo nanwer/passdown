@@ -49,6 +49,19 @@ export async function requireSession(request: Request) {
   getApplication();
   const session = await currentSession(request.headers);
   if (!session) throw new ApplicationError('UNAUTHENTICATED', 'Sign in to continue.', 401);
+  // An account created for someone — the first administrator, or anyone
+  // invited later — can do nothing until its password has been replaced.
+  //
+  // The check lives here rather than in a redirect because this is the one
+  // gate every studio route passes through, browser or not. SonarQube forces
+  // its reset in the interface and exempts /api, which leaves the credentials
+  // it shipped with working indefinitely for anyone who skips the UI.
+  if (session.user.mustChangePassword)
+    throw new ApplicationError(
+      'PASSWORD_CHANGE_REQUIRED',
+      'Choose a new password before continuing.',
+      403,
+    );
   return { session, actor: { kind: 'user', id: session.user.id, active: true } as const };
 }
 export async function enforceRateLimit(key: string, limit: number, seconds = 60) {

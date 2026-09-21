@@ -8,6 +8,7 @@ export const user = pgTable('auth_user', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   active: boolean('active').notNull().default(true),
+  mustChangePassword: boolean('must_change_password').notNull().default(false),
 });
 export const session = pgTable(
   'auth_session',

@@ -10,9 +10,16 @@
  * So the mismatch is named here, once, before any request is handled, and
  * /api/health answers 503 for as long as it lasts so a container healthcheck
  * or load balancer keeps traffic away without this process having to exit.
+ *
+ * The first administrator is created here too, for the opposite reason: it has
+ * to happen before anything is served. A setup page that waits for the first
+ * visitor is a race for administrator rights that anyone who can reach the
+ * port may win.
  */
 export async function register() {
   if (process.env.NEXT_RUNTIME !== 'nodejs') return;
   const { reportSchemaState } = await import('./lib/schema-report');
   await reportSchemaState();
+  const { bootstrapIfEmpty } = await import('./lib/first-run');
+  await bootstrapIfEmpty();
 }

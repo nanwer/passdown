@@ -35,6 +35,18 @@ export const saveDraftSchema = z.strictObject({
   categoryId: z.uuid(),
   guideType: guideTypeSelectionSchema.optional(),
 });
+/**
+ * Replacing your own password.
+ *
+ * Twelve characters rather than Better Auth's default of eight: someone
+ * replacing a password the installation generated for them has no reason to
+ * choose something weaker than what they were handed.
+ */
+export const changePasswordSchema = z.strictObject({
+  currentPassword: z.string().min(1).max(200),
+  newPassword: z.string().min(12).max(200),
+});
+export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
 export const publishSchema = z.strictObject({
   expectedVersion: z.number().int().min(1),
   expectedRelease: z.number().int().min(1).nullable(),

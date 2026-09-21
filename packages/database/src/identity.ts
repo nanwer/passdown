@@ -30,7 +30,15 @@ export function createIdentity(options: {
       requireEmailVerification: true,
     },
     session: { cookieCache: { enabled: false } },
-    user: { additionalFields: { active: { type: 'boolean', defaultValue: true, input: false } } },
+    user: {
+      additionalFields: {
+        active: { type: 'boolean', defaultValue: true, input: false },
+        // Set when an account is created for someone rather than by them — the
+        // first-run administrator, and later anyone who accepts an invitation.
+        // input: false so it can never be set by a request body.
+        mustChangePassword: { type: 'boolean', defaultValue: false, input: false },
+      },
+    },
     rateLimit: { enabled: false },
   });
   return Object.assign(auth, { close: () => pool.end() });

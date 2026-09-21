@@ -20,4 +20,5 @@ export const migrationManifest: { name: string; checksum: string }[] = [
   { name: '017_items_have_no_kind.sql', checksum: '07ce2fe54cc888039beeae2f039fad9eb55b7fa4336abb2574158f6f32267eb8' },
   { name: '018_guide_types.sql', checksum: '0b324de87f2e34130c570fcfd9220bd81e6d2efd1f4e5087d68cf2ea4912372c' },
   { name: '019_two_permissions.sql', checksum: 'd34b2810576dec75ea5d82d515875f43dc354210a773a0a095b56ee8294d01b0' },
+  { name: '020_first_run_admin.sql', checksum: '1b33e866ab3d1d8d4fbce91ddb061c791ca23b90eea184ea9ddeb16189e9137c' },
 ];

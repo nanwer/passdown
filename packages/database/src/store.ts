@@ -460,6 +460,23 @@ export function createApplicationStore(options: { connectionString: string }) {
      * fetching them separately would let the picker render before it knows
      * whether to show a composed title.
      */
+    /**
+     * Let an account back in after it has replaced the password it was given.
+     *
+     * Not a transaction(...) call: this is about the identity of the actor
+     * rather than anything inside a workspace, so there is no workspace to
+     * scope it to.
+     */
+    async clearPasswordChangeRequirement(userId: string): Promise<void> {
+      const client = await pool.connect();
+      try {
+        await client.query('UPDATE public.auth_user SET must_change_password=false WHERE id=$1', [
+          userId,
+        ]);
+      } finally {
+        client.release();
+      }
+    },
     async guideTypeSettings(
       actor: Actor,
       workspaceId: string,
