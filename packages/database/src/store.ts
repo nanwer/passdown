@@ -8,7 +8,9 @@ import {
   hasInstructionText,
   toStructuredDocument,
   getRequirementIssues,
+  defaultGuideTypes,
   type GuideDocument,
+  type GuideType,
 } from '@guide/content';
 import {
   ApplicationError,
@@ -28,6 +30,7 @@ import {
   type SaveDraftInput,
   type PublishInput,
   type GuideFamily,
+  type GuideTypeSelection,
 } from '@guide/contracts';
 
 /** True for our own errors however the contracts module was bundled. */
@@ -146,6 +149,9 @@ function draft(row: Row): DraftGuide {
     publishedVersion: row.published_version,
     updatedAt: new Date(row.updated_at).toISOString(),
     stepCount: document.steps.length,
+    guideType: row.guide_type_key
+      ? { key: row.guide_type_key, subject: row.guide_type_subject ?? '' }
+      : null,
     document,
   };
 }
@@ -170,6 +176,62 @@ function published(row: Row): PublishedGuide {
     updatedAt: new Date(row.updated_at).toISOString(),
   };
 }
+/**
+ * The guide types a workspace actually offers.
+ *
+ * app.guide_type is an override, not a seeded copy: no rows means the workspace
+ * is using the catalog the application ships. Seeding every workspace instead
+ * would put the same list in two places and let them drift, and it would make
+ * adding a default to a running installation a data migration rather than an
+ * edit.
+ */
+async function effectiveGuideTypes(c: pg.PoolClient, workspaceId: string): Promise<GuideType[]> {
+  const rows = (
+    await c.query(
+      'SELECT key,label,description,prompt,title_template,enabled FROM app.guide_type WHERE workspace_id=$1 ORDER BY sort_order,key',
+      [workspaceId],
+    )
+  ).rows;
+  if (!rows.length) return defaultGuideTypes;
+  return rows
+    .filter((row) => row.enabled)
+    .map((row) => ({
+      key: row.key,
+      label: row.label,
+      description: row.description,
+      prompt: row.prompt,
+      titleTemplate: row.title_template,
+    }));
+}
+
+/**
+ * Check a chosen type against what the workspace offers, and return the columns
+ * to store.
+ *
+ * There is no foreign key behind this — the catalog may be shipped rather than
+ * stored — so this is the only thing standing between a typo and a guide
+ * claiming to be a kind of work that does not exist.
+ */
+async function resolveGuideType(
+  c: pg.PoolClient,
+  workspaceId: string,
+  selection: GuideTypeSelection,
+): Promise<{ key: string | null; subject: string }> {
+  if (!selection) return { key: null, subject: '' };
+  const types = await effectiveGuideTypes(c, workspaceId);
+  const type = types.find((candidate) => candidate.key === selection.key);
+  if (!type)
+    throw new ApplicationError(
+      'VALIDATION_ERROR',
+      'That kind of work is not one this workspace offers.',
+      422,
+    );
+  // A type that asks nothing has nowhere to put an answer, and storing one
+  // would leave a value in the release snapshot that no screen can explain.
+  if (!type.prompt) return { key: type.key, subject: '' };
+  return { key: type.key, subject: selection.subject.trim() };
+}
+
 export function createApplicationStore(options: { connectionString: string }) {
   const pool = new pg.Pool({
     connectionString: localDatabaseURL(options.connectionString),
@@ -391,6 +453,28 @@ export function createApplicationStore(options: { connectionString: string }) {
         return row ? draft(row) : null;
       });
     },
+    /**
+     * The kinds of work this workspace offers, and whether it composes titles.
+     *
+     * Returned together because the create form needs both to draw itself, and
+     * fetching them separately would let the picker render before it knows
+     * whether to show a composed title.
+     */
+    async guideTypeSettings(
+      actor: Actor,
+      workspaceId: string,
+    ): Promise<{ types: GuideType[]; composeTitles: boolean }> {
+      return transaction(actor, workspaceId, async (c) => {
+        const row = (
+          await c.query('SELECT compose_titles FROM app.workspace WHERE id=$1', [workspaceId])
+        ).rows[0];
+        if (!row) throw new ApplicationError('NOT_FOUND', 'No such workspace.', 404);
+        return {
+          types: await effectiveGuideTypes(c, workspaceId),
+          composeTitles: row.compose_titles,
+        };
+      });
+    },
     async createDraft(
       actor: Actor,
       workspaceId: string,
@@ -413,8 +497,9 @@ export function createApplicationStore(options: { connectionString: string }) {
         const author =
           (await c.query('SELECT name FROM public.auth_user WHERE id=app.actor_id()')).rows[0]
             ?.name ?? workspace.name;
+        const guideType = await resolveGuideType(c, workspaceId, data.guideType ?? null);
         const result = await c.query(
-          'INSERT INTO app.guide(id,workspace_id,audience,document,category,author,category_id) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *',
+          'INSERT INTO app.guide(id,workspace_id,audience,document,category,author,category_id,guide_type_key,guide_type_subject) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *',
           [
             randomUUID(),
             workspaceId,
@@ -423,6 +508,8 @@ export function createApplicationStore(options: { connectionString: string }) {
             category.name,
             author,
             category.id,
+            guideType.key,
+            guideType.subject,
           ],
         );
         await projectRequirements(c, workspaceId, result.rows[0].id, 0, data.document);
@@ -449,10 +536,19 @@ export function createApplicationStore(options: { connectionString: string }) {
           data.document,
           guideDocumentSchema.parse(current.document),
         );
+        const guideType = await resolveGuideType(c, workspaceId, data.guideType ?? null);
         const row = (
           await c.query(
-            'UPDATE app.guide SET document=$3,category=$4,category_id=$5,version=version+1,updated_at=clock_timestamp() WHERE workspace_id=$1 AND id=$2 RETURNING *',
-            [workspaceId, id, data.document, category.name, category.id],
+            'UPDATE app.guide SET document=$3,category=$4,category_id=$5,guide_type_key=$6,guide_type_subject=$7,version=version+1,updated_at=clock_timestamp() WHERE workspace_id=$1 AND id=$2 RETURNING *',
+            [
+              workspaceId,
+              id,
+              data.document,
+              category.name,
+              category.id,
+              guideType.key,
+              guideType.subject,
+            ],
           )
         ).rows[0];
         await projectRequirements(c, workspaceId, id, 0, data.document);
@@ -520,7 +616,7 @@ export function createApplicationStore(options: { connectionString: string }) {
           );
         const number = (current.current_release ?? 0) + 1;
         await c.query(
-          'INSERT INTO app.release(guide_id,workspace_id,number,draft_version,document,category,license,author,is_sample,category_id,category_path) VALUES($1,$2,$3,$4,$5,$6,$7,(SELECT name FROM public.auth_user WHERE id=app.actor_id()),false,$8,$9)',
+          'INSERT INTO app.release(guide_id,workspace_id,number,draft_version,document,category,license,author,is_sample,category_id,category_path,guide_type_key,guide_type_subject) VALUES($1,$2,$3,$4,$5,$6,$7,(SELECT name FROM public.auth_user WHERE id=app.actor_id()),false,$8,$9,$10,$11)',
           [
             id,
             workspaceId,
@@ -531,6 +627,10 @@ export function createApplicationStore(options: { connectionString: string }) {
             data.license,
             category.id,
             JSON.stringify(category.path),
+            // The release freezes what the draft said at this moment, the same
+            // way it freezes the category and the document.
+            current.guide_type_key,
+            current.guide_type_subject ?? '',
           ],
         );
         // Freeze this release's pictures alongside its content, so the images

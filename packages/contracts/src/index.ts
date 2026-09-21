@@ -3,15 +3,37 @@ import { guideDocumentSchema, type GuideDocument } from '@guide/content';
 
 export const contentLicenseSchema = z.enum(['all-rights-reserved', 'CC-BY-4.0', 'CC-BY-SA-4.0']);
 export type ContentLicense = z.infer<typeof contentLicenseSchema>;
+/**
+ * What kind of work a guide is, and the answer to the question that type asks.
+ *
+ * Null when the workspace has no types switched on, or the author skipped it —
+ * a guide written before this existed is not broken, it just has no type. The
+ * key shape is restated here rather than imported from the catalog because the
+ * API must reject a malformed key before anything looks it up.
+ */
+export const guideTypeSelectionSchema = z
+  .strictObject({
+    key: z
+      .string()
+      .min(1)
+      .max(40)
+      .regex(/^[a-z][a-z0-9-]*$/, 'A guide type key is lower case letters, digits and hyphens.'),
+    subject: z.string().trim().max(140),
+  })
+  .nullable();
+export type GuideTypeSelection = z.infer<typeof guideTypeSelectionSchema>;
+
 export const createDraftSchema = z.strictObject({
   document: guideDocumentSchema,
   categoryId: z.uuid(),
   audience: z.enum(['public', 'members']),
+  guideType: guideTypeSelectionSchema.optional(),
 });
 export const saveDraftSchema = z.strictObject({
   expectedVersion: z.number().int().min(1),
   document: guideDocumentSchema,
   categoryId: z.uuid(),
+  guideType: guideTypeSelectionSchema.optional(),
 });
 export const publishSchema = z.strictObject({
   expectedVersion: z.number().int().min(1),
@@ -42,6 +64,7 @@ export type DraftSummary = {
   publishedVersion: number | null;
   updatedAt: string;
   stepCount: number;
+  guideType: GuideTypeSelection;
 };
 export type DraftGuide = DraftSummary & { document: GuideDocument };
 export type PublishedGuide = {

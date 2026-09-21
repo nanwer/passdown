@@ -1062,4 +1062,94 @@ export async function structuredChecks({
     });
     await assert.rejects(store.setCategoryImage(who, 'public', openShelf.id, foreign));
   });
+
+  await check('a guide carries what kind of work it is, beside what it is about', async () => {
+    const shelf = await category(`Type shelf ${randomUUID().slice(0, 8)}`);
+
+    // No rows in app.guide_type, so the workspace is on the shipped catalog.
+    const settings = await store.guideTypeSettings(who, 'public');
+    assert(settings.types.some((t) => t.key === 'replacement'));
+    assert.equal(settings.composeTitles, true, 'composing titles is on unless turned off');
+
+    const created = await store.createDraft(who, 'public', {
+      document: toStructuredDocument({ ...doc, title: 'Floor (wood) Board Replacement' }),
+      categoryId: shelf.id,
+      audience: 'members',
+      guideType: { key: 'replacement', subject: 'Board' },
+    });
+    assert.deepEqual(created.guideType, { key: 'replacement', subject: 'Board' });
+
+    // A key the workspace does not offer is refused rather than stored, because
+    // no foreign key stands behind this column.
+    await assert.rejects(
+      store.createDraft(who, 'public', {
+        document: toStructuredDocument({ ...doc, title: 'Invented' }),
+        categoryId: shelf.id,
+        audience: 'members',
+        guideType: { key: 'invented', subject: 'x' },
+      }),
+      /not one this workspace offers/,
+    );
+
+    // A type that asks nothing has nowhere to put an answer.
+    const teardown = await store.createDraft(who, 'public', {
+      document: toStructuredDocument({ ...doc, title: 'Desk lamp Teardown' }),
+      categoryId: shelf.id,
+      audience: 'members',
+      guideType: { key: 'teardown', subject: 'ignored' },
+    });
+    assert.deepEqual(teardown.guideType, { key: 'teardown', subject: '' });
+
+    // A guide written before types existed still works, and stays untyped.
+    const untyped = await store.createDraft(who, 'public', {
+      document: toStructuredDocument({ ...doc, title: 'No type at all' }),
+      categoryId: shelf.id,
+      audience: 'members',
+    });
+    assert.equal(untyped.guideType, null);
+
+    // The type survives a save, and can be changed or cleared.
+    const saved = await store.saveDraft(who, 'public', created.id, {
+      expectedVersion: created.version,
+      document: created.document,
+      categoryId: shelf.id,
+      guideType: { key: 'repair', subject: 'Skirting' },
+    });
+    assert.deepEqual(saved.guideType, { key: 'repair', subject: 'Skirting' });
+    const cleared = await store.saveDraft(who, 'public', saved.id, {
+      expectedVersion: saved.version,
+      document: saved.document,
+      categoryId: shelf.id,
+    });
+    assert.equal(cleared.guideType, null);
+
+    // Once rows exist they are the whole truth: the shipped catalog stops
+    // applying, and a type switched off is no longer offered or accepted.
+    await scoped(who, 'public', async (c) => {
+      await c.query(
+        "INSERT INTO app.guide_type(workspace_id,key,label,description,prompt,title_template,sort_order,enabled) VALUES ('public','changeover','Changeover','','Which product?','%thing %subject Changeover',0,true), ('public','replacement','Replacement','','What part?','%thing %subject Replacement',1,false)",
+      );
+    });
+    try {
+      const custom = await store.guideTypeSettings(who, 'public');
+      assert.deepEqual(
+        custom.types.map((t) => t.key),
+        ['changeover'],
+        'only enabled rows are offered, and the shipped catalog no longer applies',
+      );
+      await assert.rejects(
+        store.createDraft(who, 'public', {
+          document: toStructuredDocument({ ...doc, title: 'Switched off' }),
+          categoryId: shelf.id,
+          audience: 'members',
+          guideType: { key: 'replacement', subject: 'Board' },
+        }),
+        /not one this workspace offers/,
+      );
+    } finally {
+      await scoped(who, 'public', (c) =>
+        c.query("DELETE FROM app.guide_type WHERE workspace_id='public'"),
+      );
+    }
+  });
 }
