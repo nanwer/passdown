@@ -703,6 +703,28 @@
   color: var(--gp-semantic-text-primary);
 }
 
+/* The kinds of work a workspace offers. Two columns where there is room, so a
+   set of seven reads as a menu to scan rather than a list to scroll past on
+   the way to the title box. */
+.guide-type-choices {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+}
+/* The question the chosen type asks. It sits under the menu because it only
+   exists once something is chosen, and appearing in place keeps the answer
+   next to what prompted it. */
+.guide-type-subject {
+  display: grid;
+  gap: 5px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gp-semantic-text-primary);
+}
+.guide-type-subject input {
+  font-weight: 400;
+}
+
 /* Pictures on a step. An upload waits here with its description field until it
    is added, so alt text is collected before the picture joins the document. */
 .studio-pictures {

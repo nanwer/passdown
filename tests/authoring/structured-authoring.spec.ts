@@ -1606,3 +1606,58 @@ test('a thing gets a picture, and it reaches exactly the readers the thing does'
   expect((await visitor.request.get(src!)).status()).toBe(404);
   await anonymous.close();
 });
+
+test('a guide is given a kind of work, and the title writes itself from it', async ({ page }) => {
+  await login(page.request);
+  const suffix = randomUUID().slice(0, 8);
+  await category(page.request, 'workshop', `Floorboard ${suffix}`);
+
+  await page.goto('/studio/workshop/new');
+  const kind = page.getByRole('group', { name: 'What kind of work is this?' });
+  await expect(kind).toBeVisible();
+
+  // The distinction the thing tree could not make: a floor is a thing, an
+  // inspection is something you do to one.
+  await expect(kind.getByRole('radio', { name: /Inspection/ })).toBeVisible();
+  await expect(kind.getByRole('radio', { name: /Replacement/ })).toBeVisible();
+
+  await kind.getByRole('radio', { name: /Inspection/ }).check();
+  const answer = page.getByRole('textbox', { name: 'What are you checking?' });
+  await expect(answer).toBeVisible();
+  await answer.fill('Damp');
+
+  // A type that asks nothing shows no question — and forgets the answer to the
+  // one it replaced, so switching back cannot quietly reattach it.
+  await kind.getByRole('radio', { name: /Teardown/ }).check();
+  await expect(page.getByRole('textbox', { name: 'What are you checking?' })).toHaveCount(0);
+  await kind.getByRole('radio', { name: /Inspection/ }).check();
+  await expect(answer).toHaveValue('');
+  await answer.fill('Damp');
+
+  const title = page.getByRole('textbox', { name: 'Guide title', exact: true });
+  // Nothing composes until there is a thing to compose about.
+  await expect(title).toHaveValue('');
+  await chooseCategory(page, `Floorboard ${suffix}`);
+  await expect(title).toHaveValue(`Floorboard ${suffix} Damp Inspection`);
+
+  // It keeps up as the answer changes.
+  await answer.fill('Rot');
+  await expect(title).toHaveValue(`Floorboard ${suffix} Rot Inspection`);
+
+  // And it stops the moment the author disagrees with it.
+  await title.fill('Checking the boards by hand');
+  await answer.fill('Warping');
+  await expect(title).toHaveValue('Checking the boards by hand');
+
+  await page
+    .getByRole('textbox', { name: 'Summary', exact: true })
+    .fill('What to look for when a floor starts to move.');
+  await page.getByRole('button', { name: 'Create draft', exact: true }).click();
+  await expect(page).toHaveURL(/\/studio\/workshop\/[a-f0-9-]+$/);
+
+  // The kind of work reached the database, and the answer with it.
+  const guideId = page.url().split('/').pop()!;
+  const stored = await page.request.get(`/api/studio/workshop/guides/${guideId}`);
+  expect(stored.ok()).toBe(true);
+  expect((await stored.json()).guide.guideType).toEqual({ key: 'inspection', subject: 'Warping' });
+});

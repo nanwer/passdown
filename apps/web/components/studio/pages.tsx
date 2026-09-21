@@ -2,8 +2,8 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { ArrowRight, Globe2, LockKeyhole, Plus, Search } from 'lucide-react';
 import { Button } from '@guide/ui';
-import type { DraftGuide, DraftSummary, StudioWorkspace } from '@guide/contracts';
-import type { GuideDocument } from '@guide/content';
+import type { Category, DraftGuide, DraftSummary, StudioWorkspace } from '@guide/contracts';
+import { composeGuideTitle, type GuideDocument, type GuideType } from '@guide/content';
 import { Frame, ErrorNotice, SessionGate } from './frame';
 import { studioFetch, StudioError } from './transport';
 import { newDocument, safeReturnTo } from './model';
@@ -301,13 +301,20 @@ export function MetadataFields({
   workspace,
   onDocument,
   onCategory,
+  onTitleEdited,
 }: {
   document: GuideDocument;
   audience?: 'public' | 'members';
   category: string | null;
   workspace: StudioWorkspace;
   onDocument: (document: GuideDocument) => void;
-  onCategory: (category: string | null) => void;
+  onCategory: (category: string | null, chosen?: Category) => void;
+  /**
+   * Fired when the author types in the title box themselves. A composed title
+   * is a suggestion, so it has to stop suggesting the moment someone disagrees
+   * with it — and that is only knowable here, where the keystroke lands.
+   */
+  onTitleEdited?: () => void;
 }) {
   return (
     <div className="studio-form">
@@ -317,7 +324,10 @@ export function MetadataFields({
           required
           maxLength={140}
           value={document.title}
-          onChange={(e) => onDocument({ ...document, title: e.target.value })}
+          onChange={(e) => {
+            onTitleEdited?.();
+            onDocument({ ...document, title: e.target.value });
+          }}
           placeholder="What will the reader learn?"
         />
       </label>
@@ -388,6 +398,15 @@ export function NewGuide({ workspaceId }: { workspaceId: string }) {
 function CreateGuide({ workspace }: { workspace: StudioWorkspace }) {
   const [document, setDocument] = useState<GuideDocument>();
   const [category, setCategory] = useState<string | null>(null);
+  // The kind of work, the thing it is about, and the answer to whatever the
+  // type asks. Together these compose the title, which is why the thing's name
+  // is kept and not only its id.
+  const [types, setTypes] = useState<GuideType[]>([]);
+  const [composeTitles, setComposeTitles] = useState(false);
+  const [typeKey, setTypeKey] = useState<string | null>(null);
+  const [subject, setSubject] = useState('');
+  const [thingName, setThingName] = useState('');
+  const titleEdited = useRef(false);
   // A private workspace has no public side, so its guides are always internal.
   // A public workspace holds both, and the choice is immutable after creation.
   const [audience, setAudience] = useState<'public' | 'members'>(
@@ -397,6 +416,35 @@ function CreateGuide({ workspace }: { workspace: StudioWorkspace }) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
   useEffect(() => setDocument(newDocument()), []);
+  useEffect(() => {
+    let live = true;
+    studioFetch<{ types: GuideType[]; composeTitles: boolean }>(
+      `/api/studio/${workspace.id}/guide-types`,
+    )
+      .then((settings) => {
+        if (!live) return;
+        setTypes(settings.types);
+        setComposeTitles(settings.composeTitles);
+      })
+      // A workspace that cannot say what it offers still lets someone write.
+      // Losing the picker is worse than losing the guide.
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [workspace.id]);
+
+  const selectedType = types.find((type) => type.key === typeKey) ?? null;
+  // Compose only while the author has left the title alone. The suggestion is
+  // meant to save them the blank box, not to argue with them once they have
+  // written something.
+  useEffect(() => {
+    if (!composeTitles || !selectedType || titleEdited.current || !thingName) return;
+    const composed = composeGuideTitle(selectedType, { thing: thingName, subject });
+    setDocument((current) =>
+      !current || current.title === composed ? current : { ...current, title: composed },
+    );
+  }, [composeTitles, selectedType, subject, thingName]);
   useEffect(() => {
     if (!document || (!document.title && !document.summary && !category)) return;
     const leave = (event: BeforeUnloadEvent) => {
@@ -428,6 +476,7 @@ function CreateGuide({ workspace }: { workspace: StudioWorkspace }) {
           },
           categoryId: category,
           audience,
+          guideType: typeKey ? { key: typeKey, subject } : null,
         }),
       });
       created.current = true;
@@ -451,12 +500,58 @@ function CreateGuide({ workspace }: { workspace: StudioWorkspace }) {
       ) : (
         document && (
           <form className="studio-card" onSubmit={submit}>
+            {types.length > 0 && (
+              <fieldset className="studio-fieldset">
+                <legend>What kind of work is this?</legend>
+                <p className="studio-hint">
+                  This is separate from what the guide is about. A floor is a {words.thing}; an
+                  inspection is something you do to one.
+                </p>
+                <div className="guide-type-choices">
+                  {types.map((type) => (
+                    <label key={type.key} className="studio-choice">
+                      <input
+                        type="radio"
+                        name="guideType"
+                        value={type.key}
+                        checked={typeKey === type.key}
+                        onChange={() => {
+                          setTypeKey(type.key);
+                          // A question that is no longer asked keeps no answer.
+                          if (!type.prompt) setSubject('');
+                        }}
+                      />
+                      <span>
+                        <strong>{type.label}</strong>
+                        {type.description}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+                {selectedType?.prompt && (
+                  <label className="guide-type-subject">
+                    {selectedType.prompt}
+                    <input
+                      maxLength={140}
+                      value={subject}
+                      onChange={(e) => setSubject(e.target.value)}
+                    />
+                  </label>
+                )}
+              </fieldset>
+            )}
             <MetadataFields
               document={document}
               workspace={workspace}
               category={category}
               onDocument={setDocument}
-              onCategory={setCategory}
+              onCategory={(id, chosen) => {
+                setCategory(id);
+                setThingName(chosen?.name ?? '');
+              }}
+              onTitleEdited={() => {
+                titleEdited.current = true;
+              }}
             />
             {workspace.audience === 'public' ? (
               <fieldset className="studio-fieldset">
