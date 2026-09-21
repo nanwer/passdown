@@ -8,14 +8,14 @@ This roadmap describes direction, not a delivery schedule. Priorities can change
 
 - Local sign-in and persistent public/private workspaces, with owner authoring and server-enforced access.
 - Visual step editing with formatted text, tables, links, quotes and contextual panels.
-- Nested guide, tool and material categories, shared by management, authoring and browsing.
+- One nested tree of the things guides are about, each able to carry a picture, browsable as a gallery and shared by management, authoring and reading. Adding one happens from inside the thing it belongs to, and asks only for a name.
 - Reusable tool, material and replacement-part catalogs with exact specifications and versioned details.
 - Guide preparation lists, step requirements, consumption/reuse distinctions and dependencies on earlier steps.
 - Manual draft saves, conflict checks and immutable publication snapshots.
 - Step photographs with numbered marks and arrows drawn onto them, captions and ordering, reuse of a picture across steps, and delivery at the size a screen needs. Re-encoded on upload so camera metadata does not travel with them, and readable only through a guide the reader may already open.
 - Guide families: a broader guide above its models, with a trail up and a list down, where a relative the reader cannot open is absent rather than withheld.
 - Moving a published guide between a workspace's public and internal sections, refused with reasons when it would expose something that is not itself public.
-- Search as you type, category browsing, responsive interfaces and light/dark themes.
+- Search as you type, browsing by picture, a bounded library that pages rather than loading everything, responsive interfaces and light/dark themes.
 
 The [README](README.md) explains how to run and try these features. Current authoring is owner-only; publishing is direct, without an approval workflow.
 
@@ -58,7 +58,7 @@ Local persistence and automated tests are working foundations. Supported product
 ## Principles that carry through
 
 - Keep public and private guides on one content model and renderer.
-- Reuse categories, tools and materials as real shared records.
+- Reuse things, tools and materials as real shared records.
 - Preserve what a reader relied on: editing a draft or catalog entry must not rewrite a published release.
 - Make ordinary interactions intuitive, accessible and recoverable.
 - Prefer complete, testable user journeys over controls that only look finished.
