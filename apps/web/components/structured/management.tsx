@@ -35,8 +35,9 @@ import {
   searchCategories,
 } from './tree-model';
 import './structured.css';
+import { words } from '../../lib/vocabulary';
 const domains = {
-  guide: 'Guide categories',
+  guide: words.Things,
   tool: 'Tool categories',
   material: 'Material categories',
 } as const;
@@ -114,10 +115,12 @@ function ManagementHeader({
       </a>
       <div className="structured-page-heading">
         <span className="studio-eyebrow">Workspace library</span>
-        <h1>{active === 'categories' ? 'A place for everything.' : 'Your tools & materials.'}</h1>
+        <h1>
+          {active === 'categories' ? `Everything you write about.` : 'Your tools & materials.'}
+        </h1>
         <p>
           {active === 'categories'
-            ? 'Build the shared hierarchy behind your guides, products and reusable items.'
+            ? `The ${words.things} your guides are about — a bicycle, a fridge, a production line.`
             : 'Keep exact tools, materials and replacement parts in one reusable catalog.'}
         </p>
       </div>
@@ -265,7 +268,7 @@ function CategoryManagement({ workspace }: { workspace: StudioWorkspace }) {
             trigger={
               <Button type="button">
                 <FolderPlus size={17} />
-                New category
+                Add a {words.thing}
               </Button>
             }
             onSaved={(category) => {
@@ -331,7 +334,7 @@ function CategoryManagement({ workspace }: { workspace: StudioWorkspace }) {
             />
           )}
         </section>
-        <section className="structured-detail-panel" aria-label="Category details">
+        <section className="structured-detail-panel" aria-label="Details">
           {selected ? (
             <>
               <span className="structured-detail-icon">
@@ -340,9 +343,6 @@ function CategoryManagement({ workspace }: { workspace: StudioWorkspace }) {
               <p className="structured-breadcrumb">{categoryPath(selected)}</p>
               <h2>{selected.name}</h2>
               <div className="structured-inline-meta">
-                <span className="category-code" title="Stable code. Renaming or moving keeps it.">
-                  {selected.code}
-                </span>
                 <span>
                   {selected.visibility === 'public' ? (
                     <Globe size={14} />
@@ -404,12 +404,12 @@ function CategoryManagement({ workspace }: { workspace: StudioWorkspace }) {
                       trigger={
                         <Button type="button">
                           <Plus size={16} />
-                          Add subcategory
+                          Add one inside
                         </Button>
                       }
                       onSaved={(category) => {
                         setSelected(category.id);
-                        setNotice('Subcategory created.');
+                        setNotice(`Added inside ${selected.name}.`);
                       }}
                     />
                   )}
@@ -511,14 +511,11 @@ function CategoryManagement({ workspace }: { workspace: StudioWorkspace }) {
           ) : (
             <div className="structured-detail-empty">
               <FolderTree size={40} />
-              <h2>Choose a branch</h2>
+              <h2>Pick one to see what is inside it</h2>
               <p>
-                Select a category to see its path, add a child, or update its place in the
-                hierarchy.
-              </p>
-              <p className="structured-notice">
-                Guide categories power the homepage. Tools and materials have their own separate
-                trees.
+                {domain === 'guide'
+                  ? `Choose a ${words.thing} on the left to rename it, move it, or see what is filed under it.`
+                  : 'Choose a category on the left to rename it or move it.'}
               </p>
             </div>
           )}
@@ -650,7 +647,7 @@ function CatalogManagement({ workspace }: { workspace: StudioWorkspace }) {
             />
           )}
           <a className="structured-manage-link" href={`/studio/${workspace.id}/categories`}>
-            Manage category trees
+            Manage {words.things}
           </a>
         </aside>
         <section className="catalog-list-panel" aria-label="Catalog items">
@@ -669,8 +666,23 @@ function CatalogManagement({ workspace }: { workspace: StudioWorkspace }) {
           ) : !loading && !visible.length ? (
             <div className="structured-empty">
               <Package size={36} />
-              <h2>No matching items</h2>
-              <p>Create your first catalog item or adjust the filters.</p>
+              {/* An empty workspace and an over-narrow filter are different
+                  situations, and offering to clear a filter nobody set reads
+                  as a failure rather than a beginning. */}
+              {items.length === 0 ? (
+                <>
+                  <h2>Nothing here yet</h2>
+                  <p>
+                    This is where the tools, materials and parts your guides call for will live,
+                    once you add one.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <h2>Nothing matches those filters</h2>
+                  <p>Clear a filter, or search for something else.</p>
+                </>
+              )}
             </div>
           ) : (
             <ul className="catalog-management-list">

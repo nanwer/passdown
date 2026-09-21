@@ -7,6 +7,8 @@ export const messages = {
     allCategories: 'All guides',
     noResults: 'No guides found',
     noResultsHelp: 'Try a different search or explore the full collection.',
+    nothingYet: 'Nothing here yet',
+    nothingYetHelp: 'This is where guides will appear once someone writes one.',
     clearFilters: 'Clear filters',
     heroTitle: 'Good knowledge. Put to work.',
     heroDescription:

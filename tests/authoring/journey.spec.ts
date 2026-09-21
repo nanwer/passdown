@@ -103,7 +103,7 @@ test('real public create, step editing, save, reload, immutable publication, and
   await page
     .getByRole('textbox', { name: 'Summary', exact: true })
     .fill('A working public guide created from the browser.');
-  await page.getByRole('button', { name: /^Category/ }).click();
+  await page.getByRole('button', { name: /What is this about/ }).click();
   await page.getByRole('dialog').getByRole('button', { name: categoryName, exact: true }).click();
   await page.getByRole('button', { name: 'Create draft', exact: true }).click();
   // A fresh development server compiles the editor route during this navigation.

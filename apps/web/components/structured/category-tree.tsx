@@ -73,9 +73,7 @@ export function CategoryTree({
   if (!sorted.length)
     return (
       <p className="structured-empty">
-        {query
-          ? 'No categories match. Try another name or create a category.'
-          : 'No categories yet. Create the first one to start organizing.'}
+        {query ? 'Nothing matches that. Try another name.' : 'Nothing here yet.'}
       </p>
     );
   if (query.trim())

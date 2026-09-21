@@ -138,6 +138,6 @@ it('browse cards count guides from the database totals, not from the listed page
     />,
   );
 
-  const browse = screen.getByRole('region', { name: 'Browse by category' });
+  const browse = screen.getByRole('region', { name: 'Browse things' });
   expect(within(browse).getByRole('link', { name: /Bicycles/ })).toHaveTextContent('176 guides');
 });

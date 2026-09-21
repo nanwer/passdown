@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { words } from '../lib/vocabulary';
 import { ArrowUpRight, FolderTree, ChevronRight } from 'lucide-react';
 import type { Category, CategoryCounts } from '@guide/contracts';
 import './category-browse.css';
@@ -47,12 +48,14 @@ export function CategoryBrowse({
       <div className="category-browse-heading">
         <div>
           <span className="eyebrow">{parentId ? 'Keep exploring' : 'Find your way'}</span>
-          <h2 id="category-browse-title">{parentId ? 'Subcategories' : 'Browse by category'}</h2>
+          <h2 id="category-browse-title">
+            {parentId ? `Inside this ${words.thing}` : `Browse ${words.things}`}
+          </h2>
         </div>
         <p>
           {parentId
-            ? 'Choose a branch, or read all guides below.'
-            : 'From broad topics to the exact product you need.'}
+            ? 'Narrow it down, or read everything below.'
+            : 'From the broad group down to the exact one you have.'}
         </p>
       </div>
       <div className="category-browse-grid">

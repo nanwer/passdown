@@ -118,8 +118,8 @@ describe('structured authoring pickers', () => {
       }),
     );
     render(<Picker />);
-    fireEvent.click(screen.getByRole('button', { name: /^Category/ }));
-    fireEvent.click(screen.getByRole('button', { name: 'Create subcategory' }));
+    fireEvent.click(screen.getByRole('button', { name: /What is this about/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add one inside this thing' }));
     const name = screen.getByRole('textbox', { name: 'Name' });
     fireEvent.change(name, { target: { value: 'New branch' } });
     fireEvent.keyDown(name, { key: 'Enter' });
@@ -245,13 +245,13 @@ for (const entity of ['category', 'catalog'] as const) {
       const open = () =>
         fireEvent.click(
           screen.getByRole('button', {
-            name: entity === 'category' ? /^Category/ : 'Add from catalog',
+            name: entity === 'category' ? /What is this about/ : 'Add from catalog',
           }),
         );
       const create = () =>
         fireEvent.click(
           screen.getByRole('button', {
-            name: entity === 'category' ? 'Create category' : 'Create catalog item',
+            name: entity === 'category' ? 'Add a thing' : 'Create catalog item',
           }),
         );
       const field = () =>
@@ -265,7 +265,7 @@ for (const entity of ['category', 'catalog'] as const) {
       }
       fireEvent.click(
         screen.getByRole('button', {
-          name: entity === 'category' ? 'Create category' : 'Create item',
+          name: entity === 'category' ? 'Add thing' : 'Create item',
         }),
       );
       expect(screen.getByRole('button', { name: 'Saving…' })).toBeDisabled();

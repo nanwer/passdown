@@ -3,6 +3,7 @@ import { useId, useState, type ReactElement } from 'react';
 import { ChevronDown, FolderPlus, Search, ArrowLeft, FolderTree } from 'lucide-react';
 import { Button, Dialog } from '@guide/ui';
 import type { Category, StudioWorkspace } from '@guide/contracts';
+import { words } from '../../lib/vocabulary';
 import { studioFetch } from '../studio/transport';
 import { ErrorNotice } from '../studio/frame';
 import { useCategories, announceStructuredChange } from './data';
@@ -10,6 +11,18 @@ import { categoryPath, eligibleCategories } from './tree-model';
 import { CategoryTree } from './category-tree';
 import { useFormRequest } from './use-form-request';
 import './structured.css';
+/**
+ * What to call a node of this tree.
+ *
+ * The guide tree holds the things guides are about, and takes the product's
+ * word for them. The tool and material trees are scheduled for removal and
+ * keep the old word until they go, rather than being renamed on the way out.
+ */
+function nounFor(domain: Category['domain']) {
+  if (domain === 'guide') return words;
+  return { thing: 'category', things: 'categories', Thing: 'Category', Things: 'Categories' };
+}
+
 export interface CategoryPickerProps {
   workspace: StudioWorkspace;
   domain: Category['domain'];
@@ -28,7 +41,7 @@ export function CategoryPicker({
   domain,
   value,
   onChange,
-  label = 'Category',
+  label = 'What is this about?',
   required = false,
   visibility,
   allowCreate = true,
@@ -68,12 +81,12 @@ export function CategoryPicker({
                   ? 'Selected category unavailable'
                   : required
                     ? 'Choose a category'
-                    : 'Top level / none'}
+                    : 'Not inside anything'}
             </span>
             <ChevronDown size={16} aria-hidden="true" />
           </button>
         }
-        title={creating ? 'Create category' : `Choose ${label.toLowerCase()}`}
+        title={creating ? `Add a ${nounFor(domain).thing}` : `Choose ${label.toLowerCase()}`}
         description={
           creating
             ? 'Create a reusable category without leaving your guide.'
@@ -131,7 +144,7 @@ export function CategoryPicker({
                     setOpen(false);
                   }}
                 >
-                  Top level / none
+                  Not inside anything
                 </button>
               )}
               {error ? (
@@ -162,7 +175,9 @@ export function CategoryPicker({
                 <div className="structured-picker-footer">
                   <Button type="button" variant="secondary" onClick={() => setCreating(true)}>
                     <FolderPlus size={16} />
-                    {value ? 'Create subcategory' : 'Create category'}
+                    {value
+                      ? `Add one inside this ${nounFor(domain).thing}`
+                      : `Add a ${nounFor(domain).thing}`}
                   </Button>
                   <small>A shared category is saved immediately.</small>
                 </div>
@@ -271,27 +286,41 @@ export function CategoryForm({
           maxLength={100}
           autoFocus
           onChange={(event) => setName(event.target.value)}
-          placeholder="e.g. Laptops or Phillips screwdrivers"
+          placeholder="e.g. Bicycles, Fridges, Line 3"
           disabled={pending}
         />
       </label>
-      <CategoryPicker
-        workspace={workspace}
-        domain={domain}
-        categories={categories}
-        label="Parent category"
-        value={parentId}
-        onChange={setParent}
-        allowCreate={false}
-        excludeIds={initial ? [initial.id] : undefined}
-        visibility={audience}
-        disabled={pending}
-      />
-      <p className="structured-path-preview">
-        <span>Resulting path</span>
-        {parent ? `${categoryPath(parent)} / ` : ''}
-        {name.trim() || 'New category'}
-      </p>
+      {/*
+        Creating asks for a name and nothing else. Where something sits is a
+        question with no answer yet when the only thing in front of you is an
+        empty field — and asking it up front is why every category in this
+        application is top-level. Position still comes from where you were
+        standing, so it is stated rather than asked. Moving one afterwards is a
+        real need, so the control stays; it belongs to editing.
+      */}
+      {!initial && parent && (
+        <p className="structured-path-preview">Inside {categoryPath(parent)}</p>
+      )}
+      {initial && (
+        <>
+          <CategoryPicker
+            workspace={workspace}
+            domain={domain}
+            categories={categories}
+            label="Sits inside"
+            value={parentId}
+            onChange={setParent}
+            allowCreate={false}
+            excludeIds={[initial.id]}
+            visibility={audience}
+            disabled={pending}
+          />
+          <p className="structured-path-preview">
+            {parent ? `${categoryPath(parent)} / ` : ''}
+            {name.trim() || initial.name}
+          </p>
+        </>
+      )}
       <label>
         Description <span className="structured-optional">optional</span>
         <textarea
@@ -314,22 +343,26 @@ export function CategoryForm({
             <option value="members">Workspace members</option>
           </select>
         </label>
-        <label>
-          Display order
-          <input
-            type="number"
-            min={0}
-            max={100000}
-            value={sortOrder}
-            onChange={(event) => setSortOrder(Number(event.target.value))}
-            disabled={pending}
-          />
-        </label>
+        {/* Ordering is a preference about a list you can see, not a number to
+            guess before the list exists. */}
+        {initial && (
+          <label>
+            Shown in position
+            <input
+              type="number"
+              min={0}
+              max={100000}
+              value={sortOrder}
+              onChange={(event) => setSortOrder(Number(event.target.value))}
+              disabled={pending}
+            />
+          </label>
+        )}
       </div>
       <p className="structured-notice">
         {audience === 'public'
-          ? 'This category name and description will be public immediately, even before it has any guides or items.'
-          : 'Only workspace members can see this category.'}
+          ? 'This name and description are public immediately, even before there are any guides here.'
+          : 'Only workspace members can see this.'}
         {initial && parentId !== initial.parentId
           ? ' Moving it also moves its descendants. Guide and item identities stay the same.'
           : ''}
@@ -347,7 +380,7 @@ export function CategoryForm({
           Cancel
         </Button>
         <Button type="button" onClick={() => void save()} disabled={pending}>
-          {pending ? 'Saving…' : initial ? 'Save category' : 'Create category'}
+          {pending ? 'Saving…' : initial ? 'Save' : `Add ${nounFor(domain).thing}`}
         </Button>
       </div>
     </div>
@@ -377,11 +410,11 @@ export function CategoryDialog({
       open={open}
       onOpenChange={setOpen}
       trigger={trigger}
-      title={initial ? 'Edit category' : 'Create category'}
+      title={initial ? `Edit ${nounFor(domain).thing}` : `Add a ${nounFor(domain).thing}`}
       description={
         initial
-          ? 'Rename or move this branch while keeping its identity.'
-          : 'A reusable category can have its own subcategories and guides or items.'
+          ? 'Renaming or moving this keeps everything filed under it.'
+          : `Give it a name. You can add a picture, a description and ${nounFor(domain).things} inside it afterwards.`
       }
     >
       {open && (

@@ -8,6 +8,7 @@ import { Frame, ErrorNotice, SessionGate } from './frame';
 import { studioFetch, StudioError } from './transport';
 import { newDocument, safeReturnTo } from './model';
 import { CategoryPicker } from '../structured';
+import { words } from '../../lib/vocabulary';
 import { GuideRequirements } from './guide-requirements';
 export function SignIn() {
   const [pending, setPending] = useState(false);
@@ -339,7 +340,7 @@ export function MetadataFields({
           onChange={onCategory}
           visibility={audience ?? (workspace.audience === 'public' ? 'public' : 'members')}
           required
-          label="Category"
+          label="What is this about?"
         />
         <label>
           Difficulty
@@ -412,7 +413,7 @@ function CreateGuide({ workspace }: { workspace: StudioWorkspace }) {
     event.preventDefault();
     if (pending || !document) return;
     if (!category) {
-      setError('Choose a category or create one before continuing.');
+      setError(`Choose what this guide is about, or add a new ${words.thing}, before continuing.`);
       return;
     }
     setPending(true);

@@ -106,9 +106,11 @@ async function publish(page: Page) {
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Read published guide', exact: true })).toBeVisible();
 }
-async function chooseCategory(page: Page, name: string, label = 'Category') {
+async function chooseCategory(page: Page, name: string, label = 'What is this about?') {
+  // The label is a question, so escape it before it becomes a pattern —
+  // an unescaped "?" is a quantifier and would match the wrong control.
   await page
-    .getByRole('button', { name: new RegExp(`^${label}`) })
+    .getByRole('button', { name: new RegExp(`^${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`) })
     .last()
     .click();
   await page.getByRole('dialog').last().getByRole('button', { name, exact: true }).click();
@@ -137,18 +139,18 @@ for (const workspace of ['repair-collective', 'workshop']) {
       `Model ${suffix}`,
     ];
     await page.goto(`/studio/${workspace}/categories`);
-    await page.getByRole('button', { name: 'New category', exact: true }).click();
+    await page.getByRole('button', { name: 'Add a thing', exact: true }).click();
     for (let level = 0; level < names.length; level++) {
       const dialog = page.getByRole('dialog').last();
       await dialog.getByRole('textbox', { name: 'Name', exact: true }).fill(names[level]!);
-      await dialog.getByRole('button', { name: 'Create category', exact: true }).click();
+      await dialog.getByRole('button', { name: 'Add thing', exact: true }).click();
       await expect(
         page
-          .getByRole('region', { name: 'Category details' })
+          .getByRole('region', { name: 'Details' })
           .getByRole('heading', { name: names[level], exact: true }),
       ).toBeVisible();
       if (level < names.length - 1)
-        await page.getByRole('button', { name: 'Add subcategory', exact: true }).click();
+        await page.getByRole('button', { name: 'Add one inside', exact: true }).click();
     }
     const tree = await api<{ categories: Category[] }>(
       page.request,
@@ -172,8 +174,8 @@ for (const workspace of ['repair-collective', 'workshop']) {
       .getByRole('textbox', { name: 'Summary', exact: true })
       .fill('Unsaved details survive inline category creation.');
     await chooseCategory(page, leaf.name);
-    await page.getByRole('button', { name: /^Category/ }).click();
-    await page.getByRole('button', { name: 'Create subcategory', exact: true }).click();
+    await page.getByRole('button', { name: /What is this about/ }).click();
+    await page.getByRole('button', { name: 'Add one inside this thing', exact: true }).click();
     await page
       .getByRole('dialog')
       .last()
@@ -182,12 +184,12 @@ for (const workspace of ['repair-collective', 'workshop']) {
     await page
       .getByRole('dialog')
       .last()
-      .getByRole('button', { name: 'Create category', exact: true })
+      .getByRole('button', { name: 'Add thing', exact: true })
       .click();
     await expect(page.getByRole('textbox', { name: 'Guide title', exact: true })).toHaveValue(
       title,
     );
-    await expect(page.getByRole('button', { name: /^Category/ })).toContainText(
+    await expect(page.getByRole('button', { name: /What is this about/ })).toContainText(
       `Procedures ${suffix}`,
     );
     await page.getByRole('button', { name: 'Create draft', exact: true }).click();
@@ -241,15 +243,10 @@ for (const workspace of ['repair-collective', 'workshop']) {
       .getByRole('dialog')
       .getByRole('textbox', { name: 'Name', exact: true })
       .fill(`Renamed ${suffix}`);
-    await chooseCategory(page, root.name, 'Parent category');
-    await page
-      .getByRole('dialog')
-      .getByRole('button', { name: 'Save category', exact: true })
-      .click();
+    await chooseCategory(page, root.name, 'Sits inside');
+    await page.getByRole('dialog').getByRole('button', { name: 'Save', exact: true }).click();
     await expect(page.getByRole('dialog')).toHaveCount(0);
-    await expect(page.getByRole('region', { name: 'Category details' })).toContainText(
-      `Renamed ${suffix}`,
-    );
+    await expect(page.getByRole('region', { name: 'Details' })).toContainText(`Renamed ${suffix}`);
     await reader.reload();
     await expect(reader.getByRole('navigation', { name: 'Category path' })).toContainText(
       `Renamed ${suffix}`,
@@ -491,7 +488,7 @@ test('private legacy preparation links to an inline-created catalog item without
   await page
     .getByRole('dialog')
     .last()
-    .getByRole('button', { name: 'Create category', exact: true })
+    .getByRole('button', { name: 'Add a category', exact: true })
     .click();
   await page
     .getByRole('dialog')
@@ -501,7 +498,7 @@ test('private legacy preparation links to an inline-created catalog item without
   await page
     .getByRole('dialog')
     .last()
-    .getByRole('button', { name: 'Create category', exact: true })
+    .getByRole('button', { name: 'Add category', exact: true })
     .click();
   await expect(
     page.getByRole('textbox', { name: 'Specification / size', exact: true }),
@@ -730,7 +727,8 @@ test('creating a guide offers a section only where the workspace has both', asyn
   const choice = page.getByRole('group', { name: 'Section' });
   await expect(choice).toBeVisible();
   await expect(choice.getByRole('radio', { name: /Public/ })).toBeChecked();
-  await expect(choice.getByText('cannot move between sections')).toBeVisible();
+  // fc309b4 replaced a claim that the choice was permanent, because it is not.
+  await expect(choice.getByText('can move a guide between sections later')).toBeVisible();
 
   // A private workspace has no public side, so there is nothing to choose.
   await page.goto('/studio/workshop/new');
