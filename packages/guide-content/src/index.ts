@@ -293,3 +293,11 @@ export type {
   RichPanelTone,
   RichAlignment,
 } from './rich-text';
+export {
+  guideTypeSchema,
+  guideTypeCatalogSchema,
+  defaultGuideTypes,
+  composeGuideTitle,
+  enabledGuideTypes,
+} from './guide-types';
+export type { GuideType } from './guide-types';
