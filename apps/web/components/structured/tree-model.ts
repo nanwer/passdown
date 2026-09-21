@@ -31,7 +31,6 @@ export function filterCatalog(
   items: CatalogItem[],
   options: {
     search?: string;
-    categoryId?: string | null;
     kind?: CatalogItem['kind'];
     includeArchived?: boolean;
     visibility?: Category['visibility'];
@@ -43,33 +42,9 @@ export function filterCatalog(
       (options.includeArchived || !item.archived) &&
       (!options.kind || item.kind === options.kind) &&
       (!options.visibility || options.visibility === 'members' || item.visibility === 'public') &&
-      (!options.categoryId || item.categoryPath.some((node) => node.id === options.categoryId)) &&
-      [
-        item.name,
-        item.specification,
-        item.manufacturer,
-        item.model,
-        item.partNumber,
-        ...item.categoryPath.map((node) => node.name),
-      ]
+      [item.name, item.specification, item.manufacturer, item.model, item.partNumber]
         .join(' ')
         .toLocaleLowerCase()
         .includes(query),
   );
-}
-export function catalogCreationDefaults(
-  categories: Category[],
-  categoryId: string | null,
-  kind: CatalogItem['kind'] | 'all',
-): { initialKind: CatalogItem['kind']; initialCategoryId: string | null } {
-  const category = categories.find(
-    (category) => category.id === categoryId && !category.archived && category.domain !== 'guide',
-  );
-  const initialKind =
-    kind === 'all' ? (category?.domain === 'material' ? 'material' : 'tool') : kind;
-  return {
-    initialKind,
-    initialCategoryId:
-      category?.domain === (initialKind === 'tool' ? 'tool' : 'material') ? category.id : null,
-  };
 }

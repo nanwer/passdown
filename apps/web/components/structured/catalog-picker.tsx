@@ -8,7 +8,7 @@ import { ErrorNotice } from '../studio/frame';
 import { announceStructuredChange, useCatalog, useCategories } from './data';
 import { CategoryPicker } from './category-picker';
 import { CategoryTree } from './category-tree';
-import { eligibleCategories, filterCatalog, catalogCreationDefaults } from './tree-model';
+import { eligibleCategories, filterCatalog } from './tree-model';
 import { useFormRequest } from './use-form-request';
 import './structured.css';
 export interface CatalogPickerProps {
@@ -35,11 +35,8 @@ export function CatalogPicker({
   const [creating, setCreating] = useState(false);
   const [search, setSearch] = useState('');
   const [filterKind, setKind] = useState<CatalogItem['kind'] | 'all'>(kind ?? 'all');
-  const [categoryId, setCategory] = useState<string | null>(null);
-  const categoryLabelId = useId();
   const available = filterCatalog(items, {
     search,
-    categoryId,
     kind: kind ?? (filterKind === 'all' ? undefined : filterKind),
     visibility,
   });
@@ -74,7 +71,7 @@ export function CatalogPicker({
             <CatalogForm
               workspace={workspace}
               initialName={search}
-              {...catalogCreationDefaults(categories, categoryId, kind ?? filterKind)}
+              initialKind={kind ?? (filterKind === 'all' ? 'tool' : filterKind)}
               visibility={visibility}
               onCancel={() => setCreating(false)}
               onSaved={(item) => {
@@ -100,12 +97,11 @@ export function CatalogPicker({
             <div className="structured-picker-filters">
               {!kind && (
                 <label>
-                  Item type
+                  What do you need?
                   <select
                     value={filterKind}
                     onChange={(event) => {
                       setKind(event.target.value as typeof filterKind);
-                      setCategory(null);
                     }}
                   >
                     <option value="all">Tools, materials and parts</option>
@@ -115,38 +111,6 @@ export function CatalogPicker({
                   </select>
                 </label>
               )}
-              <div className="structured-filter-field">
-                <span id={categoryLabelId}>Item category</span>
-                <details className="structured-category-filter">
-                  <summary aria-labelledby={`${categoryLabelId} ${categoryLabelId}-value`}>
-                    <ChevronDown size={15} aria-hidden="true" />
-                    <span id={`${categoryLabelId}-value`}>
-                      {categoryId
-                        ? (categories.find((category) => category.id === categoryId)?.name ??
-                          'Selected category')
-                        : 'Browse item categories'}
-                    </span>
-                  </summary>
-                  <button
-                    type="button"
-                    className="structured-text-button"
-                    onClick={() => setCategory(null)}
-                  >
-                    All item categories
-                  </button>
-                  <CategoryTree
-                    categories={eligibleCategories(categories, { visibility }).filter(
-                      (category) =>
-                        category.domain !== 'guide' &&
-                        (!(kind ?? (filterKind === 'all' ? undefined : filterKind)) ||
-                          category.domain ===
-                            ((kind ?? filterKind) === 'tool' ? 'tool' : 'material')),
-                    )}
-                    value={categoryId}
-                    onSelect={(category) => setCategory(category.id)}
-                  />
-                </details>
-              </div>
             </div>
             {error ? (
               <>
@@ -177,7 +141,6 @@ export function CatalogPicker({
                           <span className="catalog-item-copy">
                             <strong>{item.name}</strong>
                             {item.specification && <span>{item.specification}</span>}
-                            <small>{item.categoryPath.map((node) => node.name).join(' / ')}</small>
                           </span>
                           <span className="catalog-picker-status">
                             {selectedIds.includes(item.id) ? (
@@ -246,9 +209,6 @@ export function CatalogForm({
   onCancel: () => void;
 }) {
   const [kind, setKind] = useState<CatalogItem['kind']>(initial?.kind ?? initialKind);
-  const [categoryId, setCategory] = useState<string | null>(
-    initial?.categoryId ?? initialCategoryId,
-  );
   const [name, setName] = useState(initial?.name ?? initialName);
   const [specification, setSpecification] = useState(initial?.specification ?? '');
   const [description, setDescription] = useState(initial?.description ?? '');
@@ -266,8 +226,8 @@ export function CatalogForm({
   const request = useFormRequest();
   async function save() {
     if (pending) return;
-    if (!name.trim() || !categoryId) {
-      setError('Enter an item name and choose its category.');
+    if (!name.trim()) {
+      setError('Give the item a name.');
       return;
     }
     setPending(true);
@@ -279,7 +239,6 @@ export function CatalogForm({
         {
           method: initial ? 'PATCH' : 'POST',
           body: JSON.stringify({
-            categoryId,
             kind,
             name: name.trim(),
             specification: specification.trim(),
@@ -326,7 +285,6 @@ export function CatalogForm({
             value={kind}
             onChange={(event) => {
               const next = event.target.value as CatalogItem['kind'];
-              if ((next === 'tool') !== (kind === 'tool')) setCategory(null);
               setKind(next);
               if (next === 'tool') setUnit('each');
             }}
@@ -381,17 +339,6 @@ export function CatalogForm({
           placeholder="e.g. Phillips #00, M2 × 4 mm, or 99%"
         />
       </label>
-      <CategoryPicker
-        key={kind === 'tool' ? 'tool' : 'material'}
-        workspace={workspace}
-        domain={kind === 'tool' ? 'tool' : 'material'}
-        label="Item category"
-        required
-        value={categoryId}
-        onChange={setCategory}
-        visibility={audience}
-        disabled={pending}
-      />
       <label>
         Description <span className="structured-optional">optional</span>
         <textarea

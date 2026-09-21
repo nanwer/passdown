@@ -72,7 +72,6 @@ export function catalogDTO(row: Row): CatalogItem {
   return {
     id: row.id,
     workspaceId: row.workspace_id,
-    categoryId: row.category_id,
     kind: row.kind,
     name: row.name,
     specification: row.specification,
@@ -84,7 +83,6 @@ export function catalogDTO(row: Row): CatalogItem {
     visibility: row.visibility,
     archived: row.archived,
     version: row.version,
-    categoryPath: row.category_path,
   };
 }
 export async function lockStructured(client: Client, workspaceId: string) {
@@ -164,19 +162,12 @@ export async function validateRequirements(
         path,
       );
     if (publicOnly) {
-      const category = (
-        await client.query('SELECT visibility FROM app.category WHERE workspace_id=$1 AND id=$2', [
-          workspaceId,
-          row.category_id,
-        ])
-      ).rows[0];
-      if (
-        row.visibility !== 'public' ||
-        snapshot.visibility !== 'public' ||
-        category?.visibility !== 'public'
-      )
+      // The item now, and the exact version this guide froze, must both be
+      // public. There is no third answer to inherit from a tree: visibility is
+      // the item's own, and the snapshot is what a reader will actually see.
+      if (row.visibility !== 'public' || snapshot.visibility !== 'public')
         throw validation(
-          'Public guides require an item and selected version that were both marked public. Review the current item version or choose another public item.',
+          'Public guides need a public item, and the version this guide uses must have been public too. Review the item, or choose another.',
           path,
         );
     }
@@ -206,8 +197,7 @@ export function structuredStore(
   owner: (c: Client, w: string) => Promise<Row>,
 ) {
   const categoryQuery = 'SELECT c.*,app.category_path(workspace_id,id) AS path FROM app.category c';
-  const itemQuery =
-    'SELECT i.*,app.category_path(workspace_id,category_id) AS category_path FROM app.catalog_item i';
+  const itemQuery = 'SELECT i.* FROM app.catalog_item i';
   async function category(client: Client, w: string, id: string) {
     const row = (await client.query(`${categoryQuery} WHERE workspace_id=$1 AND id=$2`, [w, id]))
       .rows[0];
@@ -389,7 +379,6 @@ export function structuredStore(
       workspaceId: string,
       filter?: {
         kind?: CatalogKind;
-        categoryId?: string;
         search?: string;
         includeArchived?: boolean;
       },
@@ -408,12 +397,11 @@ export function structuredStore(
           .trim();
         return rows.filter(
           (r) =>
-            (!filter?.categoryId || r.categoryPath.some((p) => p.id === filter.categoryId)) &&
-            (!q ||
-              `${r.name} ${r.specification} ${r.manufacturer} ${r.model} ${r.partNumber}`
-                .normalize('NFKC')
-                .toLocaleLowerCase('en')
-                .includes(q)),
+            !q ||
+            `${r.name} ${r.specification} ${r.manufacturer} ${r.model} ${r.partNumber}`
+              .normalize('NFKC')
+              .toLocaleLowerCase('en')
+              .includes(q),
         );
       });
     },
@@ -425,19 +413,12 @@ export function structuredStore(
       return transaction(actor, workspaceId, async (c) => {
         await owner(c, workspaceId);
         await lockStructured(c, workspaceId);
-        await selectedCategory(
-          c,
-          workspaceId,
-          data.categoryId,
-          data.kind === 'tool' ? 'tool' : 'material',
-        );
         const id = randomUUID();
         await c.query(
-          'INSERT INTO app.catalog_item(id,workspace_id,category_id,kind,name,specification,description,manufacturer,model,part_number,default_unit,visibility) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)',
+          'INSERT INTO app.catalog_item(id,workspace_id,kind,name,specification,description,manufacturer,model,part_number,default_unit,visibility) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)',
           [
             id,
             workspaceId,
-            data.categoryId,
             data.kind,
             data.name,
             data.specification,
@@ -470,18 +451,11 @@ export function structuredStore(
             'This catalog item changed. Reload it before saving.',
             409,
           );
-        await selectedCategory(
-          c,
-          workspaceId,
-          data.categoryId,
-          data.kind === 'tool' ? 'tool' : 'material',
-        );
         await c.query(
-          'UPDATE app.catalog_item SET category_id=$3,kind=$4,name=$5,specification=$6,description=$7,manufacturer=$8,model=$9,part_number=$10,default_unit=$11,visibility=$12,archived=$13,version=version+1 WHERE workspace_id=$1 AND id=$2',
+          'UPDATE app.catalog_item SET kind=$3,name=$4,specification=$5,description=$6,manufacturer=$7,model=$8,part_number=$9,default_unit=$10,visibility=$11,archived=$12,version=version+1 WHERE workspace_id=$1 AND id=$2',
           [
             workspaceId,
             id,
-            data.categoryId,
             data.kind,
             data.name,
             data.specification,

@@ -15,7 +15,6 @@ export function GET(request: Request, context: Context) {
         ? parseInput(catalogKindSchema, url.searchParams.get('kind'))
         : undefined,
       includeArchived: url.searchParams.get('includeArchived') === 'true',
-      categoryId: url.searchParams.get('categoryId') ?? undefined,
       search: url.searchParams.get('search') ?? undefined,
     });
     if (url.searchParams.get('usage') !== 'true') return Response.json({ items });

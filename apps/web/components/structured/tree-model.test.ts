@@ -1,11 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Category, CatalogItem } from '@guide/contracts';
-import {
-  eligibleCategories,
-  filterCatalog,
-  searchCategories,
-  catalogCreationDefaults,
-} from './tree-model';
+import { eligibleCategories, filterCatalog, searchCategories } from './tree-model';
 const root: Category = {
   id: 'root',
   workspaceId: 'public',
@@ -53,11 +48,10 @@ describe('structured selection rules', () => {
       ),
     ).toEqual([root]);
   });
-  it('combines exact item specifications with descendant category filters', () => {
+  it('finds an item by its exact specification, not just its name', () => {
     const item: CatalogItem = {
       id: 'screwdriver',
       workspaceId: 'public',
-      categoryId: 'leaf',
       kind: 'tool',
       name: 'Phillips screwdriver',
       specification: '#00',
@@ -69,29 +63,14 @@ describe('structured selection rules', () => {
       visibility: 'public',
       archived: false,
       version: 1,
-      categoryPath: grandchild.path,
     };
+    // Two screwdrivers of the same name differ only by specification, which is
+    // the whole point of an exact catalog.
     expect(
       filterCatalog([item, { ...item, id: 'other', specification: '#2' }], {
-        categoryId: 'root',
         search: '#00',
-      }).map((item) => item.id),
+      }).map((entry) => entry.id),
     ).toEqual(['screwdriver']);
-    expect(filterCatalog([item], { categoryId: 'other' })).toEqual([]);
-  });
-});
-it('keeps explicit parts while deriving material defaults and excludes guide categories', () => {
-  const material = { ...root, id: 'material', domain: 'material' as const };
-  expect(catalogCreationDefaults([material], 'material', 'all')).toEqual({
-    initialKind: 'material',
-    initialCategoryId: 'material',
-  });
-  expect(catalogCreationDefaults([material], 'material', 'part')).toEqual({
-    initialKind: 'part',
-    initialCategoryId: 'material',
-  });
-  expect(catalogCreationDefaults([root], 'root', 'all')).toEqual({
-    initialKind: 'tool',
-    initialCategoryId: null,
+    expect(filterCatalog([item], { search: 'torx' })).toEqual([]);
   });
 });

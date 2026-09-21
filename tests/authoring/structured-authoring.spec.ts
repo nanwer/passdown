@@ -287,16 +287,6 @@ test('catalog selection, step allocations, prerequisites and reviewed updates pr
   const workspace = 'repair-collective';
   const suffix = randomUUID().slice(0, 7);
   const guideCategory = await category(page.request, workspace, `Catalog guides ${suffix}`);
-  const tools = await category(page.request, workspace, `Hand tools ${suffix}`, 'tool');
-  const screwdrivers = await category(page.request, workspace, 'Screwdrivers', 'tool', tools.id);
-  const phillips = await category(
-    page.request,
-    workspace,
-    `Phillips ${suffix}`,
-    'tool',
-    screwdrivers.id,
-  );
-  const materials = await category(page.request, workspace, `Fasteners ${suffix}`, 'material');
   const toolName = `Phillips screwdriver ${suffix}`;
   await page.goto(`/studio/${workspace}/catalog`);
   await page.getByRole('button', { name: 'New catalog item', exact: true }).click();
@@ -308,7 +298,6 @@ test('catalog selection, step allocations, prerequisites and reviewed updates pr
     .getByRole('dialog')
     .getByRole('textbox', { name: 'Specification / size', exact: true })
     .fill('Phillips #00');
-  await chooseCategory(page, phillips.name, 'Item category');
   await page.getByRole('dialog').getByRole('button', { name: 'Create item', exact: true }).click();
   await expect(page.getByRole('region', { name: 'Catalog item details' })).toContainText(
     'Phillips #00',
@@ -322,7 +311,6 @@ test('catalog selection, step allocations, prerequisites and reviewed updates pr
     `/api/studio/${workspace}/catalog`,
     'POST',
     {
-      categoryId: materials.id,
       kind: 'part',
       name: partName,
       specification: 'M2 × 4 mm',
@@ -411,7 +399,6 @@ test('catalog selection, step allocations, prerequisites and reviewed updates pr
     'Clear and dry the work surface.',
   );
   const updatedFields = {
-    categoryId: tool.categoryId,
     kind: tool.kind,
     name: tool.name,
     specification: 'Phillips #00 · updated grip',
@@ -484,22 +471,6 @@ test('private legacy preparation links to an inline-created catalog item without
   await page
     .getByRole('textbox', { name: 'Specification / size', exact: true })
     .fill('Six compartments');
-  await page.getByRole('button', { name: /^Item category/ }).click();
-  await page
-    .getByRole('dialog')
-    .last()
-    .getByRole('button', { name: 'Add a category', exact: true })
-    .click();
-  await page
-    .getByRole('dialog')
-    .last()
-    .getByRole('textbox', { name: 'Name', exact: true })
-    .fill(`Organization tools ${suffix}`);
-  await page
-    .getByRole('dialog')
-    .last()
-    .getByRole('button', { name: 'Add category', exact: true })
-    .click();
   await expect(
     page.getByRole('textbox', { name: 'Specification / size', exact: true }),
   ).toHaveValue('Six compartments');
@@ -604,15 +575,8 @@ test('catalog listing reports how many guides use each item and filters by statu
 }) => {
   await login(page.request);
   const workspace = 'repair-collective';
-  const toolCategory = await category(
-    page.request,
-    workspace,
-    `Hand tools ${randomUUID().slice(0, 8)}`,
-    'tool',
-  );
   const unused = (
     await api<{ item: CatalogItem }>(page.request, `/api/studio/${workspace}/catalog`, 'POST', {
-      categoryId: toolCategory.id,
       kind: 'tool',
       name: `Unused driver ${randomUUID().slice(0, 8)}`,
       specification: 'Phillips #1',

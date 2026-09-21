@@ -44,7 +44,6 @@ const toolCategory: Category = {
 const item: CatalogItem = {
   id: 'item',
   workspaceId: 'public',
-  categoryId: 'tool',
   kind: 'tool',
   name: 'Phillips screwdriver',
   specification: '#00',
@@ -56,7 +55,6 @@ const item: CatalogItem = {
   visibility: 'public',
   archived: false,
   version: 1,
-  categoryPath: toolCategory.path,
 };
 function Picker() {
   const [value, setValue] = useState<string | null>(categories[4]!.id);
@@ -171,43 +169,6 @@ describe('structured authoring pickers', () => {
     expect(screen.getByRole('textbox', { name: 'Specification / size' })).not.toBeDisabled();
   });
 });
-it('inherits a selected material category when creating from the all-types catalog picker', async () => {
-  const materialCategory: Category = {
-    ...toolCategory,
-    id: 'chemicals',
-    name: 'Cleaning supplies',
-    domain: 'material',
-    path: [{ id: 'chemicals', name: 'Cleaning supplies' }],
-  };
-  vi.stubGlobal(
-    'fetch',
-    vi.fn(
-      async (url) =>
-        new Response(
-          JSON.stringify(
-            String(url).includes('/catalog') ? { items: [] } : { categories: [materialCategory] },
-          ),
-          { headers: { 'Content-Type': 'application/json' } },
-        ),
-    ),
-  );
-  render(<CatalogPicker workspace={workspace} onSelect={() => {}} />);
-  fireEvent.click(screen.getByRole('button', { name: 'Add from catalog' }));
-  fireEvent.click(screen.getByText('Browse item categories'));
-  fireEvent.click(await screen.findByRole('button', { name: 'Cleaning supplies' }));
-  fireEvent.change(screen.getByRole('textbox', { name: 'Search catalog' }), {
-    target: { value: 'Isopropyl alcohol' },
-  });
-  fireEvent.click(screen.getByRole('button', { name: 'Create catalog item' }));
-  expect(screen.getByRole('combobox', { name: 'Item type' })).toHaveValue('material');
-  await waitFor(() =>
-    expect(screen.getByRole('button', { name: /^Item category/ })).toHaveTextContent(
-      'Cleaning supplies',
-    ),
-  );
-  expect(screen.getByRole('textbox', { name: 'Item name' })).toHaveValue('Isopropyl alcohol');
-});
-
 for (const entity of ['category', 'catalog'] as const) {
   for (const cancelWith of ['Back', 'Close', 'Escape', 'Cancel'] as const) {
     it(`keeps new ${entity} edits after cancelling a pending creation with ${cancelWith}`, async () => {
@@ -259,10 +220,6 @@ for (const entity of ['category', 'catalog'] as const) {
       open();
       create();
       fireEvent.change(field(), { target: { value: 'First attempt' } });
-      if (entity === 'catalog') {
-        fireEvent.click(screen.getByRole('button', { name: /^Item category/ }));
-        fireEvent.click(await screen.findByRole('button', { name: 'Screwdrivers' }));
-      }
       fireEvent.click(
         screen.getByRole('button', {
           name: entity === 'category' ? 'Add thing' : 'Create item',

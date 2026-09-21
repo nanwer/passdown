@@ -28,19 +28,9 @@ import { useCategories, useCatalog, announceStructuredChange } from './data';
 import { CategoryTree } from './category-tree';
 import { CategoryDialog } from './category-picker';
 import { CatalogDialog } from './catalog-picker';
-import {
-  categoryPath,
-  filterCatalog,
-  catalogCreationDefaults,
-  searchCategories,
-} from './tree-model';
+import { categoryPath, filterCatalog, searchCategories } from './tree-model';
 import './structured.css';
 import { words } from '../../lib/vocabulary';
-const domains = {
-  guide: words.Things,
-  tool: 'Tool categories',
-  material: 'Material categories',
-} as const;
 /**
  * Turns the raw blocker counts into things an owner can act on. Only non-zero
  * reasons appear, each with somewhere to go and fix it where one exists.
@@ -154,7 +144,9 @@ function CategoryManagement({ workspace }: { workspace: StudioWorkspace }) {
   const { categories, counts, error, loading, refresh } = useCategories(workspace.id, undefined, {
     withCounts: true,
   });
-  const [domain, setDomain] = useState<Category['domain']>('guide');
+  // One tree remains. The variable stays so the picker and the counts keep
+  // their shape until the column itself is retired.
+  const domain: Category['domain'] = 'guide';
   const [query, setQuery] = useState('');
   const [selectedId, setSelected] = useState<string | null>(null);
   const [status, setStatus] = useState<'all' | 'active' | 'inactive'>('active');
@@ -243,22 +235,6 @@ function CategoryManagement({ workspace }: { workspace: StudioWorkspace }) {
     <main className="studio-container structured-management" id="main" tabIndex={-1}>
       <ManagementHeader workspace={workspace} active="categories" />
       <div className="structured-management-toolbar">
-        <div className="structured-domain-tabs" role="group" aria-label="Category domain">
-          {Object.entries(domains).map(([value, label]) => (
-            <button
-              type="button"
-              key={value}
-              aria-pressed={domain === value}
-              onClick={() => {
-                setDomain(value as Category['domain']);
-                setSelected(null);
-                setQuery('');
-              }}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
         {owner && (
           <CategoryDialog
             key={`new-${domain}`}
@@ -289,7 +265,7 @@ function CategoryManagement({ workspace }: { workspace: StudioWorkspace }) {
         </p>
       )}
       <div className="structured-management-grid">
-        <section className="structured-tree-panel" aria-label={domains[domain]}>
+        <section className="structured-tree-panel" aria-label={words.Things}>
           <div className="structured-search">
             <Search size={17} />
             <input
@@ -386,10 +362,6 @@ function CategoryManagement({ workspace }: { workspace: StudioWorkspace }) {
                       ).length
                     }
                   </dd>
-                </div>
-                <div>
-                  <dt>Category type</dt>
-                  <dd>{domains[selected.domain]}</dd>
                 </div>
               </dl>
               {owner && (
@@ -536,7 +508,6 @@ function CatalogManagement({ workspace }: { workspace: StudioWorkspace }) {
   const { categories, error: categoryError } = useCategories(workspace.id);
   const [search, setSearch] = useState('');
   const [kind, setKind] = useState<CatalogItem['kind'] | 'all'>('all');
-  const [categoryId, setCategory] = useState<string | null>(null);
   const [selectedId, setSelected] = useState<string | null>(null);
   const [status, setStatus] = useState<'all' | 'active' | 'inactive'>('active');
   const [notice, setNotice] = useState('');
@@ -546,7 +517,6 @@ function CatalogManagement({ workspace }: { workspace: StudioWorkspace }) {
   // status narrows it, so All always equals Active plus Inactive.
   const matching = filterCatalog(items, {
     search,
-    categoryId,
     kind: kind === 'all' ? undefined : kind,
     includeArchived: true,
   });
@@ -575,7 +545,7 @@ function CatalogManagement({ workspace }: { workspace: StudioWorkspace }) {
         {owner && (
           <CatalogDialog
             workspace={workspace}
-            {...catalogCreationDefaults(categories, categoryId, kind)}
+            initialKind={kind === 'all' ? 'tool' : kind}
             initialName={search}
             trigger={
               <Button type="button">
@@ -598,15 +568,9 @@ function CatalogManagement({ workspace }: { workspace: StudioWorkspace }) {
       <div className="catalog-management-grid">
         <aside className="structured-tree-panel">
           <label>
-            Item type
-            <select
-              value={kind}
-              onChange={(event) => {
-                setKind(event.target.value as typeof kind);
-                setCategory(null);
-              }}
-            >
-              <option value="all">All types</option>
+            What do you need?
+            <select value={kind} onChange={(event) => setKind(event.target.value as typeof kind)}>
+              <option value="all">Tools, materials and parts</option>
               <option value="tool">Tools</option>
               <option value="material">Materials</option>
               <option value="part">Replacement parts</option>
@@ -625,27 +589,7 @@ function CatalogManagement({ workspace }: { workspace: StudioWorkspace }) {
               </button>
             ))}
           </div>
-          <button
-            type="button"
-            className="structured-text-button"
-            onClick={() => setCategory(null)}
-          >
-            All categories
-          </button>
-          {categoryError ? (
-            <ErrorNotice error={categoryError} />
-          ) : (
-            <CategoryTree
-              categories={categories.filter(
-                (category) =>
-                  !category.archived &&
-                  category.domain !== 'guide' &&
-                  (kind === 'all' || category.domain === (kind === 'tool' ? 'tool' : 'material')),
-              )}
-              value={categoryId}
-              onSelect={(category) => setCategory(category.id)}
-            />
-          )}
+          {categoryError && <ErrorNotice error={categoryError} />}
           <a className="structured-manage-link" href={`/studio/${workspace.id}/categories`}>
             Manage {words.things}
           </a>
@@ -699,7 +643,6 @@ function CatalogManagement({ workspace }: { workspace: StudioWorkspace }) {
                     <span className="catalog-item-copy">
                       <strong>{item.name}</strong>
                       <span>{item.specification || 'General specification'}</span>
-                      <small>{item.categoryPath.map((node) => node.name).join(' / ')}</small>
                     </span>
                     {describeUsage(usageById.get(item.id))}
                     <span className="structured-kind-label">
@@ -768,7 +711,6 @@ function CatalogDetail({
       await studioFetch(`/api/studio/${workspace.id}/catalog/${item.id}`, {
         method: 'PATCH',
         body: JSON.stringify({
-          categoryId: item.categoryId,
           kind: item.kind,
           name: item.name,
           specification: item.specification,
@@ -804,9 +746,6 @@ function CatalogDetail({
     >
       <div className="structured-detail-heading">
         <div>
-          <p className="structured-breadcrumb">
-            {item.categoryPath.map((node) => node.name).join(' / ')}
-          </p>
           <h2>{item.name}</h2>
           <p>{item.specification}</p>
         </div>

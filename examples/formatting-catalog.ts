@@ -11,11 +11,10 @@ const exampleKinds = {
 export async function prepareFormattingExample(document: GuideDocument, api: ExampleApi) {
   const root = '/api/studio/repair-collective';
   const categories: Category[] = (await api(`${root}/categories`)).categories;
-  async function category(name: string, domain: Category['domain']) {
+  async function category(name: string) {
     let found = categories.find(
       (item) =>
         !item.archived &&
-        item.domain === domain &&
         item.parentId === null &&
         item.name === name &&
         item.visibility === 'public',
@@ -23,7 +22,7 @@ export async function prepareFormattingExample(document: GuideDocument, api: Exa
     if (!found) {
       found = (
         await api(`${root}/categories`, 'POST', {
-          domain,
+          domain: 'guide',
           parentId: null,
           name,
           description: '',
@@ -35,7 +34,7 @@ export async function prepareFormattingExample(document: GuideDocument, api: Exa
     }
     return found;
   }
-  const guideCategory = await category('Formatting examples', 'guide');
+  const guideCategory = await category('Formatting examples');
   const items: CatalogItem[] = (await api(`${root}/catalog`)).items;
   const structured = toStructuredDocument(document);
   for (const original of structured.unresolvedTools) {
@@ -53,13 +52,8 @@ export async function prepareFormattingExample(document: GuideDocument, api: Exa
         item.specification === '',
     );
     if (!item) {
-      const group = await category(
-        kind === 'tool' ? 'Workspace tools' : 'Workspace materials',
-        kind,
-      );
       item = (
         await api(`${root}/catalog`, 'POST', {
-          categoryId: group.id,
           kind,
           name: original.label,
           specification: '',

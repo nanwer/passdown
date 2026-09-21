@@ -41,7 +41,6 @@ const workspace: StudioWorkspace = {
 const item: CatalogItem = {
   id: id(2),
   workspaceId: id(1),
-  categoryId: id(3),
   kind: 'tool',
   name: 'Precision driver',
   specification: 'Phillips #00',
@@ -53,7 +52,6 @@ const item: CatalogItem = {
   visibility: 'public',
   archived: false,
   version: 1,
-  categoryPath: [],
 };
 function empty(): GuideDocumentV4 {
   return {

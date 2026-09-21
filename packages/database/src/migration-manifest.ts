@@ -15,4 +15,5 @@ export const migrationManifest: { name: string; checksum: string }[] = [
   { name: '012_guide_families.sql', checksum: '716ceb773471e817ceb5a6bbf4294b900ebe722bdce1f3d5f6255bd1911d8bd4' },
   { name: '013_guide_audience_moves.sql', checksum: 'c9d4c4e3246a7bebdd9ab31f9eb363a2e6e727739503ea4f39f6f66ded565a9d' },
   { name: '014_bounded_library_listing.sql', checksum: '5a44d97e44f77a3db283363180990b004b7c0adcc424d95e4d0b2d1bf24d6fa8' },
+  { name: '015_one_tree.sql', checksum: 'c8013298ed6995e7d19066e37c7f9278ca0b3b0beb0b0f783cba9066bba0cf35' },
 ];

@@ -54,14 +54,12 @@ export async function structuredChecks({
     });
   const item = (
     name: string,
-    categoryId: string,
     kind: 'tool' | 'material' | 'part' = 'tool',
     workspace = 'public',
     visibility: 'public' | 'members' = 'public',
   ) =>
     store.createCatalogItem(who, workspace, {
       name,
-      categoryId,
       kind,
       visibility,
       specification: kind === 'tool' ? 'Phillips #00' : 'M2 × 4 mm',
@@ -73,7 +71,6 @@ export async function structuredChecks({
     });
   const editItem = (i: CatalogItem, changes: Partial<CatalogItem>) =>
     store.updateCatalogItem(who, i.workspaceId, i.id, {
-      categoryId: i.categoryId,
       kind: i.kind,
       name: i.name,
       visibility: i.visibility,
@@ -109,8 +106,7 @@ export async function structuredChecks({
     leaf!: Category,
     other!: Category,
     restricted!: Category,
-    tools!: Category,
-    materials!: Category,
+    elsewhere!: Category,
     driver!: CatalogItem,
     part!: CatalogItem;
   await check(
@@ -167,9 +163,11 @@ export async function structuredChecks({
     async () => {
       await denied(category('  ＥＱＵＩＰＭＥＮＴ  '));
       await category('Example model', other.id);
-      tools = await category('Hand tools', null, 'tool');
-      materials = await category('Fasteners', null, 'material');
-      await denied(category('Wrong domain', tools.id));
+      // Only one tree exists now, and the database refuses the other two
+      // outright rather than letting a second hierarchy start.
+      await assert.rejects(category('Hand tools', null, 'tool'));
+      await assert.rejects(category('Fasteners', null, 'material'));
+      elsewhere = await category('Another workspace', null, 'guide', 'members', 'private');
       const secret = await category('Private machines', null, 'guide', 'members', 'private');
       await denied(category('Wrong scope', secret.id));
       await denied(category('Exposed child', restricted.id));
@@ -403,20 +401,15 @@ export async function structuredChecks({
   await check(
     'catalog: exact variants, searchable descendant categories, duplicate identifiers and wrong domains',
     async () => {
-      const phillips = await category('Phillips', tools.id, 'tool');
-      driver = await item('Small screwdriver', phillips.id);
-      part = await item('Replacement screw', materials.id, 'part');
-      const driver0 = await item('Other screwdriver', phillips.id);
+      driver = await item('Small screwdriver');
+      part = await item('Replacement screw', 'part');
+      const driver0 = await item('Other screwdriver');
       await editItem(driver0, { specification: 'Phillips #0' });
-      assert.equal(
-        (await store.listCatalogItems(who, 'public', { categoryId: tools.id, search: '#00' }))
-          .length,
-        1,
-      );
-      await denied(item('Wrong item', materials.id, 'tool'));
-      await denied(item('Wrong part', tools.id, 'part'));
+      // Searching an exact specification is what the catalog is for; two
+      // screwdrivers of the same name differ only by that.
+      assert.equal((await store.listCatalogItems(who, 'public', { search: '#00' })).length, 1);
       driver = await editItem(driver, { manufacturer: 'Maker', partNumber: 'DR-00' });
-      const otherDriver = await item('Duplicate identifier candidate', phillips.id);
+      const otherDriver = await item('Duplicate identifier candidate');
       await denied(editItem(otherDriver, { manufacturer: ' maker ', partNumber: 'dr-00' }));
       await denied(editItem(driver, { defaultUnit: 'ml' }));
       const stale = driver;
@@ -444,20 +437,7 @@ export async function structuredChecks({
           audience: 'public',
         }),
       );
-      const privateToolCategory = await category(
-        'Secret tools',
-        null,
-        'tool',
-        'members',
-        'private',
-      );
-      const privateItem = await item(
-        'Secret torque tool',
-        privateToolCategory.id,
-        'tool',
-        'private',
-        'members',
-      );
+      const privateItem = await item('Secret torque tool', 'tool', 'private', 'members');
       await denied(
         store.createDraft(who, 'public', {
           document: { ...selectedDocument, requirements: [requirement(privateItem)] },
@@ -520,9 +500,10 @@ export async function structuredChecks({
         expectedRelease: 1,
         license: 'all-rights-reserved',
       });
+      // Restricting the item itself is still refused while a public release
+      // depends on it. The category half of this check went with the item
+      // trees: an item's visibility is now its own, not inherited.
       await denied(editItem(driver, { visibility: 'members' }));
-      const driverCategory = (await store.getCategory(who, 'public', driver.categoryId))!;
-      await denied(edit(driverCategory, { visibility: 'members' }));
       assert.equal((await store.getRelease(anonymous, 'public', selectedDraft.id))?.release, 2);
       await scoped(who, 'public', async (c) => {
         await assert.rejects(
@@ -536,13 +517,7 @@ export async function structuredChecks({
   await check(
     'catalog: making an item public does not expose a previously restricted version',
     async () => {
-      const privateVersion = await item(
-        'Initially restricted item',
-        tools.id,
-        'tool',
-        'public',
-        'members',
-      );
+      const privateVersion = await item('Initially restricted item', 'tool', 'public', 'members');
       const document = {
         ...toStructuredDocument(doc),
         requirements: [requirement(privateVersion)],
@@ -695,15 +670,16 @@ export async function structuredChecks({
           c.query('UPDATE app.category SET parent_id=id WHERE id=$1', [root.id]),
         ),
       );
+      // A guide still cannot be repointed at a category from another
+      // workspace, which is the scope rule the domain check used to ride on.
       await assert.rejects(
         scoped(who, 'public', (c) =>
-          c.query('UPDATE app.guide SET category_id=$1 WHERE id=$2', [tools.id, guideId]),
+          c.query('UPDATE app.guide SET category_id=$1 WHERE id=$2', [elsewhere.id, guideId]),
         ),
       );
       await denied(
         store.createCatalogItem(actor('suspended'), 'private', {
           name: 'No',
-          categoryId: tools.id,
           kind: 'tool',
           visibility: 'members',
           specification: '',
@@ -898,14 +874,7 @@ export async function structuredChecks({
       );
 
       // So is a members-only catalog item the published version names.
-      const secretTools = await category(`Secret tools ${suffix}`, null, 'tool', 'members');
-      const secretTool = await item(
-        `Secret driver ${suffix}`,
-        secretTools.id,
-        'tool',
-        'public',
-        'members',
-      );
+      const secretTool = await item(`Secret driver ${suffix}`, 'tool', 'public', 'members');
       const using = await store.createDraft(who, 'public', {
         document: {
           ...toStructuredDocument({ ...doc, title: `Uses a secret tool ${suffix}` }),

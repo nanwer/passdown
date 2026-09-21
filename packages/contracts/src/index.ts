@@ -183,7 +183,6 @@ export type CategoryBlockers = {
   activeItems: number;
 };
 export const catalogFields = {
-  categoryId: z.uuid(),
   kind: catalogKindSchema,
   name: z.string().trim().min(1).max(160),
   specification: z.string().trim().max(500).default(''),
@@ -223,7 +222,6 @@ export type CatalogItem = CreateCatalogItemInput & {
   workspaceId: string;
   archived: boolean;
   version: number;
-  categoryPath: CategoryPath;
 };
 /**
  * How many distinct guides use a catalog item. Drafts and current releases are
