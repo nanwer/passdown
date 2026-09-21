@@ -1,4 +1,4 @@
-import type { GuideDocument, GuideDocumentV4, GuideStep } from '@guide/content';
+import type { GuideDocument, GuideDocumentV5, GuideStep } from '@guide/content';
 export function safeReturnTo(value: string | null): string {
   if (!value || !value.startsWith('/') || value.startsWith('//') || /[\\\r\n]/.test(value))
     return '/studio';
@@ -11,7 +11,7 @@ export function safeReturnTo(value: string | null): string {
     return '/studio';
   }
 }
-export function newStep(): GuideDocumentV4['steps'][number] {
+export function newStep(): GuideDocumentV5['steps'][number] {
   return {
     id: crypto.randomUUID(),
     title: 'New step',
@@ -25,7 +25,7 @@ export function newStep(): GuideDocumentV4['steps'][number] {
 }
 export function newDocument(): GuideDocument {
   return {
-    schemaVersion: 4,
+    schemaVersion: 5,
     requirements: [],
     unresolvedTools: [],
     title: '',

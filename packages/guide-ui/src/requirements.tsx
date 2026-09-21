@@ -23,7 +23,7 @@ function RequirementDetails({ requirement }: { requirement: GuideRequirement }) 
   );
 }
 export function PreparationList({ document }: { document: GuideDocument }) {
-  if (document.schemaVersion !== 4)
+  if (document.schemaVersion !== 5)
     return (
       <div className="tool-list">
         <h2>
@@ -40,17 +40,15 @@ export function PreparationList({ document }: { document: GuideDocument }) {
   return (
     <section className="preparation-list" aria-label="Guide preparation">
       <h2>Before you begin</h2>
-      {(['tool', 'supplies'] as const).map((kind) => {
-        const items = document.requirements.filter((item) =>
-          kind === 'tool' ? item.kind === 'tool' : item.kind !== 'tool',
-        );
+      {(['keep', 'use'] as const).map((role) => {
+        const items = document.requirements.filter((item) => item.role === role);
         if (!items.length) return null;
-        const Icon = kind === 'tool' ? Wrench : Package;
+        const Icon = role === 'keep' ? Wrench : Package;
         return (
-          <div className="preparation-group" key={kind}>
+          <div className="preparation-group" key={role}>
             <h3>
               <Icon size={16} aria-hidden="true" />
-              {kind === 'tool' ? 'Tools' : 'Materials & parts'}
+              {role === 'keep' ? 'What you need to hand' : 'What gets used up'}
             </h3>
             <ul>
               {items.map((item) => {
@@ -65,7 +63,6 @@ export function PreparationList({ document }: { document: GuideDocument }) {
                     <div className="requirement-badges">
                       <span>{formatRequirementQuantity(item.quantity, item.unit)}</span>
                       {item.optional && <span>Optional</span>}
-                      {item.kind === 'part' && <span>Replacement part</span>}
                     </div>
                     {item.notes && <p>{item.notes}</p>}
                     {steps.length > 0 && (
@@ -159,7 +156,7 @@ export function StepRequirementsSummary({
           <ul>
             {usages.map((usage) => {
               const requirement =
-                document?.schemaVersion === 4
+                document?.schemaVersion === 5
                   ? document.requirements.find((entry) => entry.id === usage.requirementId)
                   : undefined;
               if (!requirement)
@@ -173,9 +170,9 @@ export function StepRequirementsSummary({
                   <div className="requirement-badges">
                     <span>{formatRequirementQuantity(usage.quantity, usage.unit)}</span>
                     {usage.optional && <span>Optional</span>}
-                    {requirement.kind !== 'tool' && (
+                    {requirement.role === 'use' && (
                       <span>
-                        {usage.mode === 'consume' ? 'Use new material' : 'Reuse the same item'}
+                        {usage.mode === 'consume' ? 'Use a new one' : 'Reuse the same one'}
                       </span>
                     )}
                   </div>

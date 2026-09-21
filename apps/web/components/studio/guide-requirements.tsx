@@ -6,7 +6,7 @@ import {
   formatRequirementQuantity,
   getRequirementIssues,
   requirementUnits,
-  type GuideDocumentV4,
+  type GuideDocumentV5,
   type GuideRequirement,
   type RequirementUnit,
 } from '@guide/content';
@@ -16,12 +16,20 @@ import { CatalogPicker } from '../structured';
 import { studioFetch } from './transport';
 import './guide-requirements.css';
 
-export function requirementFromCatalog(item: CatalogItem): GuideRequirement {
+/**
+ * Which list you added it to is the answer. That is the whole model: an item
+ * is not permanently a tool or a part, and the question only has an answer
+ * once a particular guide is doing something with it.
+ */
+export function requirementFromCatalog(
+  item: CatalogItem,
+  role: GuideRequirement['role'],
+): GuideRequirement {
   return {
     id: crypto.randomUUID(),
     itemId: item.id,
     itemVersion: item.version,
-    kind: item.kind,
+    role,
     name: item.name,
     specification: item.specification,
     description: item.description,
@@ -37,14 +45,14 @@ export function requirementFromCatalog(item: CatalogItem): GuideRequirement {
 export function RequirementQuantity({
   quantity,
   unit,
-  kind,
+  role,
   label,
   onChange,
   disabled = false,
 }: {
   quantity: number | null;
   unit: RequirementUnit;
-  kind: GuideRequirement['kind'];
+  role: GuideRequirement['role'];
   label: string;
   onChange: (value: { quantity: number | null; unit: RequirementUnit }) => void;
   disabled?: boolean;
@@ -71,9 +79,9 @@ export function RequirementQuantity({
           <input
             aria-label={`${label} quantity`}
             type="number"
-            min={kind === 'tool' ? 1 : 0.00000001}
+            min={role === 'keep' ? 1 : 0.00000001}
             max={1000000000}
-            step={kind === 'tool' ? 1 : 'any'}
+            step={role === 'keep' ? 1 : 'any'}
             value={quantity || ''}
             disabled={disabled}
             onChange={(event) => onChange({ quantity: Number(event.target.value), unit })}
@@ -89,7 +97,7 @@ export function RequirementQuantity({
           onChange={(event) => onChange({ quantity, unit: event.target.value as RequirementUnit })}
         >
           {requirementUnits
-            .filter((value) => kind !== 'tool' || ['each', 'pair'].includes(value))
+            .filter((value) => role !== 'keep' || ['each', 'pair'].includes(value))
             .map((value) => (
               <option key={value} value={value}>
                 {value}
@@ -107,10 +115,10 @@ export function GuideRequirements({
   onChange,
   disabled = false,
 }: {
-  document: GuideDocumentV4;
+  document: GuideDocumentV5;
   workspace: StudioWorkspace;
   audience?: 'public' | 'members';
-  onChange: (document: GuideDocumentV4) => void;
+  onChange: (document: GuideDocumentV5) => void;
   disabled?: boolean;
 }) {
   const guideAudience = audience ?? (workspace.audience === 'public' ? 'public' : 'members');
@@ -147,12 +155,12 @@ export function GuideRequirements({
         entry.id === id ? { ...entry, ...changes } : entry,
       ),
     });
-  function select(item: CatalogItem, legacyId?: string) {
+  function select(item: CatalogItem, role: GuideRequirement['role'], legacyId?: string) {
     if (disabled) return;
     setItems((current) => [...current.filter((entry) => entry.id !== item.id), item]);
     const existing = document.requirements.find((entry) => entry.itemId === item.id);
     const legacy = document.unresolvedTools.find((entry) => entry.id === legacyId);
-    const selected = existing ?? requirementFromCatalog(item);
+    const selected = existing ?? requirementFromCatalog(item, role);
     const note =
       legacy && legacy.label !== item.name ? `Original preparation note: ${legacy.label}` : '';
     const combinedNotes =
@@ -235,7 +243,7 @@ export function GuideRequirements({
                   workspace={workspace}
                   label={`Link ${entry.label}`}
                   visibility={guideAudience}
-                  onSelect={(item) => select(item, entry.id)}
+                  onSelect={(item) => select(item, 'keep', entry.id)}
                 />
                 <Dialog
                   trigger={
@@ -271,23 +279,21 @@ export function GuideRequirements({
           ))}
         </div>
       )}
-      {(['tool', 'supplies'] as const).map((group) => {
-        const selected = document.requirements.filter((entry) =>
-          group === 'tool' ? entry.kind === 'tool' : entry.kind !== 'tool',
-        );
-        const Icon = group === 'tool' ? Wrench : Package;
+      {(['keep', 'use'] as const).map((group) => {
+        const selected = document.requirements.filter((entry) => entry.role === group);
+        const Icon = group === 'keep' ? Wrench : Package;
         return (
           <div className="requirement-group" key={group}>
             <h3>
               <Icon size={17} aria-hidden="true" />
-              {group === 'tool' ? 'Tools' : 'Materials & parts'}
+              {group === 'keep' ? 'What you need to hand' : 'What gets used up'}
               <span>{selected.length}</span>
             </h3>
             {selected.length === 0 && (
               <p className="requirements-empty">
-                {group === 'tool'
-                  ? 'Add the reusable equipment your reader should have ready.'
-                  : 'Add consumables and the exact replacement parts.'}
+                {group === 'keep'
+                  ? 'Anything the reader still has when they are done — tools, a jig, gloves.'
+                  : 'Anything used up or fitted — a screw, an adhesive, a replacement screen.'}
               </p>
             )}
             {selected.map((entry) => {
@@ -408,7 +414,7 @@ export function GuideRequirements({
                         type="button"
                         className="button button--primary"
                         onClick={() => {
-                          const next = requirementFromCatalog(latest);
+                          const next = requirementFromCatalog(latest, entry.role);
                           patch(entry.id, {
                             ...next,
                             id: entry.id,
@@ -427,7 +433,7 @@ export function GuideRequirements({
                   <RequirementQuantity
                     quantity={entry.quantity}
                     unit={entry.unit}
-                    kind={entry.kind}
+                    role={entry.role}
                     label={entry.name}
                     disabled={disabled}
                     onChange={(next) => patch(entry.id, next)}
@@ -452,18 +458,49 @@ export function GuideRequirements({
                       onChange={(event) => patch(entry.id, { notes: event.target.value })}
                     />
                   </label>
+                  {/* The role is the one thing about a requirement that has no
+                      right answer until an author gives one, so it has to be
+                      changeable after the fact. Moving it also fixes up the
+                      step usages, because a thing you keep is reused. */}
+                  <label className="requirement-role">
+                    Will the reader still have it afterwards?
+                    <select
+                      value={entry.role}
+                      disabled={disabled}
+                      onChange={(event) => {
+                        const role = event.target.value as GuideRequirement['role'];
+                        onChange({
+                          ...document,
+                          requirements: document.requirements.map((candidate) =>
+                            candidate.id === entry.id ? { ...candidate, role } : candidate,
+                          ),
+                          steps: document.steps.map((step) => ({
+                            ...step,
+                            requirements: step.requirements.map((usage) =>
+                              usage.requirementId === entry.id && role === 'keep'
+                                ? { ...usage, mode: 'reuse' as const }
+                                : usage,
+                            ),
+                          })),
+                        });
+                      }}
+                    >
+                      <option value="keep">Yes — they keep it</option>
+                      <option value="use">No — it is used up or fitted</option>
+                    </select>
+                  </label>
                   <div className="requirement-allocation">
                     <span>
                       {usedIn.length
                         ? `Used in steps ${usedIn.join(', ')}`
                         : 'Preparation only · no step assignments yet'}
                     </span>
-                    {entry.kind !== 'tool' && allocated > 0 && (
+                    {entry.role === 'use' && allocated > 0 && (
                       <span>
                         {formatRequirementQuantity(allocated, entry.unit)} allocated for consumption
                       </span>
                     )}
-                    {entry.kind === 'tool' && usedIn.length > 1 && (
+                    {entry.role === 'keep' && usedIn.length > 1 && (
                       <span>Reused between steps · counts are not added together</span>
                     )}
                   </div>
@@ -471,38 +508,17 @@ export function GuideRequirements({
               );
             })}
             <div className="requirements-add-actions">
-              {group === 'tool' ? (
-                <CatalogPicker
-                  disabled={disabled}
-                  workspace={workspace}
-                  kind="tool"
-                  label="Add tool"
-                  selectedIds={document.requirements.map((entry) => entry.itemId)}
-                  visibility={guideAudience}
-                  onSelect={(item) => select(item)}
-                />
-              ) : (
-                <>
-                  <CatalogPicker
-                    disabled={disabled}
-                    workspace={workspace}
-                    kind="material"
-                    label="Add material"
-                    selectedIds={document.requirements.map((entry) => entry.itemId)}
-                    visibility={guideAudience}
-                    onSelect={(item) => select(item)}
-                  />
-                  <CatalogPicker
-                    disabled={disabled}
-                    workspace={workspace}
-                    kind="part"
-                    label="Add part"
-                    selectedIds={document.requirements.map((entry) => entry.itemId)}
-                    visibility={guideAudience}
-                    onSelect={(item) => select(item)}
-                  />
-                </>
-              )}
+              {/* One picker per group, because the group is the answer. Three
+                  buttons used to ask which permanent kind an item was, which
+                  is a question the catalog no longer has an opinion about. */}
+              <CatalogPicker
+                disabled={disabled}
+                workspace={workspace}
+                label={group === 'keep' ? 'Add something you keep' : 'Add something you use up'}
+                selectedIds={document.requirements.map((entry) => entry.itemId)}
+                visibility={guideAudience}
+                onSelect={(item) => select(item, group)}
+              />
             </div>
           </div>
         );

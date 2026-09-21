@@ -1,15 +1,28 @@
 import { z } from 'zod';
-import type { GuideDocument, GuideDocumentV4 } from './index';
+import type { GuideDocument, GuideDocumentV5 } from './index';
 
 export const requirementUnits = ['each', 'pair', 'g', 'kg', 'ml', 'l', 'mm', 'cm', 'm'] as const;
 export const requirementUnitSchema = z.enum(requirementUnits);
 const quantitySchema = z.number().positive().max(1000000000).nullable();
+/**
+ * What a guide does with an item: keeps it, or uses it up.
+ *
+ * Dozuki states the test in one line — "Will I still have this item after this
+ * procedure?" — and it is the only distinction the rules have ever needed.
+ * Before this, an item was permanently a tool, a material or a part, chosen
+ * when it was created; but material and part behaved identically everywhere in
+ * the code, and the question only has an answer once you know what a
+ * particular guide is doing. A hairdryer is kept in a screen repair and used
+ * up in nothing; it is the subject of a hairdryer repair.
+ */
+export const requirementRoles = ['keep', 'use'] as const;
+export const requirementRoleSchema = z.enum(requirementRoles);
 export const guideRequirementSchema = z
   .strictObject({
     id: z.uuid(),
     itemId: z.uuid(),
     itemVersion: z.number().int().positive(),
-    kind: z.enum(['tool', 'material', 'part']),
+    role: requirementRoleSchema,
     name: z.string().trim().min(1).max(160),
     specification: z.string().max(500),
     description: z.string().max(2000),
@@ -22,15 +35,19 @@ export const guideRequirementSchema = z
     notes: z.string().max(2000),
   })
   .superRefine((requirement, context) => {
-    if (requirement.kind !== 'tool') return;
+    if (requirement.role !== 'keep') return;
     if (requirement.quantity !== null && !Number.isInteger(requirement.quantity))
       context.addIssue({
         code: 'custom',
         path: ['quantity'],
-        message: 'Tools need a whole-number count, or choose As needed.',
+        message: 'Something you keep is counted in whole numbers, or choose As needed.',
       });
     if (!['each', 'pair'].includes(requirement.unit))
-      context.addIssue({ code: 'custom', path: ['unit'], message: 'Tools use each or pair.' });
+      context.addIssue({
+        code: 'custom',
+        path: ['unit'],
+        message: 'Something you keep is counted in each or pair.',
+      });
   });
 export const stepRequirementUsageSchema = z.strictObject({
   requirementId: z.uuid(),
@@ -56,15 +73,35 @@ export type GuidePrecondition = z.infer<typeof guidePreconditionSchema>;
 export type RequirementUnit = z.infer<typeof requirementUnitSchema>;
 export type RequirementIssue = { path: (string | number)[]; message: string };
 
-/** Preserve legacy wording without guessing item identity, type or quantity. */
+/**
+ * The mapping from what an item permanently was to what a guide does with it.
+ *
+ * A tool was the thing you still had afterwards, which is what "keep" means.
+ * Materials and parts were both consumed, and behaved identically everywhere
+ * in the rules, which is why they collapse into one.
+ */
+export function roleForLegacyKind(kind: 'tool' | 'material' | 'part') {
+  return kind === 'tool' ? ('keep' as const) : ('use' as const);
+}
+
+/** Preserve legacy wording without guessing item identity, role or quantity. */
 export function toStructuredDocument(
   document: GuideDocument,
   idFactory = () => crypto.randomUUID(),
-): GuideDocumentV4 {
-  if (document.schemaVersion === 4) return document;
+): GuideDocumentV5 {
+  if (document.schemaVersion === 5) return document;
+  if (document.schemaVersion === 4)
+    return {
+      ...document,
+      schemaVersion: 5,
+      requirements: document.requirements.map(({ kind, ...requirement }) => ({
+        ...requirement,
+        role: roleForLegacyKind(kind),
+      })),
+    };
   return {
     ...document,
-    schemaVersion: 4,
+    schemaVersion: 5,
     tools: [],
     requirements: [],
     unresolvedTools: document.tools.map((label) => ({ id: idFactory(), label })),
@@ -79,7 +116,7 @@ export function toStructuredDocument(
 
 /** Publication rules are separate from shape validation so incomplete drafts remain repairable. */
 export function getRequirementIssues(document: GuideDocument): RequirementIssue[] {
-  if (document.schemaVersion !== 4) return [];
+  if (document.schemaVersion !== 5) return [];
   const issues: RequirementIssue[] = [];
   const add = (path: (string | number)[], message: string) => issues.push({ path, message });
   document.unresolvedTools.forEach((entry, index) =>
@@ -156,14 +193,14 @@ export function getRequirementIssues(document: GuideDocument): RequirementIssue[
           [...path, 'optional'],
           `“${requirement.name}” is optional in preparation. Mark this usage optional or make the guide requirement required.`,
         );
-      if (requirement.kind === 'tool' && usage.mode !== 'reuse')
-        add([...path, 'mode'], 'Tools are reused, not consumed.');
+      if (requirement.role === 'keep' && usage.mode !== 'reuse')
+        add([...path, 'mode'], 'Something you keep is reused, not used up.');
       if (
-        requirement.kind === 'tool' &&
+        requirement.role === 'keep' &&
         usage.quantity !== null &&
         !Number.isInteger(usage.quantity)
       )
-        add([...path, 'quantity'], 'Tools need a whole-number count.');
+        add([...path, 'quantity'], 'Something you keep is counted in whole numbers.');
       if (
         usage.quantity !== null &&
         requirement.quantity !== null &&
@@ -195,7 +232,7 @@ export function formatRequirementQuantity(quantity: number | null, unit: Require
   return `${amount} ${unit === 'pair' && quantity !== 1 ? 'pairs' : unit}`;
 }
 export function allocatedRequirementQuantity(
-  document: GuideDocumentV4,
+  document: GuideDocumentV5,
   requirementId: string,
 ): number {
   const requirement = document.requirements.find((entry) => entry.id === requirementId);

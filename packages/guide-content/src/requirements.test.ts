@@ -5,7 +5,7 @@ import {
   guideDocumentSchema,
   toStructuredDocument,
   type GuideDocument,
-  type GuideDocumentV4,
+  type GuideDocumentV5,
   type GuideRequirement,
   type StepRequirementUsage,
 } from './index';
@@ -34,7 +34,7 @@ const requirement = (changes: Partial<GuideRequirement> = {}): GuideRequirement 
   id: id(10),
   itemId: id(20),
   itemVersion: 1,
-  kind: 'tool',
+  role: 'keep',
   name: 'Screwdriver',
   specification: 'Phillips #00',
   description: 'An exact size.',
@@ -56,7 +56,7 @@ const usage = (changes: Partial<StepRequirementUsage> = {}): StepRequirementUsag
   notes: '',
   ...changes,
 });
-function structured(): GuideDocumentV4 {
+function structured(): GuideDocumentV5 {
   const document = toStructuredDocument(legacy, () => id(99));
   return {
     ...document,
@@ -78,7 +78,7 @@ describe('structured guide preparation', () => {
     const original = structuredClone(legacy);
     let sequence = 50;
     const result = toStructuredDocument(legacy, () => id(sequence++));
-    expect(result.schemaVersion).toBe(4);
+    expect(result.schemaVersion).toBe(5);
     expect(result.unresolvedTools.map((entry) => entry.label)).toEqual(legacy.tools);
     expect(new Set(result.unresolvedTools.map((entry) => entry.id)).size).toBe(2);
     expect(result.requirements).toEqual([]);
@@ -121,13 +121,13 @@ describe('structured guide preparation', () => {
     expect(
       guideDocumentSchema.safeParse({
         ...structured(),
-        requirements: [requirement({ kind: 'material', quantity: 0.5, unit: 'ml' })],
+        requirements: [requirement({ role: 'use', quantity: 0.5, unit: 'ml' })],
       }).success,
     ).toBe(true);
   });
   it('sums explicit consumption but does not count reuse as new material', () => {
     const document = structured();
-    document.requirements = [requirement({ kind: 'part', quantity: 5 })];
+    document.requirements = [requirement({ role: 'use', quantity: 5 })];
     document.steps[0]!.requirements = [usage({ mode: 'consume', quantity: 2 })];
     document.steps[1]!.requirements = [usage({ mode: 'consume', quantity: 3 })];
     document.steps[2]!.requirements = [usage({ mode: 'reuse', quantity: 5 })];
@@ -141,7 +141,7 @@ describe('structured guide preparation', () => {
   });
   it('accepts As needed and compatible fractional allocations without rounding errors', () => {
     const document = structured();
-    document.requirements = [requirement({ kind: 'material', quantity: 0.3, unit: 'l' })];
+    document.requirements = [requirement({ role: 'use', quantity: 0.3, unit: 'l' })];
     document.steps = document.steps.slice(0, 2);
     document.steps.forEach((step, index) => {
       step.requirements = [usage({ mode: 'consume', quantity: index ? 0.2 : 0.1, unit: 'l' })];
@@ -186,7 +186,7 @@ describe('structured guide preparation', () => {
     const document = structured();
     const saved = guideDocumentSchema.parse(document);
     document.requirements[0]!.name = 'A later catalog name';
-    if (saved.schemaVersion !== 4) throw new Error('Expected V4');
+    if (saved.schemaVersion !== 5) throw new Error('Expected V4');
     expect(saved.requirements[0]?.name).toBe('Screwdriver');
     expect(saved.requirements[0]?.specification).toBe('Phillips #00');
     expect(saved.requirements[0]?.itemVersion).toBe(1);

@@ -90,7 +90,7 @@ export async function structuredChecks({
     id: randomUUID(),
     itemId: i.id,
     itemVersion: i.version,
-    kind: i.kind,
+    role: i.kind === 'tool' ? ('keep' as const) : ('use' as const),
     name: i.name,
     specification: i.specification,
     description: i.description,
@@ -458,8 +458,8 @@ export async function structuredChecks({
       });
       driver = await editItem(driver, { specification: 'Phillips #00 updated description' });
       const release = (await store.getRelease(anonymous, 'public', selectedDraft.id))!;
-      assert.equal(release.document.schemaVersion, 4);
-      if (release.document.schemaVersion === 4)
+      assert.equal(release.document.schemaVersion, 5);
+      if (release.document.schemaVersion === 5)
         assert.equal(release.document.requirements[0]?.specification, selected.specification);
       await store.saveDraft(who, 'public', selectedDraft.id, {
         expectedVersion: 1,
@@ -558,8 +558,8 @@ export async function structuredChecks({
         categoryId: leaf.id,
         audience: 'public',
       });
-      assert.equal(legacy.document.schemaVersion, 4);
-      if (legacy.document.schemaVersion === 4)
+      assert.equal(legacy.document.schemaVersion, 5);
+      if (legacy.document.schemaVersion === 5)
         assert.equal(
           legacy.document.unresolvedTools[0]?.label,
           'Original ambiguous preparation label',

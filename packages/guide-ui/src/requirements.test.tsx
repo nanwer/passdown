@@ -2,12 +2,12 @@
 import { afterEach, expect, it } from 'vitest';
 import { cleanup, render, screen, within } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
-import type { GuideDocumentV4 } from '@guide/content';
+import type { GuideDocumentV5 } from '@guide/content';
 import { PreparationList } from './requirements';
 import { StepRenderer } from './step-renderer';
 afterEach(cleanup);
-const document: GuideDocumentV4 = {
-  schemaVersion: 4,
+const document: GuideDocumentV5 = {
+  schemaVersion: 5,
   title: 'Workspace',
   summary: 'A workspace example.',
   locale: 'en',
@@ -20,7 +20,7 @@ const document: GuideDocumentV4 = {
       id: 'requirement-1',
       itemId: 'item-1',
       itemVersion: 1,
-      kind: 'tool',
+      role: 'keep',
       name: 'Precision driver',
       specification: 'Phillips #00',
       description: '',
@@ -36,7 +36,7 @@ const document: GuideDocumentV4 = {
       id: 'requirement-2',
       itemId: 'item-2',
       itemVersion: 3,
-      kind: 'part',
+      role: 'use',
       name: 'Replacement screw',
       specification: 'M2 × 4 mm',
       description: '',
@@ -76,8 +76,8 @@ const document: GuideDocumentV4 = {
 };
 it('groups preparation by item type, shows exact snapshots and links every point of use', () => {
   render(<PreparationList document={document} />);
-  expect(screen.getByRole('heading', { name: 'Tools' })).toBeVisible();
-  expect(screen.getByRole('heading', { name: 'Materials & parts' })).toBeVisible();
+  expect(screen.getByRole('heading', { name: 'What you need to hand' })).toBeVisible();
+  expect(screen.getByRole('heading', { name: 'What gets used up' })).toBeVisible();
   expect(screen.getByText('Phillips #00')).toBeVisible();
   expect(screen.getByText('Example maker · P00')).toBeVisible();
   expect(screen.getByText('1 each')).toBeVisible();

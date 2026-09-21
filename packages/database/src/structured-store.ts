@@ -121,8 +121,8 @@ export async function validateRequirements(
   existing: GuideDocument | undefined,
   publicOnly = false,
 ) {
-  if (document.schemaVersion !== 4) return;
-  const prior = existing?.schemaVersion === 4 ? existing.requirements : [];
+  if (document.schemaVersion !== 5) return;
+  const prior = existing?.schemaVersion === 5 ? existing.requirements : [];
   for (const [index, requirement] of document.requirements.entries()) {
     const row = (
       await client.query(
@@ -137,8 +137,10 @@ export async function validateRequirements(
         path,
       );
     const snapshot = row.snapshot;
+    // The item's own details must match the version this guide froze. The
+    // role is deliberately absent: it says what this guide does with the item,
+    // which is the guide's decision and not something the catalog can confirm.
     const expected = {
-      kind: snapshot.kind,
       name: snapshot.name,
       specification: snapshot.specification,
       description: snapshot.description,
@@ -186,7 +188,7 @@ export async function projectRequirements(
       'DELETE FROM app.guide_requirement_reference WHERE workspace_id=$1 AND guide_id=$2 AND release_number=0',
       [workspaceId, guideId],
     );
-  if (document.schemaVersion !== 4) return;
+  if (document.schemaVersion !== 5) return;
   for (const requirement of document.requirements)
     await client.query(
       'INSERT INTO app.guide_requirement_reference(workspace_id,guide_id,release_number,requirement_id,item_id,item_version) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING',

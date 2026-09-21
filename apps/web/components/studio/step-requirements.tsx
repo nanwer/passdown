@@ -3,7 +3,7 @@ import { useState } from 'react';
 import type { CatalogItem, StudioWorkspace } from '@guide/contracts';
 import {
   getRequirementIssues,
-  type GuideDocumentV4,
+  type GuideDocumentV5,
   type GuideRequirement,
   type StepRequirementUsage,
 } from '@guide/content';
@@ -21,11 +21,11 @@ export function StepRequirements({
   onChange,
   disabled = false,
 }: {
-  document: GuideDocumentV4;
+  document: GuideDocumentV5;
   stepId: string;
   workspace: StudioWorkspace;
   audience?: 'public' | 'members';
-  onChange: (document: GuideDocumentV4) => void;
+  onChange: (document: GuideDocumentV5) => void;
   disabled?: boolean;
 }) {
   const guideAudience = audience ?? (workspace.audience === 'public' ? 'public' : 'members');
@@ -48,7 +48,9 @@ export function StepRequirements({
       requirementId: requirement.id,
       quantity: null,
       unit: requirement.unit,
-      mode: requirement.kind === 'tool' ? 'reuse' : 'consume',
+      // Something kept is reused by definition; something used up starts as
+      // consumed, and a step that puts it back can say so.
+      mode: requirement.role === 'keep' ? 'reuse' : 'consume',
       optional: requirement.optional,
       notes: '',
     };
@@ -61,9 +63,9 @@ export function StepRequirements({
     });
     setSelectedRequirement('');
   }
-  function fromCatalog(item: CatalogItem) {
+  function fromCatalog(item: CatalogItem, role: GuideRequirement['role']) {
     const existing = document.requirements.find((entry) => entry.itemId === item.id);
-    add(existing ?? requirementFromCatalog(item), !existing);
+    add(existing ?? requirementFromCatalog(item, role), !existing);
   }
   function patchUsage(id: string, changes: Partial<StepRequirementUsage>) {
     patch({
@@ -190,11 +192,11 @@ export function StepRequirements({
                 label={`${requirement.name} in this step`}
                 quantity={usage.quantity}
                 unit={usage.unit}
-                kind={requirement.kind}
+                role={requirement.role}
                 disabled={disabled}
                 onChange={(changes) => patchUsage(requirement.id, changes)}
               />
-              {requirement.kind !== 'tool' ? (
+              {requirement.role === 'use' ? (
                 <label className="step-usage-mode">
                   How it is used
                   <select
@@ -290,7 +292,9 @@ export function StepRequirements({
             return entry ? [entry.itemId] : [];
           })}
           visibility={guideAudience}
-          onSelect={fromCatalog}
+          // Added straight onto a step, so it is something used up unless the
+          // author says otherwise in the preparation list.
+          onSelect={(item) => fromCatalog(item, 'use')}
         />
       </section>
       <section

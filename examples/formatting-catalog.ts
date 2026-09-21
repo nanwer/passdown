@@ -71,7 +71,7 @@ export async function prepareFormattingExample(document: GuideDocument, api: Exa
       id: original.id,
       itemId: item.id,
       itemVersion: item.version,
-      kind: item.kind,
+      role: kind === 'tool' ? ('keep' as const) : ('use' as const),
       name: item.name,
       specification: item.specification,
       description: item.description,

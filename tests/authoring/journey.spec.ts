@@ -457,7 +457,7 @@ test('visual rich text and panels inside tables persist and publish for both aud
       .screenshot({ path: test.info().outputPath(workspace + '-visual-editor.png') });
     const saved = await page.request.get(`/api/studio/${workspace}/guides/${guide.id}`);
     const document = (await saved.json()).guide.document;
-    expect(document.schemaVersion).toBe(4);
+    expect(document.schemaVersion).toBe(5);
     expect(document.steps[0].body[0].type).toBe('richText');
     await page.getByRole('button', { name: 'Preview', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Preparation', exact: true })).toBeVisible();

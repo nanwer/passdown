@@ -367,7 +367,7 @@ export function MetadataFields({
           />
         </label>
       </div>
-      {document.schemaVersion === 4 && (
+      {document.schemaVersion === 5 && (
         <GuideRequirements
           document={document}
           workspace={workspace}

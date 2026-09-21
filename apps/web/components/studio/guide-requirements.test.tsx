@@ -4,7 +4,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { useState } from 'react';
 import '@testing-library/jest-dom/vitest';
 import type { CatalogItem, StudioWorkspace } from '@guide/contracts';
-import type { GuideDocumentV4 } from '@guide/content';
+import type { GuideDocumentV5 } from '@guide/content';
 import { GuideRequirements, requirementFromCatalog } from './guide-requirements';
 import { StepRequirements } from './step-requirements';
 const mocks = vi.hoisted(() => ({ fetch: vi.fn(), item: undefined as CatalogItem | undefined }));
@@ -41,7 +41,7 @@ const workspace: StudioWorkspace = {
 const item: CatalogItem = {
   id: id(2),
   workspaceId: id(1),
-  kind: 'tool',
+  kind: 'tool' as const,
   name: 'Precision driver',
   specification: 'Phillips #00',
   description: '',
@@ -53,9 +53,9 @@ const item: CatalogItem = {
   archived: false,
   version: 1,
 };
-function empty(): GuideDocumentV4 {
+function empty(): GuideDocumentV5 {
   return {
-    schemaVersion: 4,
+    schemaVersion: 5,
     title: 'Procedure',
     summary: 'Prepare.',
     locale: 'en',
@@ -81,7 +81,7 @@ function Harness({
   stepId,
   audience,
 }: {
-  initial: GuideDocumentV4;
+  initial: GuideDocumentV5;
   stepId?: string;
   audience?: 'public' | 'members';
 }) {
@@ -108,8 +108,8 @@ function Harness({
     </>
   );
 }
-function current(): GuideDocumentV4 {
-  return JSON.parse(screen.getByTestId('document').textContent!) as GuideDocumentV4;
+function current(): GuideDocumentV5 {
+  return JSON.parse(screen.getByTestId('document').textContent!) as GuideDocumentV5;
 }
 beforeEach(() => {
   mocks.fetch.mockReset().mockResolvedValue({ items: [item] });
@@ -122,15 +122,15 @@ describe('catalog-backed preparation authoring', () => {
     'uses the actual %s guide audience for preparation selection and privacy notices',
     async (audience) => {
       const document = empty();
-      document.requirements = [requirementFromCatalog(item)];
+      document.requirements = [requirementFromCatalog(item, 'keep')];
       mocks.fetch.mockResolvedValue({ items: [{ ...item, version: 2, visibility: 'members' }] });
       render(<Harness initial={document} audience={audience} />);
       await screen.findByRole('button', { name: /Catalog update available/ });
-      expect(screen.getByRole('button', { name: 'Add tool' })).toHaveAttribute(
+      expect(screen.getByRole('button', { name: 'Add something you keep' })).toHaveAttribute(
         'data-catalog-visibility',
         audience,
       );
-      expect(screen.getByRole('button', { name: 'Add material' })).toHaveAttribute(
+      expect(screen.getByRole('button', { name: 'Add something you use up' })).toHaveAttribute(
         'data-catalog-visibility',
         audience,
       );
@@ -154,7 +154,7 @@ describe('catalog-backed preparation authoring', () => {
       quantity: null,
       notes: 'Original preparation note: Small original driver note',
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Add tool' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add something you keep' }));
     expect(current().requirements).toHaveLength(1);
     expect(screen.getByRole('status')).toHaveTextContent('already added');
   });
@@ -162,7 +162,7 @@ describe('catalog-backed preparation authoring', () => {
     const document = empty();
     document.requirements = [
       {
-        ...requirementFromCatalog(item),
+        ...requirementFromCatalog(item, 'keep'),
         quantity: 2,
         unit: 'pair',
         notes: 'Keep this guide-specific note.',
@@ -196,7 +196,7 @@ describe('catalog-backed preparation authoring', () => {
   it('keeps draft details on catalog errors and supports retry', async () => {
     mocks.fetch.mockRejectedValueOnce(new Error('Catalog temporarily unavailable.'));
     const document = empty();
-    document.requirements = [requirementFromCatalog(item)];
+    document.requirements = [requirementFromCatalog(item, 'keep')];
     render(<Harness initial={document} />);
     fireEvent.click(await screen.findByRole('button', { name: 'Retry catalog status' }));
     await waitFor(() =>
@@ -206,7 +206,7 @@ describe('catalog-backed preparation authoring', () => {
   });
   it('confirms removing a preparation requirement and removes its dependent step usages together', async () => {
     const document = empty();
-    const requirement = requirementFromCatalog(item);
+    const requirement = requirementFromCatalog(item, 'keep');
     document.requirements = [requirement];
     document.steps[0]!.requirements = [
       {
@@ -242,7 +242,7 @@ describe('requirements at the point of use', () => {
 
   it('uses level-two authoring sections and level-three item and prerequisite headings', () => {
     const document = empty();
-    const requirement = requirementFromCatalog(item);
+    const requirement = requirementFromCatalog(item, 'keep');
     document.requirements = [requirement];
     document.steps[0]!.requirements = [
       {
@@ -274,14 +274,14 @@ describe('requirements at the point of use', () => {
     expect(result.requirements).toHaveLength(1);
     expect(result.steps[0]?.requirements[0]).toMatchObject({
       requirementId: result.requirements[0]?.id,
-      mode: 'reuse',
+      mode: 'consume',
       quantity: null,
     });
     expect(result.steps[1]?.requirements).toEqual([]);
   });
   it('uses an existing preparation snapshot without refreshing it or duplicating the guide entry', () => {
     const document = empty();
-    document.requirements = [requirementFromCatalog(item)];
+    document.requirements = [requirementFromCatalog(item, 'keep')];
     mocks.item = { ...item, version: 2, name: 'New catalog name' };
     render(<Harness initial={document} stepId={id(11)} />);
     fireEvent.click(screen.getByRole('button', { name: 'Add from catalog' }));

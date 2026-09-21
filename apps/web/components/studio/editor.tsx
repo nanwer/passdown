@@ -1466,7 +1466,7 @@ function Editor({ workspace, guideId }: { workspace: StudioWorkspace; guideId: s
                   />
                   <StepPictures workspaceId={guide.workspaceId} step={step} onChange={updateStep} />
                 </div>
-                {guide.document.schemaVersion === 4 && (
+                {guide.document.schemaVersion === 5 && (
                   <StepRequirements
                     audience={guide.audience}
                     document={guide.document}

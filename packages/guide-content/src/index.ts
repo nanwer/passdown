@@ -1,6 +1,10 @@
 import { z } from 'zod';
 import { richDocumentSchema } from './rich-text';
-import { guideRequirementSchema, structuredStepFields } from './requirements';
+import {
+  guideRequirementSchema,
+  requirementUnitSchema,
+  structuredStepFields,
+} from './requirements';
 export const textRunSchema = z.strictObject({
   type: z.literal('text'),
   text: z.string().max(10000),
@@ -163,14 +167,45 @@ const documentFields = {
   durationMinutes: z.number().int().min(1).max(10080),
   tools: z.array(z.string().trim().min(1).max(120)).max(50),
 };
-export const structuredGuideDocumentSchema = z.strictObject({
+const unresolvedToolsField = z
+  .array(z.strictObject({ id: z.uuid(), label: z.string().min(1).max(120) }))
+  .max(50);
+/**
+ * Version 4 said what an item permanently was — a tool, a material or a part.
+ * Version 5 says what this guide does with it: keeps it, or uses it up. The
+ * old shape is retained so documents written before the change still parse;
+ * toStructuredDocument maps one onto the other.
+ */
+const legacyRequirementSchema = z.strictObject({
+  id: z.uuid(),
+  itemId: z.uuid(),
+  itemVersion: z.number().int().positive(),
+  kind: z.enum(['tool', 'material', 'part']),
+  name: z.string().trim().min(1).max(160),
+  specification: z.string().max(500),
+  description: z.string().max(2000),
+  manufacturer: z.string().max(160).default(''),
+  model: z.string().max(160).default(''),
+  partNumber: z.string().max(160).default(''),
+  quantity: z.number().positive().max(1000000000).nullable(),
+  unit: requirementUnitSchema,
+  optional: z.boolean(),
+  notes: z.string().max(2000),
+});
+const legacyStructuredDocumentSchema = z.strictObject({
   ...documentFields,
   schemaVersion: z.literal(4),
   tools: z.array(z.string()).max(0),
+  requirements: z.array(legacyRequirementSchema).max(100),
+  unresolvedTools: unresolvedToolsField,
+  steps: z.array(structuredGuideStepSchema).min(1).max(100),
+});
+export const structuredGuideDocumentSchema = z.strictObject({
+  ...documentFields,
+  schemaVersion: z.literal(5),
+  tools: z.array(z.string()).max(0),
   requirements: z.array(guideRequirementSchema).max(100),
-  unresolvedTools: z
-    .array(z.strictObject({ id: z.uuid(), label: z.string().min(1).max(120) }))
-    .max(50),
+  unresolvedTools: unresolvedToolsField,
   steps: z.array(structuredGuideStepSchema).min(1).max(100),
 });
 export const guideDocumentSchema = z
@@ -193,6 +228,7 @@ export const guideDocumentSchema = z
       schemaVersion: z.literal(3),
       steps: z.array(guideStepSchema).min(1).max(100),
     }),
+    legacyStructuredDocumentSchema,
     structuredGuideDocumentSchema,
   ])
   .superRefine((document, context) => {
@@ -208,7 +244,9 @@ export const guideDocumentSchema = z
     });
   });
 export type GuideDocument = z.infer<typeof guideDocumentSchema>;
-export type GuideDocumentV4 = z.infer<typeof structuredGuideDocumentSchema>;
+export type GuideDocumentV5 = z.infer<typeof structuredGuideDocumentSchema>;
+/** The shape before roles replaced kinds. Read, never written. */
+export type GuideDocumentV4 = z.infer<typeof legacyStructuredDocumentSchema>;
 export type GuideStep = z.infer<typeof guideStepSchema> &
   Partial<
     Pick<
