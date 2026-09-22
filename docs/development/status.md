@@ -4,23 +4,26 @@ Passdown is an early, working application for public community guides and privat
 
 ## Working now
 
-- Verified local owner sign-in, workspace membership and protected public/private readers.
+- An installation that creates its own first administrator and workspace on first start, with a password generated per installation and unusable until replaced — over the API as well as in the browser.
+- Two permissions per workspace, view and manage, enforced by row-level security rather than by the interface. Every policy asks one function, so the vocabulary lives in one place.
+- Invitations by link: single use, expiring, stored only as a hash, and needing no mail server. A people screen listing members and pending invitations, with permission changes and removal, and a workspace that cannot be left without a manager.
 - Persistent guide creation, rich-text step editing, preview, manual saves and conflict recovery.
 - Headings, emphasis, links, lists, quotes, six panel types and editable tables with direct row/column insertion.
 - Immutable published releases with explicit content licenses.
-- Nested category management with stable short codes, distinct-guide totals per branch, All/Active/Inactive tabs, inline creation, product/category pages, breadcrumbs and descendant search.
-- Deactivation that names what still uses a category and offers a route to it, while superseded releases keep their own references without blocking retirement.
-- Reusable tools, materials and replacement-part catalog with exact specifications, distinct-guide usage per item, archive/restore and reviewed updates.
-- Public and internal sections of one public workspace: members switch between them, visitors and signed-in nonmembers see neither the switch nor the internal route.
+- One nested tree of the things guides are about, each able to carry a picture, browsable as a gallery, with inline creation from inside the thing it belongs to.
+- A kind of work on each guide, separate from the thing it is about, with a title composed from the answers and a per-workspace catalog of the kinds offered.
+- One searchable catalog of items with exact specifications, usage per item, archive/restore and reviewed updates. An item carries no permanent classification; a guide says whether it keeps it or uses it up.
+- Step photographs with numbered marks and arrows, captions, ordering and reuse, re-encoded on upload and readable only through a guide the reader may already open.
+- Public and internal sections of a public workspace, and moving a published guide between them with reasons when it cannot go.
 - Guide preparation, per-step requirements and consumption/reuse allocations, preconditions and earlier-step dependencies.
-- Shared reader, live search, keyboard navigation, responsive layouts and light/dark themes.
-- Library listings that read one bounded page from the database, filtered and counted there, and say how large the whole collection is instead of ending silently.
-- Versioned migrations, scoped repository access, validation, automated tests and public continuous checks.
-
-Recent interface fixes align catalog filters and distinguish nested category dialogs with a correctly layered backdrop, responsive sizing and shared dialog styling. Dismissing a nested picker preserves the unfinished parent form and returns focus to its trigger.
+- Shared reader, live search, keyboard navigation, responsive layouts and light/dark themes verified for contrast in both.
+- Library listings that read one bounded page from the database, filtered and counted there.
+- Versioned migrations with a checksummed manifest, a health endpoint that refuses a database this build does not match, and a warning when the running process is older than the schema.
 
 ## Boundaries
 
-Saves are manual. Authoring and catalog administration currently require the owner role. Local setup provisions a verified owner; public registration, invitations and account-recovery delivery are not available. Media uploads, attachments, cross-guide prerequisites, approvals and collaborative editing are not implemented yet. Category nesting has a safety limit of 16 levels.
+Saves are manual. Open signup is deliberately off — an account exists because somebody was invited or because the installation created the first one. Nothing sends email; invitations are links passed on by hand, and account recovery does not exist. Attachments other than pictures, cross-guide prerequisites, approval workflows and collaborative editing are not implemented.
+
+An installation gets one workspace and there is no way to create a second from inside the product. The interface is mid-migration onto shadcn components; one screen is converted and the rest still use the older stylesheets. The information architecture work is partly done — see [the backlog](../backlog.md).
 
 See the [roadmap](../../ROADMAP.md) for upcoming outcomes and the [manual checklist](manual-test-checklist.md) for testable behavior. The repository license covers code, not a blanket license for user-authored guide content.
