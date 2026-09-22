@@ -1694,6 +1694,53 @@ test('a thing gets a picture, and it reaches exactly the readers the thing does'
   await anonymous.close();
 });
 
+test('a guide is given a cover, and it is what the library shows', async ({ page, browser }) => {
+  const sharp = (await import('sharp')).default;
+  await login(page.request);
+  const workspace = 'repair-collective';
+  const suffix = randomUUID().slice(0, 8);
+  const section = await category(page.request, workspace, `Cover ${suffix}`);
+  const guide = await draft(page.request, workspace, section.id, `Cover guide ${suffix}`);
+  const bytes = await sharp({
+    create: { width: 640, height: 360, channels: 3, background: '#3a5f7d' },
+  })
+    .png()
+    .toBuffer();
+
+  await page.goto(`/studio/${workspace}/${guide.id}`);
+  // The editor opens on a step; the cover lives with the guide's own details.
+  await page.getByRole('button', { name: /Guide details/ }).click();
+  const cover = page.getByRole('group', { name: 'Cover picture' });
+  await expect(cover).toBeVisible();
+  await cover
+    .locator('input[type=file]')
+    .setInputFiles({ name: 'cover.png', mimeType: 'image/png', buffer: bytes });
+  await expect(cover.getByRole('button', { name: 'Remove cover' })).toBeVisible({ timeout: 15000 });
+
+  await publish(page);
+
+  // The card shows the cover somebody chose, not the illustration every card
+  // used to share and not a guess at one.
+  const anonymous = await browser.newContext();
+  const visitor = await anonymous.newPage();
+  await visitor.goto('/');
+  await visitor.getByRole('searchbox').fill(`Cover guide ${suffix}`);
+  const card = visitor.locator('.guide-card').filter({ hasText: `Cover guide ${suffix}` });
+  await expect(card.locator('.guide-card-cover')).toBeVisible({ timeout: 15000 });
+  const src = await card.locator('.guide-card-cover').getAttribute('src');
+  expect((await visitor.request.get(src!)).status()).toBe(200);
+  await expect
+    .poll(() =>
+      card
+        .locator('.guide-card-cover')
+        .evaluate(
+          (img) => (img as HTMLImageElement).complete && (img as HTMLImageElement).naturalWidth > 0,
+        ),
+    )
+    .toBe(true);
+  await anonymous.close();
+});
+
 test('a guide is given a kind of work, and the title writes itself from it', async ({ page }) => {
   await login(page.request);
   const suffix = randomUUID().slice(0, 8);

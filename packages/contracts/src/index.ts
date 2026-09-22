@@ -28,12 +28,14 @@ export const createDraftSchema = z.strictObject({
   categoryId: z.uuid(),
   audience: z.enum(['public', 'members']),
   guideType: guideTypeSelectionSchema.optional(),
+  coverAssetId: z.uuid().nullable().optional(),
 });
 export const saveDraftSchema = z.strictObject({
   expectedVersion: z.number().int().min(1),
   document: guideDocumentSchema,
   categoryId: z.uuid(),
   guideType: guideTypeSelectionSchema.optional(),
+  coverAssetId: z.uuid().nullable().optional(),
 });
 /**
  * Replacing your own password.
@@ -122,6 +124,14 @@ export type DraftSummary = {
   updatedAt: string;
   stepCount: number;
   guideType: GuideTypeSelection;
+  /**
+   * The picture that stands for this guide in a listing.
+   *
+   * Null when nobody has chosen one, in which case a reader page falls back to
+   * the guide's first step picture and then to the picture of the thing it is
+   * about. Those are guesses; this is a decision.
+   */
+  coverAssetId: string | null;
 };
 export type DraftGuide = DraftSummary & { document: GuideDocument };
 export type PublishedGuide = {
@@ -141,6 +151,8 @@ export type PublishedGuide = {
   release: number;
   isSample: boolean;
   license: ContentLicense | 'local-preview-only';
+  /** The cover as it was when this release was published. */
+  coverAssetId: string | null;
 };
 /**
  * How many published guides one library request returns.

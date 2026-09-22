@@ -1214,3 +1214,14 @@
   align-self: center;
   color: var(--gp-semantic-text-secondary);
 }
+
+/* The cover sits with the guide's other essentials rather than with the step
+   pictures, because it is about how the guide is presented, not how it is done. */
+.studio-cover {
+  border-top: 1px solid var(--gp-semantic-border-subtle);
+  padding-top: 16px;
+}
+.studio-cover legend {
+  font-weight: 600;
+  color: var(--gp-semantic-text-primary);
+}

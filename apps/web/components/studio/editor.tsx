@@ -42,7 +42,11 @@ import { RichTextEditor } from './rich-text-editor';
 import { StepRequirements } from './step-requirements';
 import { StudioError, studioFetch, studioUpload } from './transport';
 function fingerprint(guide: DraftGuide) {
-  return JSON.stringify({ document: guide.document, categoryId: guide.categoryId });
+  return JSON.stringify({
+    document: guide.document,
+    categoryId: guide.categoryId,
+    coverAssetId: guide.coverAssetId,
+  });
 }
 
 /**
@@ -263,6 +267,121 @@ function PictureAnnotations({
  * anyone noticing. Thumbnails are requested at the smallest served width,
  * because a grid of pictures is exactly where the full size would be wasteful.
  */
+/**
+ * The picture that stands for this guide in a listing.
+ *
+ * Every card in the library drew the same illustration, because the column
+ * behind it has a default and nothing that writes to it. A card can fall back
+ * to the guide's first step picture or to the picture of the thing it is about,
+ * and it does — but a cover is a decision about how a guide is presented, and
+ * until now there was nowhere to make it.
+ */
+function GuideCover({
+  workspaceId,
+  coverAssetId,
+  onChange,
+}: {
+  workspaceId: string;
+  coverAssetId: string | null;
+  onChange: (assetId: string | null) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [error, setError] = useState('');
+  const [dropping, setDropping] = useState(false);
+  const input = useRef<HTMLInputElement>(null);
+
+  async function upload(file: File) {
+    setBusy(true);
+    setError('');
+    setProgress(0);
+    try {
+      const { asset } = await studioUpload<{ asset: { id: string } }>(
+        `/api/studio/${workspaceId}/assets`,
+        file,
+        setProgress,
+      );
+      onChange(asset.id);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'That picture could not be added.');
+    } finally {
+      setBusy(false);
+      if (input.current) input.current.value = '';
+    }
+  }
+
+  return (
+    <fieldset className="studio-pictures studio-cover">
+      <legend>Cover picture</legend>
+      <p className="studio-hint">
+        Shown wherever this guide appears in a list. Without one, a listing falls back to the first
+        picture on a step, and then to the picture of the thing this guide is about.
+      </p>
+      {coverAssetId && (
+        <div className="studio-picture">
+          <div className="studio-picture-body">
+            <img src={`/api/media/${workspaceId}/${coverAssetId}`} alt="" />
+            <div className="studio-picture-fields">
+              <p className="studio-hint">This guide has its own cover.</p>
+            </div>
+          </div>
+          <div className="studio-picture-footer">
+            <Button type="button" variant="secondary" onClick={() => onChange(null)}>
+              Remove cover
+            </Button>
+          </div>
+        </div>
+      )}
+      {busy ? (
+        <div className="studio-picture-progress">
+          <label>
+            Adding your picture
+            <progress value={progress} max={1} />
+          </label>
+        </div>
+      ) : (
+        <div className="studio-picture-actions">
+          <label
+            className={`studio-picture-add${dropping ? ' studio-picture-add--over' : ''}`}
+            onDragOver={(event) => {
+              event.preventDefault();
+              setDropping(true);
+            }}
+            onDragLeave={() => setDropping(false)}
+            onDrop={(event) => {
+              event.preventDefault();
+              setDropping(false);
+              const file = event.dataTransfer.files?.[0];
+              if (file) void upload(file);
+            }}
+          >
+            <ImagePlus size={17} aria-hidden="true" />
+            <span>
+              <strong>{coverAssetId ? 'Replace the cover' : 'Add a cover'}</strong>
+              <small>Drop one here, or choose a file</small>
+            </span>
+            <input
+              ref={input}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) void upload(file);
+              }}
+            />
+          </label>
+          <ReusePicture
+            workspaceId={workspaceId}
+            used={coverAssetId ? [coverAssetId] : []}
+            onPick={(assetId) => onChange(assetId)}
+          />
+        </div>
+      )}
+      {error && <ErrorNotice error={error} />}
+    </fieldset>
+  );
+}
+
 function ReusePicture({
   workspaceId,
   used,
@@ -945,6 +1064,7 @@ function Editor({ workspace, guideId }: { workspace: StudioWorkspace; guideId: s
         body: JSON.stringify({
           document: parsed.data,
           categoryId: snapshot.categoryId,
+          coverAssetId: snapshot.coverAssetId,
           expectedVersion: snapshot.version,
         }),
       });
@@ -1371,6 +1491,13 @@ function Editor({ workspace, guideId }: { workspace: StudioWorkspace; guideId: s
                     setGuide((current) =>
                       current ? { ...current, categoryId: categoryId ?? '' } : current,
                     )
+                  }
+                />
+                <GuideCover
+                  workspaceId={guide.workspaceId}
+                  coverAssetId={guide.coverAssetId}
+                  onChange={(coverAssetId) =>
+                    setGuide((current) => (current ? { ...current, coverAssetId } : current))
                   }
                 />
                 <GuideFamilyPicker workspaceId={guide.workspaceId} guideId={guide.id} />

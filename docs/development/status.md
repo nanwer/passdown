@@ -13,6 +13,7 @@ Passdown is an early, working application for public community guides and privat
 - One nested tree of the things guides are about, each able to carry a picture, browsable as a gallery, with inline creation from inside the thing it belongs to.
 - A kind of work on each guide, separate from the thing it is about, with a title composed from the answers and a per-workspace catalog of the kinds offered.
 - One searchable catalog of items with exact specifications, usage per item, archive/restore and reviewed updates. An item carries no permanent classification; a guide says whether it keeps it or uses it up.
+- A cover picture per guide, chosen in the editor, frozen into each release and shown wherever the guide appears in a listing. A guide without one falls back to its first step picture and then to the picture of the thing it is about.
 - Step photographs with numbered marks and arrows, captions, ordering and reuse, re-encoded on upload and readable only through a guide the reader may already open — and visible to the author who uploaded them before the draft is saved.
 - Public and internal sections of a public workspace, and moving a published guide between them with reasons when it cannot go.
 - A front page that opens on the search and the guides: a heading, the search field, one row of category chips carrying each thing's picture, then the library. A category has one address — its own page, carrying its picture, its description, whatever sits inside it, and the same chips so choosing one is not a dead end.

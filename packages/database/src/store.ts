@@ -123,13 +123,23 @@ async function projectMedia(
   guideId: string,
   release: number,
   document: GuideDocument,
+  coverAssetId: string | null = null,
 ) {
   if (release === 0)
     await client.query(
       'DELETE FROM app.asset_reference WHERE workspace_id=$1 AND guide_id=$2 AND release_number=0',
       [workspaceId, guideId],
     );
-  const ids = [...new Set(document.steps.flatMap((step) => step.media.map((m) => m.assetId)))];
+  const ids = [
+    ...new Set(
+      [
+        ...document.steps.flatMap((step) => step.media.map((m) => m.assetId)),
+        // The cover is referenced like a step picture, which is what makes it
+        // readable to whoever may read the guide and to nobody else.
+        ...(coverAssetId ? [coverAssetId] : []),
+      ].filter(Boolean),
+    ),
+  ];
   for (const assetId of ids)
     await client.query(
       'INSERT INTO app.asset_reference(workspace_id,asset_id,guide_id,release_number) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING',
@@ -152,6 +162,7 @@ function draft(row: Row): DraftGuide {
     publishedVersion: row.published_version,
     updatedAt: new Date(row.updated_at).toISOString(),
     stepCount: document.steps.length,
+    coverAssetId: row.cover_asset_id ?? null,
     guideType: row.guide_type_key
       ? { key: row.guide_type_key, subject: row.guide_type_subject ?? '' }
       : null,
@@ -176,6 +187,7 @@ function published(row: Row): PublishedGuide {
     isSample: row.is_sample,
     release: row.release,
     license: row.license,
+    coverAssetId: row.cover_asset_id ?? null,
     updatedAt: new Date(row.updated_at).toISOString(),
   };
 }
@@ -754,7 +766,7 @@ export function createApplicationStore(options: { connectionString: string }) {
             ?.name ?? workspace.name;
         const guideType = await resolveGuideType(c, workspaceId, data.guideType ?? null);
         const result = await c.query(
-          'INSERT INTO app.guide(id,workspace_id,audience,document,category,author,category_id,guide_type_key,guide_type_subject) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *',
+          'INSERT INTO app.guide(id,workspace_id,audience,document,category,author,category_id,guide_type_key,guide_type_subject,cover_asset_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *',
           [
             randomUUID(),
             workspaceId,
@@ -765,10 +777,18 @@ export function createApplicationStore(options: { connectionString: string }) {
             category.id,
             guideType.key,
             guideType.subject,
+            data.coverAssetId ?? null,
           ],
         );
         await projectRequirements(c, workspaceId, result.rows[0].id, 0, data.document);
-        await projectMedia(c, workspaceId, result.rows[0].id, 0, data.document);
+        await projectMedia(
+          c,
+          workspaceId,
+          result.rows[0].id,
+          0,
+          data.document,
+          data.coverAssetId ?? null,
+        );
         return draft({ ...result.rows[0], category_path: category.path });
       });
     },
@@ -794,7 +814,7 @@ export function createApplicationStore(options: { connectionString: string }) {
         const guideType = await resolveGuideType(c, workspaceId, data.guideType ?? null);
         const row = (
           await c.query(
-            'UPDATE app.guide SET document=$3,category=$4,category_id=$5,guide_type_key=$6,guide_type_subject=$7,version=version+1,updated_at=clock_timestamp() WHERE workspace_id=$1 AND id=$2 RETURNING *',
+            'UPDATE app.guide SET document=$3,category=$4,category_id=$5,guide_type_key=$6,guide_type_subject=$7,cover_asset_id=$8,version=version+1,updated_at=clock_timestamp() WHERE workspace_id=$1 AND id=$2 RETURNING *',
             [
               workspaceId,
               id,
@@ -803,11 +823,12 @@ export function createApplicationStore(options: { connectionString: string }) {
               category.id,
               guideType.key,
               guideType.subject,
+              data.coverAssetId ?? null,
             ],
           )
         ).rows[0];
         await projectRequirements(c, workspaceId, id, 0, data.document);
-        await projectMedia(c, workspaceId, id, 0, data.document);
+        await projectMedia(c, workspaceId, id, 0, data.document, data.coverAssetId ?? null);
         return draft({ ...row, category_path: category.path });
       });
     },
@@ -871,7 +892,7 @@ export function createApplicationStore(options: { connectionString: string }) {
           );
         const number = (current.current_release ?? 0) + 1;
         await c.query(
-          'INSERT INTO app.release(guide_id,workspace_id,number,draft_version,document,category,license,author,is_sample,category_id,category_path,guide_type_key,guide_type_subject) VALUES($1,$2,$3,$4,$5,$6,$7,(SELECT name FROM public.auth_user WHERE id=app.actor_id()),false,$8,$9,$10,$11)',
+          'INSERT INTO app.release(guide_id,workspace_id,number,draft_version,document,category,license,author,is_sample,category_id,category_path,guide_type_key,guide_type_subject,cover_asset_id) VALUES($1,$2,$3,$4,$5,$6,$7,(SELECT name FROM public.auth_user WHERE id=app.actor_id()),false,$8,$9,$10,$11,$12)',
           [
             id,
             workspaceId,
@@ -886,11 +907,12 @@ export function createApplicationStore(options: { connectionString: string }) {
             // way it freezes the category and the document.
             current.guide_type_key,
             current.guide_type_subject ?? '',
+            current.cover_asset_id,
           ],
         );
         // Freeze this release's pictures alongside its content, so the images
         // stay readable for exactly as long as this release is current.
-        await projectMedia(c, workspaceId, id, number, document);
+        await projectMedia(c, workspaceId, id, number, document, current.cover_asset_id);
         await c.query(
           "UPDATE app.guide SET current_release=$3,published_version=version,state='published',updated_at=clock_timestamp() WHERE workspace_id=$1 AND id=$2",
           [workspaceId, id, number],

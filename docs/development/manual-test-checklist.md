@@ -65,6 +65,13 @@ Owner-only authoring; manual saves without browser draft backup; category depth 
 1. Open **Studio → a workspace → Tools & materials**. Expect items used by guides to show a total such as `3 guides`, and unused items to show nothing.
 2. Use the **All / Active / Inactive** tabs with the search, kind and category filters. Expect All to equal Active plus Inactive under whatever else is filtered.
 
+## A guide's cover
+
+1. Open a draft, choose **Guide details**, and find **Cover picture**. Add one, save, and publish.
+2. Find the guide in the library. Expect its card to show that picture.
+3. Remove the cover, save and publish again. Expect the card to fall back to the guide's first step picture, or to the picture of the thing it is about, or to the illustration.
+4. Change the cover on the draft without publishing. Expect the published guide's card to keep the cover it was published with.
+
 ## Pictures on a step
 
 1. Open a draft and find **Pictures**. Expect a dashed control reading **Add a picture / Drop one here, or choose a file** — no `Choose File` widget from the browser.

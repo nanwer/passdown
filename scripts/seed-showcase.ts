@@ -224,6 +224,24 @@ async function drawPicture(label: string, seed: number) {
   return sharp(Buffer.from(svg)).png().toBuffer();
 }
 
+let pictureSeed = 0;
+
+/** Uploads a drawn picture and returns its asset id. */
+async function uploadPicture(workspace: string, label: string) {
+  const bytes = await drawPicture(label, ++pictureSeed);
+  const form = new FormData();
+  form.append('file', new Blob([new Uint8Array(bytes)], { type: 'image/png' }), 'cover.png');
+  const response = await withPatience('uploading a picture', () =>
+    fetch(`${origin}/api/studio/${workspace}/assets`, {
+      method: 'POST',
+      headers: { origin, cookie },
+      body: form,
+    }),
+  );
+  if (!response.ok) throw new Error(`upload → ${response.status}: ${await response.text()}`);
+  return ((await response.json()) as { asset: { id: string } }).asset.id;
+}
+
 async function setPicture(workspace: string, category: Category, seed: number) {
   const bytes = await drawPicture(category.name, seed);
   const form = new FormData();
@@ -372,11 +390,14 @@ async function writeGuides(
     const title = composeGuideTitle(type, { thing: guide.thing, subject: guide.subject });
     const document = documentFor(guide, guide.thing, catalog, title);
 
+    // A cover of its own, so a listing shows the guide rather than the thing.
+    const cover = await uploadPicture(workspace, title);
     const created = await call<{ guide: DraftGuide }>(`/api/studio/${workspace}/guides`, 'POST', {
       document,
       categoryId: category.id,
       audience,
       guideType: { key: guide.type, subject: guide.subject },
+      coverAssetId: cover,
     });
     const id = created.guide.id;
     byTitle.set(title, id);

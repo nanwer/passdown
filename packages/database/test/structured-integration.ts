@@ -1040,6 +1040,35 @@ export async function structuredChecks({
     // Nor from another workspace, whoever is asking.
     assert.equal(await store.assetReadable(who, 'private', openPicture), false);
 
+    // A guide's cover is readable exactly as far as the guide is, and it stops
+    // being readable when the cover is taken off.
+    const coverShelf = await store.createCategory(who, 'public', {
+      domain: 'guide',
+      parentId: null,
+      name: `Cover subject ${suffix}`,
+      description: '',
+      visibility: 'public',
+      sortOrder: 0,
+    });
+    const coverPicture = await picture();
+    const covered = await store.createDraft(who, 'public', {
+      document: { ...doc, title: `Covered guide ${suffix}` },
+      categoryId: coverShelf.id,
+      audience: 'public',
+      coverAssetId: coverPicture,
+    });
+    assert.equal(await store.assetReadable(anonymous, 'public', coverPicture), false);
+    await store.publishDraft(who, 'public', covered.id, {
+      expectedVersion: covered.version,
+      expectedRelease: null,
+      license: 'CC-BY-4.0',
+    });
+    assert.equal(await store.assetReadable(anonymous, 'public', coverPicture), true);
+    assert.equal(
+      (await store.getRelease(anonymous, 'public', covered.id))?.coverAssetId,
+      coverPicture,
+    );
+
     // A picture nothing refers to at all, which is every picture between being
     // uploaded and the draft being saved. The editor drew a broken image for
     // the whole of that window, and so did every thumbnail in the list offering

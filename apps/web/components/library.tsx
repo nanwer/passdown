@@ -85,14 +85,20 @@ export function Library({
     return next ? `${guideBase}/categories/${next}${search}` : `${base}${search}`;
   };
   /**
-   * A picture for a guide card: the guide's own first picture, or failing that
-   * the picture of the nearest thing it is filed under.
+   * A picture for a guide card: the cover somebody chose, or the guide's own
+   * first picture, or the picture of the nearest thing it is filed under.
    *
    * Every card used to draw the same illustration, because the column that
    * decides which one has a default and no writer.
    */
   const cover = (guide: DemoGuide | PublishedGuide) => {
     if (!('workspaceId' in guide)) return undefined;
+    // A cover somebody chose, first. The rest are guesses standing in for one.
+    if ('coverAssetId' in guide && guide.coverAssetId)
+      return {
+        src: `/api/media/${guide.workspaceId}/${guide.coverAssetId}?w=800`,
+        alt: `Cover picture for ${guide.title}`,
+      };
     const own = guide.document.steps.flatMap((step) => step.media)[0];
     if (own) return { src: `/api/media/${guide.workspaceId}/${own.assetId}?w=800`, alt: own.alt };
     const path = 'categoryPath' in guide ? [...guide.categoryPath].reverse() : [];
