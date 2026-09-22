@@ -50,9 +50,16 @@ hero and another 407px on a picture grid of categories, putting the first guide
 at 1401px on a desktop screen and 1769px on a phone — and the same categories
 were drawn twice from the same query, once as that grid and again as a chip row
 400px below it. Now: heading, search, one chip row carrying each thing's
-picture, then the guides, with the first at 448px. Choosing a category offers a
-row leading to its own page, which is where a picture, a description and
-anything inside it belong.
+picture, then the guides, with the first at 448px.
+
+And a category has one address. `/?category=x` filtered the library in place
+while `/categories/x` was the same guides on a page that also carried the
+picture, the description and whatever sat inside — two URLs to bookmark, two to
+keep working, and one of them reachable only from a grid that has since been
+deleted. The chips now lead to the category's own page, that page carries the
+chips so choosing one is not a dead end, and the old address redirects. The
+sample library is why both existed: it stored only a category name per guide,
+so its chips could not be links. It has ids now.
 
 The workspace picker no longer appears when there is one workspace, which on a
 real installation is always. It remains for the development seed, which has two.

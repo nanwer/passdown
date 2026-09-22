@@ -25,7 +25,6 @@ import './library-search.css';
 import { CategoryBrowse, CategoryBreadcrumbs } from './category-browse';
 export function Library({
   guides,
-  categories,
   query = '',
   category = '',
   team = false,
@@ -42,7 +41,6 @@ export function Library({
   signedIn = false,
 }: {
   guides: (DemoGuide | PublishedGuide)[];
-  categories: string[];
   query?: string;
   category?: string;
   team?: boolean;
@@ -78,16 +76,14 @@ export function Library({
   const guideBase = base === '/' ? '' : base;
   const synthetic = team && !persistent;
   const searchBase = selectedCategory ? `${guideBase}/categories/${selectedCategory.id}` : base;
+  // A category has one address. It used to have two — this row filtered the
+  // library through `?category=`, while the same category also had its own page
+  // with its picture, its description and whatever sits inside it. Same guides,
+  // different chrome, two URLs to bookmark and two to keep working.
   const link = (next: string) => {
-    const params = new URLSearchParams();
-    if (query) params.set('q', query);
-    if (next) params.set('category', next);
-    return `${base}${params.size ? '?' + params : ''}`;
+    const search = query ? `?q=${encodeURIComponent(query)}` : '';
+    return next ? `${guideBase}/categories/${next}${search}` : `${base}${search}`;
   };
-  // The category a chip has selected, when this library has a real taxonomy.
-  // The chips filter the list in place; this is the same thing's own page,
-  // which is where its picture, its description and anything inside it live.
-  const chosen = selectedCategory ? undefined : taxonomy?.find((item) => item.id === category);
   const first = guides.length ? offset + 1 : 0;
   const last = offset + guides.length;
   const currentPage = Math.floor(offset / limit) + 1;
@@ -204,7 +200,7 @@ export function Library({
               </p>
             </div>
           )}
-          {selectedCategory ? (
+          {selectedCategory && (
             // Inside a category the category is the page, so the search narrows
             // what is already on it and belongs beside the results.
             <div className="library-toolbar library-toolbar--category">
@@ -217,74 +213,48 @@ export function Library({
                 buttonLabel={t.searchButton}
               />
             </div>
-          ) : (
-            <div className="library-filters">
+          )}
+          <div className="library-filters">
+            {/* The chips need categories to exist; the count does not. It used
+                to live inside them, so a library with no categories yet showed
+                no total either. */}
+            {taxonomy && taxonomy.some((item) => item.parentId === null && !item.archived) && (
               <nav className="category-tabs" aria-label={`Guide ${words.things}`}>
-                <LibraryCategoryLink href={link('')} base={base} category="" current={!category}>
+                <LibraryCategoryLink href={link('')} current={!category && !selectedCategory}>
                   {t.allCategories}
                 </LibraryCategoryLink>
-                {(taxonomy
-                  ? taxonomy
-                      .filter((item) => item.parentId === null)
-                      .map((item) => ({
-                        value: item.id,
-                        label: item.name,
-                        // Recognition beats reading: a model number means
-                        // nothing, a picture of the thing means everything.
-                        image: item.imageAssetId
-                          ? `/api/media/${item.workspaceId}/${item.imageAssetId}?w=400`
-                          : null,
-                      }))
-                  : categories.map((item) => ({ value: item, label: item, image: null }))
-                ).map((item) => (
-                  <LibraryCategoryLink
-                    key={item.value}
-                    href={link(item.value)}
-                    base={base}
-                    category={item.value}
-                    current={category === item.value || category === item.label}
-                  >
-                    {item.image && <img src={item.image} alt="" loading="lazy" decoding="async" />}
-                    {item.label}
-                  </LibraryCategoryLink>
-                ))}
+                {taxonomy
+                  .filter((item) => item.parentId === null && !item.archived)
+                  .map((item) => ({
+                    value: item.id,
+                    label: item.name,
+                    // Recognition beats reading: a model number means nothing,
+                    // a picture of the thing means everything.
+                    image: item.imageAssetId
+                      ? `/api/media/${item.workspaceId}/${item.imageAssetId}?w=400`
+                      : null,
+                  }))
+                  .map((item) => (
+                    <LibraryCategoryLink
+                      key={item.value}
+                      href={link(item.value)}
+                      current={
+                        (selectedCategory?.path[0]?.id ?? category) === item.value ||
+                        category === item.label
+                      }
+                    >
+                      {item.image && (
+                        <img src={item.image} alt="" loading="lazy" decoding="async" />
+                      )}
+                      {item.label}
+                    </LibraryCategoryLink>
+                  ))}
               </nav>
-              <span className="library-count">
-                {total} {total === 1 ? 'guide' : 'guides'}
-              </span>
-            </div>
-          )}
-          {chosen && (
-            /* The browse grid was the only way into a category's own page, and
-               it is gone. This appears only once you have picked a category, so
-               the default page keeps its shape. */
-            <Link
-              className="library-chosen-category"
-              href={`${guideBase}/categories/${chosen.id}`}
-              // Without this the link announces as its own contents — the name,
-              // then the description, then the word Open.
-              aria-label={`Open ${chosen.name}`}
-            >
-              {chosen.imageAssetId ? (
-                <img
-                  src={`/api/media/${chosen.workspaceId}/${chosen.imageAssetId}?w=400`}
-                  alt=""
-                  decoding="async"
-                />
-              ) : (
-                <span className="library-chosen-icon">
-                  <FolderTree size={17} aria-hidden="true" />
-                </span>
-              )}
-              <span className="library-chosen-copy">
-                <strong>{chosen.name}</strong>
-                {chosen.description && <span>{chosen.description}</span>}
-              </span>
-              <span className="library-chosen-go">
-                Open <ArrowRight size={15} aria-hidden="true" />
-              </span>
-            </Link>
-          )}
+            )}
+            <span className="library-count">
+              {total} {total === 1 ? 'guide' : 'guides'}
+            </span>
+          </div>
           <p className="sr-only" role="status">
             {total} {total === 1 ? 'guide' : 'guides'} found.
             {total > guides.length && ` Showing ${first} to ${last}.`}
@@ -315,11 +285,10 @@ export function Library({
                     ? 'This category is ready for new knowledge. Its published guides and subcategory guides will appear here.'
                     : t.noResultsHelp}
                 </p>
-                <Link
-                  className="button button--secondary"
-                  href={query ? searchBase : base}
-                  scroll={false}
-                >
+                {/* Both filters, because the label says filters and because
+                    somebody looking at nothing wants the way back to
+                    everything — not to a category that is also nearly empty. */}
+                <Link className="button button--secondary" href={base} scroll={false}>
                   {query ? t.clearFilters : 'Browse all guides'}
                 </Link>
               </div>

@@ -74,7 +74,7 @@ for (const viewport of [
 test('search, no-results recovery and Back/Forward preserve the document and filters', async ({
   page,
 }) => {
-  await page.goto('/?category=Electronics');
+  await page.goto('/categories/electronics');
   // Keep the submit button below the sticky header so clicking it does not
   // itself require the browser to scroll it into view.
   await page.locator('.search-form').evaluate((element) => {
@@ -92,7 +92,7 @@ test('search, no-results recovery and Back/Forward preserve the document and fil
   await expect(page.locator('.guide-card')).toHaveCount(1);
   expect(await page.evaluate(() => performance.timeOrigin)).toBe(before.origin);
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBeCloseTo(before.scroll, 0);
-  expect(new URL(page.url()).searchParams.get('category')).toBe('Electronics');
+  expect(new URL(page.url()).pathname).toBe('/categories/electronics');
   await page.getByRole('searchbox').fill('no-such-guide');
   await page.getByRole('searchbox').press('Enter');
   await expect(page.getByRole('heading', { name: 'No guides found' })).toBeVisible();

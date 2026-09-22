@@ -77,8 +77,8 @@ Owner-only authoring; manual saves without browser draft backup; category depth 
 
 1. Open the home page. Expect a heading, a sentence and the search field, then the category chips, then the guides — the first guide visible without scrolling on a desktop screen.
 2. Type in the search field. Expect the results to narrow as you type, without a page reload.
-3. Choose a category chip. Expect the guides to narrow, and a row naming that category with an **Open** link to its own page.
-4. Follow that link. Expect the category's picture, name and description, anything inside it, and a search scoped to it.
+3. Choose a category chip. Expect that category's own page — its picture, name and description, anything inside it, a search scoped to it, and the chips still there so you can pick another.
+4. Confirm the page did not reload and the position did not jump. Then open `/?category=<id>` directly and expect it to send you to the same page.
 5. Give a thing a picture under **Studio → Manage → Things**. Expect it to appear on that category's chip, on the row in step 3, on the category page, and beside the thing in the Things tree.
 6. Repeat at 390px wide. Expect the chips to scroll sideways within their row rather than widening the page.
 

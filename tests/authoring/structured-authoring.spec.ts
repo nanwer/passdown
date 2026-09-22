@@ -680,6 +680,12 @@ test('libraries are tabs: a member switches between them, a visitor gets only th
   await expect(page).toHaveURL(new RegExp(`/w/${workspace}$`));
   await expect(page.getByText(internalTitle, { exact: false }).first()).toBeVisible();
 
+  // A category has one address. `/?category=` was the other one, and it now
+  // sends anything still pointing at it to the page that owns the subject.
+  const moved = await page.request.get(`/?category=${section.id}`, { maxRedirects: 0 });
+  expect(moved.status()).toBe(307);
+  expect(moved.headers()['location']).toContain(`/categories/${section.id}`);
+
   // Three tabs on this installation, and a phone is where a header full of
   // labels has pushed the page sideways before.
   await page.setViewportSize({ width: 390, height: 844 });
@@ -1616,12 +1622,15 @@ test('a thing gets a picture, and it reaches exactly the readers the thing does'
   expect(src).toContain('w=400');
   expect((await visitor.request.get(src!)).status()).toBe(200);
 
-  // And the thing's own page carries it at full size.
+  // The chip is the way to the thing's own page — one address per category,
+  // not a filter on one page and a page somewhere else — and that page carries
+  // the picture at full size.
   await chip.click();
-  const openThing = visitor.getByRole('link', { name: `Open Bicycles ${suffix}` });
-  await expect(openThing).toBeVisible();
-  await openThing.click();
+  await expect(visitor).toHaveURL(/\/categories\/[a-f0-9-]+$/);
   await expect(visitor.locator('.category-hero-image')).toBeVisible();
+  await expect(
+    visitor.getByRole('heading', { level: 1, name: `Bicycles ${suffix}` }),
+  ).toBeVisible();
 
   // A picture asked for at a width the media route does not serve answers 404,
   // which draws as a broken image rather than an error — visible to a person,

@@ -57,7 +57,7 @@ const guide = (n: number): PublishedGuide => ({
 const page = (count: number) => Array.from({ length: count }, (_, n) => guide(n));
 
 it('a bounded page reports the whole collection instead of ending silently', () => {
-  render(<Library guides={page(24)} categories={[]} total={176} offset={0} limit={24} />);
+  render(<Library guides={page(24)} total={176} offset={0} limit={24} />);
 
   expect(screen.getByText('176 guides')).toBeInTheDocument();
   expect(screen.getByRole('status')).toHaveTextContent('176 guides found. Showing 1 to 24.');
@@ -74,7 +74,6 @@ it('a later page keeps the search and category, and offers the way back', () => 
   render(
     <Library
       guides={page(24)}
-      categories={[]}
       total={176}
       offset={48}
       limit={24}
@@ -96,7 +95,7 @@ it('a later page keeps the search and category, and offers the way back', () => 
 });
 
 it('a collection that fits on one page is shown without a pager', () => {
-  render(<Library guides={page(6)} categories={[]} total={6} offset={0} limit={24} />);
+  render(<Library guides={page(6)} total={6} offset={0} limit={24} />);
 
   expect(screen.getByRole('status')).toHaveTextContent('6 guides found.');
   expect(screen.getByRole('status')).not.toHaveTextContent('Showing');
@@ -141,7 +140,6 @@ it('browse cards count guides from the database totals, not from the listed page
   render(
     <Library
       guides={page(24)}
-      categories={[]}
       taxonomy={[parent, child]}
       selectedCategory={parent}
       categoryCounts={counts}

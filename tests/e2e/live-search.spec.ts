@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 test('typing filters the library without Enter and preserves the active category', async ({
   page,
 }) => {
-  await page.goto('/?category=Electronics');
+  await page.goto('/categories/electronics');
   const search = page.getByRole('searchbox');
   await search.focus();
   const before = await page.evaluate(() => ({
@@ -15,7 +15,7 @@ test('typing filters the library without Enter and preserves the active category
   await search.pressSequentially('keyboard', { delay: 25 });
 
   await expect(page.locator('.guide-card')).toHaveCount(1);
-  await expect(page).toHaveURL(/category=Electronics.*q=keyboard|q=keyboard.*category=Electronics/);
+  await expect(page).toHaveURL(/\/categories\/electronics\?q=keyboard$/);
   await expect(search).toBeFocused();
   expect(await page.evaluate(() => performance.timeOrigin)).toBe(before.origin);
   expect(await page.evaluate(() => history.length)).toBe(before.historyLength);
@@ -29,7 +29,9 @@ test('choosing a category during the debounce uses the current input', async ({ 
     .getByRole('link', { name: 'Electronics', exact: true })
     .click();
 
-  await expect(page).toHaveURL(/category=Electronics.*q=keyboard|q=keyboard.*category=Electronics/);
+  // The category link carries whatever is in the box at the moment of the
+  // click, including letters the debounce has not sent yet.
+  await expect(page).toHaveURL(/\/categories\/electronics\?q=keyboard$/);
   await expect(page.locator('.guide-card')).toHaveCount(1);
   await expect(page.getByRole('searchbox')).toHaveValue('keyboard');
 });
@@ -101,7 +103,7 @@ test('explicit Enter submits immediately and Back restores the prior query', asy
 test('Back cancels an unsent live search instead of replacing the restored history entry', async ({
   page,
 }) => {
-  await page.goto('/?category=Electronics');
+  await page.goto('/categories/electronics');
   const search = page.getByRole('searchbox');
   await search.fill('keyboard');
   await search.press('Enter');
@@ -111,12 +113,12 @@ test('Back cancels an unsent live search instead of replacing the restored histo
   await page.clock.pauseAt(new Date());
   await search.fill('headphones');
   await page.goBack();
-  await expect(page).toHaveURL(/\?category=Electronics$/);
+  await expect(page).toHaveURL(/\/categories\/electronics$/);
   await expect(search).toHaveValue('');
   await expect(page.locator('.guide-card')).toHaveCount(3);
 
   await page.clock.runFor(500);
-  await expect(page).toHaveURL(/\?category=Electronics$/);
+  await expect(page).toHaveURL(/\/categories\/electronics$/);
   await expect(search).toHaveValue('');
   await page.goForward();
   await expect(page).toHaveURL(/q=keyboard/);

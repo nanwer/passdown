@@ -15,7 +15,7 @@ Passdown is an early, working application for public community guides and privat
 - One searchable catalog of items with exact specifications, usage per item, archive/restore and reviewed updates. An item carries no permanent classification; a guide says whether it keeps it or uses it up.
 - Step photographs with numbered marks and arrows, captions, ordering and reuse, re-encoded on upload and readable only through a guide the reader may already open — and visible to the author who uploaded them before the draft is saved.
 - Public and internal sections of a public workspace, and moving a published guide between them with reasons when it cannot go.
-- A front page that opens on the search and the guides: a heading, the search field, one row of category chips carrying each thing's picture, then the library. A chosen category offers its own page, where its picture, description and anything inside it live.
+- A front page that opens on the search and the guides: a heading, the search field, one row of category chips carrying each thing's picture, then the library. A category has one address — its own page, carrying its picture, its description, whatever sits inside it, and the same chips so choosing one is not a dead end.
 - A front page that branches on who is looking: a visitor reads the public library, somebody signed in gets a tab per library they can read. A library is named for what it is rather than for the workspace behind it, and an empty members-only one waits until it has something in it.
 - Guide preparation, per-step requirements and consumption/reuse allocations, preconditions and earlier-step dependencies.
 - Shared reader, live search, keyboard navigation, responsive layouts and light/dark themes verified for contrast in both.

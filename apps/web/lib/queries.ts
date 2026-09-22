@@ -59,15 +59,48 @@ export function readLibraryPage(
  * the reader pages written against one shape, which is what stops an unbounded
  * listing reappearing through the path that happens to be cheap.
  */
+/**
+ * A category id for the sample library, which stores only a name on each guide.
+ *
+ * Without one, the sample library was the reason two routes existed for the
+ * same thing: its chips could only be names, so they filtered through
+ * `?category=`, while a real installation's chips could have linked to the
+ * category's own page. Giving the fixtures ids collapses that.
+ */
+const demoCategoryId = (name: string) =>
+  name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+
 function demoScope(scope: NonNullable<ReturnType<typeof queries.inWorkspace>>) {
+  const taxonomy = (): Category[] =>
+    [...new Set(scope.list().map((guide) => guide.category))].map((name, index) => ({
+      id: demoCategoryId(name),
+      workspaceId: scope.workspace.id,
+      code: '',
+      name,
+      domain: 'guide' as const,
+      parentId: null,
+      description: '',
+      visibility: 'public' as const,
+      archived: false,
+      version: 1,
+      sortOrder: index,
+      imageAssetId: null,
+      path: [{ id: demoCategoryId(name), name }],
+    }));
   return {
     ...scope,
     list: async (filter: LibraryFilter = {}) => {
       const limit = Math.min(Math.max(filter.limit ?? libraryPageSize, 1), maxLibraryPageSize);
       const offset = Math.max(filter.offset ?? 0, 0);
+      const named = filter.categoryId
+        ? taxonomy().find((item) => item.id === filter.categoryId)?.name
+        : undefined;
       const matches: DemoGuide[] = scope.list({
         search: filter.search,
-        category: filter.category,
+        category: named ?? filter.category,
       });
       return {
         guides: matches.slice(offset, offset + limit),
@@ -76,13 +109,21 @@ function demoScope(scope: NonNullable<ReturnType<typeof queries.inWorkspace>>) {
         offset,
       };
     },
-    categories: async (): Promise<Category[]> => [],
-    // The sample library has no taxonomy, so its tabs come from the names its
-    // guides carry. Cheap here, and never reached against a database.
-    categoryNames: async () => [...new Set(scope.list().map((guide) => guide.category))],
-    categoryCounts: async (): Promise<CategoryCounts[]> => [],
+    categories: async (): Promise<Category[]> => taxonomy(),
+    categoryCounts: async (): Promise<CategoryCounts[]> =>
+      taxonomy().map((item) => {
+        const held = scope.list({ category: item.name }).length;
+        return {
+          categoryId: item.id,
+          direct: held,
+          subtree: held,
+          publishedDirect: held,
+          publishedSubtree: held,
+        };
+      }),
   };
 }
+
 /**
  * Whether whoever is asking may edit this workspace's guides.
  *
@@ -146,9 +187,6 @@ async function getPersistentScope(
       store.listReleases(actor, workspaceId, { ...filter, audience }),
     get: (id: string) => store.getRelease(actor, workspaceId, id),
     categories: () => store.listCategories(actor, workspaceId, { domain: 'guide' }),
-    // The taxonomy names the category tabs here, so nothing has to read the
-    // guides to find out what the categories are called.
-    categoryNames: async (): Promise<string[]> => [],
     // Browse totals from the database, in the same section this scope reads.
     categoryCounts: () => store.listLibraryCategoryCounts(actor, workspaceId, audience),
     // Through the reader's own scope, so a relative they cannot open is

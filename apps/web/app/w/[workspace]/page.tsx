@@ -46,7 +46,6 @@ export default async function Page({
       total={page.total}
       offset={page.offset}
       limit={page.limit}
-      categories={[]}
       taxonomy={taxonomy}
       categoryCounts={categoryCounts}
       query={query}

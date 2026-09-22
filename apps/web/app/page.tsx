@@ -8,6 +8,7 @@ import {
   rootWorkspaceId,
   viewerSignedIn,
 } from '../lib/queries';
+import { redirect } from 'next/navigation';
 import { resolveCategoryFilter } from '../lib/category-filter';
 export const dynamic = 'force-dynamic';
 export default async function Page({
@@ -32,17 +33,20 @@ export default async function Page({
   // docs/backlog.md. Until then the page renders empty rather than falling over.
   const scope = rootWorkspace ? await getPublicScope(rootWorkspace) : null;
   const [libraries, signedIn] = await Promise.all([getLibraries('/'), viewerSignedIn()]);
-  const [taxonomy, categoryCounts, categoryNames] = scope
-    ? await Promise.all([scope.categories(), scope.categoryCounts(), scope.categoryNames()])
-    : [[], [], []];
+  const [taxonomy, categoryCounts] = scope
+    ? await Promise.all([scope.categories(), scope.categoryCounts()])
+    : [[], []];
+  // A category has one address, its own page. This kept working for anything
+  // bookmarked or linked while both existed.
   const selected = resolveCategoryFilter(taxonomy, category);
-  const filter = selected ? { categoryId: selected.id } : { category };
-  // A bookmarked category name that no longer resolves selects nothing rather
-  // than quietly showing the whole library.
+  if (selected)
+    redirect(`/categories/${selected.id}${query ? `?q=${encodeURIComponent(query)}` : ''}`);
+  // A bookmarked category that no longer resolves shows nothing rather than
+  // quietly showing the whole library.
   const page =
-    !scope || (isConfigured() && category && !selected)
+    !scope || (isConfigured() && category)
       ? emptyLibraryPage
-      : await readLibraryPage(scope, { search: query, ...filter }, params.page);
+      : await readLibraryPage(scope, { search: query }, params.page);
   return (
     <Library
       guides={page.guides}
@@ -50,11 +54,10 @@ export default async function Page({
       offset={page.offset}
       limit={page.limit}
       persistent={isConfigured()}
-      categories={categoryNames}
-      taxonomy={isConfigured() ? taxonomy : undefined}
+      taxonomy={taxonomy}
       categoryCounts={categoryCounts}
       query={query}
-      category={selected?.id ?? category}
+      category={category}
       libraries={libraries}
       signedIn={signedIn}
     />

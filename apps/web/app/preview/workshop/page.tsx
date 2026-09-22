@@ -1,4 +1,5 @@
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
+import { resolveCategoryFilter } from '../../../lib/category-filter';
 import { Library } from '../../../components/library';
 import { getTeamPreviewScope, readLibraryPage } from '../../../lib/queries';
 export const dynamic = 'force-dynamic';
@@ -12,10 +13,16 @@ export default async function Page({
   const params = await searchParams;
   const query = typeof params.q === 'string' ? params.q.slice(0, 200) : '';
   const category = typeof params.category === 'string' ? params.category.slice(0, 100) : '';
-  const [page, categories] = await Promise.all([
-    readLibraryPage(scope, { search: query, category }, params.page),
-    scope.categoryNames(),
+  const [taxonomy, categoryCounts] = await Promise.all([
+    scope.categories(),
+    scope.categoryCounts(),
   ]);
+  const selected = resolveCategoryFilter(taxonomy, category);
+  if (selected)
+    redirect(
+      `/preview/workshop/categories/${selected.id}${query ? `?q=${encodeURIComponent(query)}` : ''}`,
+    );
+  const page = await readLibraryPage(scope, { search: query }, params.page);
   return (
     <Library
       team
@@ -23,9 +30,9 @@ export default async function Page({
       total={page.total}
       offset={page.offset}
       limit={page.limit}
-      categories={categories}
+      taxonomy={taxonomy}
+      categoryCounts={categoryCounts}
       query={query}
-      category={category}
     />
   );
 }
