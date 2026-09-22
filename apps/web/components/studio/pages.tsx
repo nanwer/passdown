@@ -2,13 +2,12 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import {
   ArrowRight,
-  FolderTree,
   Globe2,
   LockKeyhole,
+  PenLine,
   Plus,
   Search,
-  Users,
-  Wrench,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { Button } from '@guide/ui';
 import type { Category, DraftGuide, DraftSummary, StudioWorkspace } from '@guide/contracts';
@@ -120,16 +119,16 @@ export function Workspaces() {
                 <a className="studio-text-link" href={`/studio/${workspace.id}`}>
                   Open workspace <ArrowRight size={17} />
                 </a>
+                {/* The same two words the header uses. Three shortcuts here and
+                    one entry there would be two vocabularies for one structure,
+                    which is the fault this work exists to fix. */}
                 {workspace.role === 'manage' && (
                   <nav className="studio-workspace-links" aria-label={`${workspace.name} sections`}>
-                    <a href={`/studio/${workspace.id}/categories`}>
-                      <FolderTree size={15} /> {words.Things}
+                    <a href={`/studio/${workspace.id}`}>
+                      <PenLine size={15} /> Guides
                     </a>
-                    <a href={`/studio/${workspace.id}/catalog`}>
-                      <Wrench size={15} /> Catalog
-                    </a>
-                    <a href={`/studio/${workspace.id}/people`}>
-                      <Users size={15} /> People
+                    <a href={`/studio/${workspace.id}/manage`}>
+                      <SlidersHorizontal size={15} /> Manage
                     </a>
                   </nav>
                 )}

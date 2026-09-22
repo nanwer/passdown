@@ -1839,14 +1839,16 @@ test('a workspace can be reached from the page you land on', async ({ page }) =>
   await login(page.request);
   await page.goto('/studio');
   const card = page.locator('.studio-workspace').filter({ hasText: 'Workshop operations' });
-  await expect(card.getByRole('link', { name: 'People', exact: true })).toHaveAttribute(
+  await expect(card.getByRole('link', { name: 'Manage', exact: true })).toHaveAttribute(
     'href',
-    '/studio/workshop/people',
+    '/studio/workshop/manage',
   );
-  await expect(card.getByRole('link', { name: /Things/ })).toBeVisible();
-  await expect(card.getByRole('link', { name: 'Catalog', exact: true })).toBeVisible();
+  await expect(card.getByRole('link', { name: 'Guides', exact: true })).toBeVisible();
 
-  await card.getByRole('link', { name: 'People', exact: true }).click();
+  // Two hops to People, and both of them named.
+  await card.getByRole('link', { name: 'Manage', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Set up this workspace.' })).toBeVisible();
+  await page.getByRole('link', { name: /People/ }).click();
   await expect(page.getByRole('heading', { name: 'Who can reach this workspace.' })).toBeVisible();
 });
 
@@ -1890,8 +1892,10 @@ test('the header separates the installation from the workspace inside it', async
   ).toBeVisible();
 
   const sections = page.getByRole('navigation', { name: 'Studio navigation' });
-  for (const label of ['Guides', 'Catalog', 'People', 'Library'])
+  for (const label of ['Guides', 'Manage', 'Library'])
     await expect(sections.getByRole('link', { name: new RegExp(label) })).toBeVisible();
+  // The structural sections are behind Manage now, not beside Guides.
+  await expect(sections.getByRole('link', { name: 'Catalog', exact: true })).toHaveCount(0);
 
   // And the installation's own links are not among them. A single flat row
   // mixing "Workspaces" with "Catalog" is what made it impossible to tell which
@@ -1930,4 +1934,53 @@ test('a guide is edited from the page you read it on, by whoever may', async ({
   const seen = await guest.goto(`/w/workshop/guides/${created.id}`);
   expect(seen?.status()).toBe(404);
   await stranger.close();
+});
+
+test('managing a workspace is one place, and closed to someone who only views', async ({
+  page,
+  browser,
+}) => {
+  await login(page.request);
+  await page.goto('/studio/workshop/manage');
+  await expect(page.getByRole('heading', { name: 'Set up this workspace.' })).toBeVisible();
+
+  // Each section says what it is for. A list of bare names would need the
+  // reader to already know the difference between things and the catalog.
+  for (const [name, href] of [
+    ['Things', '/studio/workshop/categories'],
+    ['Catalog', '/studio/workshop/catalog'],
+    ['People', '/studio/workshop/people'],
+  ] as const) {
+    const link = page.getByRole('link', { name: new RegExp(name) });
+    await expect(link).toHaveAttribute('href', href);
+    await expect(link).not.toHaveText(name); // it carries a description too
+  }
+
+  // And somebody who can only view is refused it. Written because the first
+  // version of this scenario asserted only the half that was easy to reach.
+  const invitee = `viewer-${randomUUID().slice(0, 8)}@example.test`;
+  const invite = await api<{ link: string }>(page.request, '/api/studio/workshop/people', 'POST', {
+    email: invitee,
+    role: 'view',
+  });
+  const theirs = await browser.newContext();
+  const them = await theirs.newPage();
+  await them.goto(invite.link);
+  await them.getByRole('textbox', { name: 'Your name', exact: true }).fill('Only A Viewer');
+  await them.getByLabel('Password', { exact: true }).fill('a-perfectly-good-password');
+  await them.getByLabel('Password again', { exact: true }).fill('a-perfectly-good-password');
+  await them.getByRole('button', { name: /^Join Workshop operations/ }).click();
+  await expect(them).toHaveURL(/\/studio\/workshop$/);
+
+  await them.goto('/studio/workshop/manage');
+  await expect(
+    them.getByText('Only someone who manages this workspace can set it up.'),
+  ).toBeVisible();
+  // And it is not offered to them in the first place.
+  await expect(
+    them
+      .getByRole('navigation', { name: 'Studio navigation' })
+      .getByRole('link', { name: 'Manage' }),
+  ).toHaveCount(0);
+  await theirs.close();
 });

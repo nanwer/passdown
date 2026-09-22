@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
-import { BookOpen, ArrowLeft, LogOut, PenLine, FolderTree, Users, Wrench } from 'lucide-react';
+import { BookOpen, ArrowLeft, LogOut, PenLine, SlidersHorizontal } from 'lucide-react';
 import { words } from '../../lib/vocabulary';
 import { Button, SiteHeader, ThemeToggle } from '@guide/ui';
 import type { StudioSession, StudioWorkspace } from '@guide/contracts';
@@ -39,22 +39,16 @@ export function Frame({
                 // workspace's sections, so they sit under it rather than beside
                 // the installation's own links.
                 { href: `/studio/${workspace.id}`, label: 'Guides' },
+                // One entry rather than three. Guides and the library are what
+                // you do daily; the tree, the catalog and the people are what
+                // you set up occasionally, and a row of five made them look
+                // like the same kind of thing.
                 ...(workspace.role === 'manage'
                   ? [
                       {
-                        href: `/studio/${workspace.id}/categories`,
-                        label: words.Things,
-                        icon: <FolderTree size={15} />,
-                      },
-                      {
-                        href: `/studio/${workspace.id}/catalog`,
-                        label: 'Catalog',
-                        icon: <Wrench size={15} />,
-                      },
-                      {
-                        href: `/studio/${workspace.id}/people`,
-                        label: 'People',
-                        icon: <Users size={15} />,
+                        href: `/studio/${workspace.id}/manage`,
+                        label: 'Manage',
+                        icon: <SlidersHorizontal size={15} />,
                       },
                     ]
                   : []),

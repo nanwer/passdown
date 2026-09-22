@@ -1107,3 +1107,50 @@
   font-size: 12.5px;
   overflow-wrap: anywhere;
 }
+
+/* The manage index. One row per section, each a whole link with room for a
+   sentence saying what it is for — a list of bare names would need the reader
+   to already know the difference between things and the catalog. */
+.manage-sections {
+  display: grid;
+  gap: 12px;
+}
+.manage-section {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 18px 20px;
+}
+.manage-section:hover {
+  border-color: var(--gp-semantic-focus-ring);
+}
+.manage-section-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: var(--gp-semantic-surface-sunken);
+  color: var(--gp-semantic-text-secondary);
+}
+.manage-section-body {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.manage-section-body strong {
+  font-size: 15px;
+  color: var(--gp-semantic-text-primary);
+}
+.manage-section-body span {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--gp-semantic-text-secondary);
+}
+.manage-section-arrow {
+  flex: none;
+  margin-left: auto;
+  align-self: center;
+  color: var(--gp-semantic-text-secondary);
+}

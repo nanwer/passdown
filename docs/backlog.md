@@ -21,10 +21,19 @@ isolation rather than as a whole:
   Things · Catalog · People · Library" on another, with no indication that the
   shorter one is a subset rather than the whole product.
 
-Each of those is now fixed and covered by a test, but they were symptoms. The
+Each of those was fixed and covered by a test, but they were symptoms. The
 underlying question — what the top level of this product is, and what belongs
-inside a workspace rather than beside it — has not been answered, and patching
-individual routes will keep producing screens that are correct and unreachable.
+inside a workspace rather than beside it — is now partly answered.
 
-Worth doing properly after the interface is on one component system, because
-the answer will change what the navigation is made of.
+**Done.** An installation names the workspace it serves at its root, instead of
+a string in five files, two of which decided whether a published guide was
+reachable. One header across both surfaces, with a workspace's own sections
+beneath the installation's rather than beside them. A guide is edited from the
+page you read it on. The tree, the catalog and the people sit behind one Manage
+entry, so the persistent navigation carries what you do daily and the structure
+is somewhere you go deliberately.
+
+**Left.** Where a draft belongs: published guides live in a library and drafts
+live in the studio, so a guide still has two homes depending on its state. A
+landing page that shows your work rather than a list of workspaces. And a way
+to create a second workspace, which the product cannot do at all.
