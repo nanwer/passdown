@@ -21,7 +21,18 @@ for (const theme of ['light', 'dark'] as const) {
     ['editor.muted', 'editor.hover', 4.5],
     ['focus.ring', 'editor.canvas', 3],
     ['text.secondary', 'surface.canvas', 4.5],
+    // Secondary text sits on sunken panels as often as on the page itself, and
+    // only the canvas pairing was checked — so a palette that passed here still
+    // shipped unreadable text, which an axe scan caught one page at a time.
+    ['text.secondary', 'surface.sunken', 4.5],
+    ['text.secondary', 'surface.panel', 4.5],
+    ['text.primary', 'surface.panel', 4.5],
+    ['text.primary', 'surface.sunken', 4.5],
     ['action.primary.foreground', 'action.primary.background', 4.5],
+    // A destructive button is a fill with text on it, which is a different job
+    // from the error text that sits on a pale tint — conflating the two put red
+    // on pink at 3.4:1.
+    ['action.destructive.foreground', 'action.destructive.background', 4.5],
     ...(
       [
         'surface.canvas',

@@ -1,8 +1,9 @@
 import type { Metadata } from 'next';
-import '@fontsource/manrope/400.css';
-import '@fontsource/manrope/500.css';
-import '@fontsource/manrope/600.css';
-import '@fontsource/manrope/700.css';
+import '@fontsource/geist-sans/400.css';
+import '@fontsource/geist-sans/500.css';
+import '@fontsource/geist-sans/600.css';
+import '@fontsource/geist-sans/700.css';
+import '@fontsource/geist-mono/400.css';
 import '@guide/design-tokens/tokens.css';
 import './globals.css';
 export const metadata: Metadata = {
