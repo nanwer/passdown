@@ -84,6 +84,28 @@ export function Library({
     const search = query ? `?q=${encodeURIComponent(query)}` : '';
     return next ? `${guideBase}/categories/${next}${search}` : `${base}${search}`;
   };
+  /**
+   * A picture for a guide card: the guide's own first picture, or failing that
+   * the picture of the nearest thing it is filed under.
+   *
+   * Every card used to draw the same illustration, because the column that
+   * decides which one has a default and no writer.
+   */
+  const cover = (guide: DemoGuide | PublishedGuide) => {
+    if (!('workspaceId' in guide)) return undefined;
+    const own = guide.document.steps.flatMap((step) => step.media)[0];
+    if (own) return { src: `/api/media/${guide.workspaceId}/${own.assetId}?w=800`, alt: own.alt };
+    const path = 'categoryPath' in guide ? [...guide.categoryPath].reverse() : [];
+    for (const step of path) {
+      const found = taxonomy?.find((item) => item.id === step.id && item.imageAssetId);
+      if (found)
+        return {
+          src: `/api/media/${found.workspaceId}/${found.imageAssetId}?w=800`,
+          alt: `Illustration for ${found.name}`,
+        };
+    }
+    return undefined;
+  };
   const first = guides.length ? offset + 1 : 0;
   const last = offset + guides.length;
   const currentPage = Math.floor(offset / limit) + 1;
@@ -272,6 +294,7 @@ export function Library({
                     difficulty={guide.document.difficulty}
                     steps={guide.document.steps.length}
                     artwork={guide.artwork}
+                    cover={cover(guide)}
                     href={`${guideBase}/guides/${guide.id}`}
                   />
                 ))}

@@ -601,6 +601,15 @@ button {
   color: var(--gp-semantic-text-secondary);
 }
 
+/* A guide's own picture, filling the space the illustration would have had. */
+.guide-card-cover {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  background: var(--gp-semantic-surface-sunken);
+}
+
 /* Keep enough result space for filters to stay put when a short list replaces a long one. */
 .guide-results {
   min-block-size: max(24rem, calc(100svh - 12rem));

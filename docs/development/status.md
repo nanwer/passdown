@@ -28,4 +28,6 @@ Saves are manual. Open signup is deliberately off — an account exists because 
 
 An installation serves one organisation and gets one workspace, which carries a public library and an internal section; creating further workspaces is deliberately out of scope. The interface is mid-migration onto shadcn components; one screen is converted and the rest still use the older stylesheets. The information architecture work is partly done — see [the backlog](../backlog.md).
 
+A showcase library is available for evaluation — `pnpm seed:showcase` — written through the API rather than into tables, so it exercises the same validation and publication rules as hand-written content.
+
 See the [roadmap](../../ROADMAP.md) for upcoming outcomes and the [manual checklist](manual-test-checklist.md) for testable behavior. The repository license covers code, not a blanket license for user-authored guide content.

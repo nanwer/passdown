@@ -8,6 +8,14 @@ export type GuideCardProps = {
   difficulty: string;
   steps: number;
   artwork: ArtworkKind;
+  /**
+   * The guide's own picture, where it has one.
+   *
+   * Without it every card drew the same illustration: `app.guide.artwork`
+   * defaults to 'bench' and nothing in the product ever sets it, so a real
+   * library of twenty guides was twenty identical drawings of a workbench.
+   */
+  cover?: { src: string; alt: string };
   href: string;
 };
 export function GuideCard({
@@ -18,13 +26,18 @@ export function GuideCard({
   difficulty,
   steps,
   artwork,
+  cover,
   href,
 }: GuideCardProps) {
   return (
     <article className="guide-card">
       <a href={href} className="guide-card-link">
         <div className="guide-card-image">
-          <GuideArtwork kind={artwork} />
+          {cover ? (
+            <img className="guide-card-cover" src={cover.src} alt={cover.alt} loading="lazy" />
+          ) : (
+            <GuideArtwork kind={artwork} />
+          )}
           <span className="card-open" aria-hidden="true">
             <ArrowUpRight size={19} />
           </span>

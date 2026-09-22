@@ -28,6 +28,15 @@ Passdown is in active development. An installation creates its own administrator
 
 Open signup is deliberately off: an account exists because somebody was invited or because the installation created the first one. An installation serves one organisation and has one workspace, which carries both a public library and an internal section. Approval workflows, community contribution and collaborative editing are not implemented. Saves are manual; there is no autosave. Photographs are supported, including marks and arrows drawn onto them, captions, ordering and reuse. Non-image attachments are not. Email is not sent anywhere — invitations are links you pass on yourself.
 
+### A library to look at
+
+`pnpm seed:showcase` replaces the local library with a worked example of a
+flat-pack furniture company: twenty-two public assembly, repair and care guides,
+twenty-two members-only production procedures, the things they are about, and
+the catalog they draw on. It writes through the application's own API, so
+everything in it is something you could have written by hand. It is destructive,
+and it refuses to run against anything but the local `guide_app` database.
+
 ## Run locally
 
 You need **Node.js 22.22.2**, **pnpm 10.33.0**, and a running **Docker** installation with Docker Compose. The Node and pnpm versions are pinned in `.nvmrc` and `package.json`.
