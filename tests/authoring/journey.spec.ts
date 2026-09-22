@@ -92,10 +92,9 @@ test('real public create, step editing, save, reload, immutable publication, and
   await page.getByLabel('Password', { exact: true }).fill(credentials.GUIDE_LOCAL_OWNER_PASSWORD!);
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Where will you create?' })).toBeVisible();
-  await page
-    .getByRole('link')
-    .filter({ has: page.getByRole('heading', { name: 'Repair collective', exact: true }) })
-    .click();
+  // The workspace card stopped being a single link when it gained shortcuts
+  // into Things, Catalog and People — nothing can nest inside a link.
+  await page.getByRole('link', { name: 'Repair collective', exact: true }).click();
   // The form loads its category list on mount, so prepare this run's fixture first.
   await ensureCategory(context.request, 'repair-collective', categoryName);
   await page.getByRole('link', { name: 'New guide', exact: true }).click();

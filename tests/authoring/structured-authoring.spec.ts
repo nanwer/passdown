@@ -1831,3 +1831,35 @@ test('somebody is invited, joins from the link, and the link then does nothing',
   await stranger.close();
   await second.close();
 });
+
+test('a workspace can be reached from the page you land on', async ({ page }) => {
+  // People shipped with a navigation entry that only rendered once you were
+  // already inside a workspace, so from /studio — the page you arrive at —
+  // there was no route to it at all.
+  await login(page.request);
+  await page.goto('/studio');
+  const card = page.locator('.studio-workspace').filter({ hasText: 'Workshop operations' });
+  await expect(card.getByRole('link', { name: 'People', exact: true })).toHaveAttribute(
+    'href',
+    '/studio/workshop/people',
+  );
+  await expect(card.getByRole('link', { name: /Things/ })).toBeVisible();
+  await expect(card.getByRole('link', { name: 'Catalog', exact: true })).toBeVisible();
+
+  await card.getByRole('link', { name: 'People', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Who can reach this workspace.' })).toBeVisible();
+});
+
+test('the only person who manages a workspace is not offered a way out of it', async ({ page }) => {
+  await login(page.request);
+  await page.goto('/studio/workshop/people');
+  await expect(page.getByRole('heading', { name: 'Who can reach this workspace.' })).toBeVisible();
+
+  // Scoped to the owner's own row. Earlier scenarios leave other members in
+  // this workspace, and an unscoped locator matched all of them — the first
+  // version of this test passed only because it happened to run alone.
+  const mine = page.locator('.people-list li').filter({ hasText: 'Local owner' });
+  await expect(mine.getByRole('combobox', { name: /Permission for/ })).toBeDisabled();
+  await expect(mine.getByRole('button', { name: 'Remove', exact: true })).toBeDisabled();
+  await expect(page.getByText('One person manages this workspace')).toBeVisible();
+});

@@ -1,6 +1,15 @@
 'use client';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { ArrowRight, Globe2, LockKeyhole, Plus, Search } from 'lucide-react';
+import {
+  ArrowRight,
+  FolderTree,
+  Globe2,
+  LockKeyhole,
+  Plus,
+  Search,
+  Users,
+  Wrench,
+} from 'lucide-react';
 import { Button } from '@guide/ui';
 import type { Category, DraftGuide, DraftSummary, StudioWorkspace } from '@guide/contracts';
 import { composeGuideTitle, type GuideDocument, type GuideType } from '@guide/content';
@@ -86,28 +95,45 @@ export function Workspaces() {
           </div>
           <div className="studio-workspaces">
             {session.workspaces.map((workspace) => (
-              <a
-                className="studio-card studio-workspace"
-                key={workspace.id}
-                href={`/studio/${workspace.id}`}
-              >
+              /* Not a single link any more. The card used to be one <a>, which
+                 meant the only thing you could do from here was enter the
+                 workspace and go looking — People in particular is somewhere you
+                 head for deliberately, and there was no way to reach it without
+                 first knowing it existed. Nothing can nest inside a link, so the
+                 card is a region with several. */
+              <div className="studio-card studio-workspace" key={workspace.id}>
                 <span className="studio-workspace-icon">
                   {workspace.audience === 'public' ? <Globe2 /> : <LockKeyhole />}
                 </span>
                 <span className="studio-eyebrow">
                   {workspace.audience === 'public' ? 'Public community' : 'Private workspace'} ·{' '}
-                  {workspace.role}
+                  {workspace.role === 'manage' ? 'you manage this' : 'you can read this'}
                 </span>
-                <h2>{workspace.name}</h2>
+                <h2>
+                  <a href={`/studio/${workspace.id}`}>{workspace.name}</a>
+                </h2>
                 <p>
                   {workspace.role === 'manage'
                     ? 'Create, edit and publish your guides.'
-                    : 'Browse the published workspace library. Authoring is currently owner-only.'}
+                    : 'Read what has been published to members here.'}
                 </p>
-                <span className="studio-text-link">
+                <a className="studio-text-link" href={`/studio/${workspace.id}`}>
                   Open workspace <ArrowRight size={17} />
-                </span>
-              </a>
+                </a>
+                {workspace.role === 'manage' && (
+                  <nav className="studio-workspace-links" aria-label={`${workspace.name} sections`}>
+                    <a href={`/studio/${workspace.id}/categories`}>
+                      <FolderTree size={15} /> {words.Things}
+                    </a>
+                    <a href={`/studio/${workspace.id}/catalog`}>
+                      <Wrench size={15} /> Catalog
+                    </a>
+                    <a href={`/studio/${workspace.id}/people`}>
+                      <Users size={15} /> People
+                    </a>
+                  </nav>
+                )}
+              </div>
             ))}
           </div>
           {!session.workspaces.length && (

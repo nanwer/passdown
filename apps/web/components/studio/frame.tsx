@@ -28,9 +28,12 @@ export function Frame({
         </a>
         <nav aria-label="Studio navigation">
           <a href="/studio">Workspaces</a>
+          {/* Anyone who is in a workspace can see its guides. Only someone who
+              manages it gets the rest — but gating the whole group on manage
+              left a viewer with a studio that had no navigation at all. */}
+          {workspace && <a href={`/studio/${workspace.id}`}>Guides</a>}
           {workspace?.role === 'manage' && (
             <>
-              <a href={`/studio/${workspace.id}`}>Guides</a>
               <a href={`/studio/${workspace.id}/categories`}>
                 <FolderTree size={17} /> {words.Things}
               </a>

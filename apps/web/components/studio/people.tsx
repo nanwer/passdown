@@ -70,6 +70,12 @@ function PeopleList({ workspace }: { workspace: StudioWorkspace }) {
     });
   }
 
+  // The database refuses to leave a workspace with nobody who can manage it.
+  // Knowing that up here means the controls can explain themselves rather than
+  // accepting a click and returning an error for something that was never
+  // going to be allowed.
+  const managers = (people?.members ?? []).filter((m) => m.role === 'manage' && m.active);
+
   if (workspace.role !== 'manage')
     return (
       <main id="main" tabIndex={-1} className="studio-container studio-narrow">
@@ -90,141 +96,154 @@ function PeopleList({ workspace }: { workspace: StudioWorkspace }) {
         </p>
       </div>
 
-      {error && <ErrorNotice error={error} />}
+      <div className="people-page">
+        {error && <ErrorNotice error={error} />}
 
-      <form className="studio-card studio-form" onSubmit={invite}>
-        <label>
-          Invite by email
-          <input
-            name="email"
-            type="email"
-            required
-            maxLength={200}
-            placeholder="them@example.com"
-          />
-        </label>
-        <label>
-          They can
-          <select name="role" defaultValue="view">
-            <option value="view">View — read published guides</option>
-            <option value="manage">Manage — everything, including inviting people</option>
-          </select>
-        </label>
-        <Button type="submit" loading={pending}>
-          <UserPlus size={16} /> Create an invitation
-        </Button>
-      </form>
+        <form className="studio-card studio-form" onSubmit={invite}>
+          <label>
+            Invite by email
+            <input
+              name="email"
+              type="email"
+              required
+              maxLength={200}
+              placeholder="them@example.com"
+            />
+          </label>
+          <label>
+            They can
+            <select name="role" defaultValue="view">
+              <option value="view">View — read published guides</option>
+              <option value="manage">Manage — everything, including inviting people</option>
+            </select>
+          </label>
+          <Button type="submit" loading={pending}>
+            <UserPlus size={16} /> Create an invitation
+          </Button>
+        </form>
 
-      {issued && (
-        <div className="studio-card invite-issued">
-          <h2>Send this link to {issued.email}</h2>
-          <p>
-            It works once, and it is only shown here. Nothing is emailed, and this link cannot be
-            recovered later — if it goes missing, revoke the invitation and make another.
-          </p>
-          <div className="invite-link">
-            <code>{issued.link}</code>
-            <Button
-              variant="secondary"
-              onClick={() => {
-                void navigator.clipboard?.writeText(issued.link).then(
-                  () => setCopied(true),
-                  () => setCopied(false),
-                );
-              }}
-            >
-              {copied ? <Check size={16} /> : <Copy size={16} />}
-              {copied ? 'Copied' : 'Copy'}
-            </Button>
+        {issued && (
+          <div className="studio-card invite-issued">
+            <h2>Send this link to {issued.email}</h2>
+            <p>
+              It works once, and it is only shown here. Nothing is emailed, and this link cannot be
+              recovered later — if it goes missing, revoke the invitation and make another.
+            </p>
+            <div className="invite-link">
+              <code>{issued.link}</code>
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  void navigator.clipboard?.writeText(issued.link).then(
+                    () => setCopied(true),
+                    () => setCopied(false),
+                  );
+                }}
+              >
+                {copied ? <Check size={16} /> : <Copy size={16} />}
+                {copied ? 'Copied' : 'Copy'}
+              </Button>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      <section className="studio-card">
-        <h2>In this workspace</h2>
-        <ul className="people-list">
-          {people?.members.map((member) => (
-            <li key={member.actorId}>
-              <div className="people-who">
-                <strong>
-                  {member.name}
-                  {member.isYou && <span className="people-you">you</span>}
-                </strong>
-                <span>{member.email}</span>
-              </div>
-              <div className="people-actions">
-                <label className="people-role">
-                  <span className="sr-only">Permission for {member.name}</span>
-                  <select
-                    value={member.role}
-                    disabled={pending}
-                    onChange={(event) =>
-                      void act(() =>
-                        studioFetch(`/api/studio/${workspace.id}/people/${member.actorId}`, {
-                          method: 'PATCH',
-                          body: JSON.stringify({ role: event.target.value }),
-                        }),
-                      )
-                    }
-                  >
-                    <option value="view">View</option>
-                    <option value="manage">Manage</option>
-                  </select>
-                </label>
-                <Button
-                  variant="ghost"
-                  disabled={pending}
-                  onClick={() => {
-                    if (!window.confirm(`Remove ${member.name} from ${workspace.name}?`)) return;
-                    void act(() =>
-                      studioFetch(`/api/studio/${workspace.id}/people/${member.actorId}`, {
-                        method: 'DELETE',
-                      }),
-                    );
-                  }}
-                >
-                  Remove
-                </Button>
-              </div>
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      {people && people.invitations.length > 0 && (
-        <section className="studio-card">
-          <h2>Waiting to be accepted</h2>
+        <section className="people-section">
+          <h2>In this workspace</h2>
           <ul className="people-list">
-            {people.invitations.map((invitation) => (
-              <li key={invitation.id}>
+            {people?.members.map((member) => (
+              <li key={member.actorId}>
                 <div className="people-who">
-                  <strong>{invitation.email}</strong>
-                  <span>
-                    {invitation.role === 'manage' ? 'Manage' : 'View'} · invited by{' '}
-                    {invitation.invitedBy} · expires{' '}
-                    {new Date(invitation.expiresAt).toLocaleDateString()}
-                  </span>
+                  <strong>
+                    {member.name}
+                    {member.isYou && <span className="people-you">you</span>}
+                  </strong>
+                  <span>{member.email}</span>
                 </div>
                 <div className="people-actions">
+                  <label className="people-role">
+                    <span className="sr-only">Permission for {member.name}</span>
+                    <select
+                      value={member.role}
+                      disabled={pending || (member.role === 'manage' && managers.length === 1)}
+                      title={
+                        member.role === 'manage' && managers.length === 1
+                          ? 'The only person who can manage this workspace cannot step down. Give someone else manage first.'
+                          : undefined
+                      }
+                      onChange={(event) =>
+                        void act(() =>
+                          studioFetch(`/api/studio/${workspace.id}/people/${member.actorId}`, {
+                            method: 'PATCH',
+                            body: JSON.stringify({ role: event.target.value }),
+                          }),
+                        )
+                      }
+                    >
+                      <option value="view">View</option>
+                      <option value="manage">Manage</option>
+                    </select>
+                  </label>
                   <Button
                     variant="ghost"
-                    disabled={pending}
-                    onClick={() =>
+                    disabled={pending || (member.role === 'manage' && managers.length === 1)}
+                    onClick={() => {
+                      if (!window.confirm(`Remove ${member.name} from ${workspace.name}?`)) return;
                       void act(() =>
-                        studioFetch(`/api/studio/${workspace.id}/invitations/${invitation.id}`, {
+                        studioFetch(`/api/studio/${workspace.id}/people/${member.actorId}`, {
                           method: 'DELETE',
                         }),
-                      )
-                    }
+                      );
+                    }}
                   >
-                    Revoke
+                    Remove
                   </Button>
                 </div>
               </li>
             ))}
           </ul>
+          {managers.length === 1 && (
+            <p className="studio-hint">
+              One person manages this workspace, so they cannot step down or be removed. Give
+              someone else manage first, and the controls open up.
+            </p>
+          )}
         </section>
-      )}
+
+        {people && people.invitations.length > 0 && (
+          <section className="people-section">
+            <h2>Waiting to be accepted</h2>
+            <ul className="people-list">
+              {people.invitations.map((invitation) => (
+                <li key={invitation.id}>
+                  <div className="people-who">
+                    <strong>{invitation.email}</strong>
+                    <span>
+                      {invitation.role === 'manage' ? 'Manage' : 'View'} · invited by{' '}
+                      {invitation.invitedBy} · expires{' '}
+                      {new Date(invitation.expiresAt).toLocaleDateString()}
+                    </span>
+                  </div>
+                  <div className="people-actions">
+                    <Button
+                      variant="ghost"
+                      disabled={pending}
+                      onClick={() =>
+                        void act(() =>
+                          studioFetch(`/api/studio/${workspace.id}/invitations/${invitation.id}`, {
+                            method: 'DELETE',
+                          }),
+                        )
+                      }
+                    >
+                      Revoke
+                    </Button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+      </div>
     </main>
   );
 }

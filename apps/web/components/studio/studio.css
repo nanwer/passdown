@@ -998,6 +998,43 @@
   gap: 10px;
 }
 
+/* Shortcuts into a workspace, from the card that represents it. The card is a
+   column, so without this each link's icon and label stack instead of sitting
+   together and the row reads as six items rather than three. */
+.studio-workspace-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--gp-semantic-border-subtle);
+}
+.studio-workspace-links a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--gp-semantic-text-secondary);
+}
+.studio-workspace-links a:hover {
+  color: var(--gp-semantic-text-primary);
+}
+
+/* People is the first studio page that stacks several blocks, and .studio-card
+   carries no margin of its own — so without this they butt straight into each
+   other and read as one broken box rather than three things. */
+.people-page {
+  display: grid;
+  gap: 24px;
+}
+/* Members and invitations are lists under a heading, not panels. Three bordered
+   boxes down a short page is more furniture than content, and the borders stop
+   meaning anything when everything has one. */
+.people-section h2 {
+  margin: 0 0 4px;
+  font-size: 17px;
+}
+
 /* People. Members and pending invitations share one list shape, because they
    are two answers to the same question and reading them as one list is the
    point. */
