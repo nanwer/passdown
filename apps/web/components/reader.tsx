@@ -4,7 +4,7 @@ import type { DemoGuide } from '@guide/testing';
 import type { GuideFamily } from '@guide/contracts';
 import type { PublishedGuide } from '@guide/contracts';
 import Link from 'next/link';
-import { ArrowLeft, ArrowUp, Clock3, ListOrdered, LockKeyhole } from 'lucide-react';
+import { ArrowLeft, ArrowUp, Clock3, ListOrdered, LockKeyhole, PenLine } from 'lucide-react';
 export function Reader({
   guide,
   team = false,
@@ -49,8 +49,12 @@ export function Reader({
       footerNote={persistent ? 'Write, share, and keep useful knowledge close.' : undefined}
       actions={
         persistent ? (
+          // Named for where it goes, not for one thing you can do there. As
+          // "Write a guide" it was the only door from the public library into
+          // the studio, so anyone looking for the catalog, things or people had
+          // no reason to press it and no other way through.
           <Link className="button button--primary" href="/studio">
-            Write a guide
+            <PenLine size={16} aria-hidden="true" /> Open studio
           </Link>
         ) : undefined
       }

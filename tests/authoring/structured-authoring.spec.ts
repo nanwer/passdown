@@ -1863,3 +1863,17 @@ test('the only person who manages a workspace is not offered a way out of it', a
   await expect(mine.getByRole('button', { name: 'Remove', exact: true })).toBeDisabled();
   await expect(page.getByText('One person manages this workspace')).toBeVisible();
 });
+
+test('the library has a way into the studio that names where it goes', async ({ page }) => {
+  // The only door from the public library used to be labelled "Write a guide",
+  // so anyone looking for the catalog, things or people had no reason to press
+  // it — and there was no other way through. This lives in the authoring suite
+  // because the editor suite runs the sample library, which has no studio.
+  await login(page.request);
+  await page.goto('/');
+  const door = page.getByRole('link', { name: /Open studio/ });
+  await expect(door).toBeVisible();
+  await expect(door).toHaveAttribute('href', '/studio');
+  await door.click();
+  await expect(page.getByRole('heading', { name: 'Where will you create?' })).toBeVisible();
+});
