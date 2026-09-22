@@ -119,6 +119,21 @@ export async function verifyBootstrap(
       },
     );
 
+    await check('a fresh installation has no workspace the front page depends on', async () => {
+      // The root library was pinned to a workspace named in the source, so on
+      // every installation that did not carry this project's development seed
+      // — which is every one the bootstrap creates — the front page answered
+      // 500. The name is still a literal until the information architecture
+      // work decides what belongs at the root; what is asserted here is that
+      // the bootstrap does not produce it, so nothing may assume it exists.
+      const named = await db.query('SELECT id FROM app.workspace');
+      assert(
+        !named.rows.some((row: { id: string }) => row.id === 'repair-collective'),
+        'the bootstrap must not be relied on to create the workspace the root page names',
+      );
+      assert(named.rows.length > 0, 'it does create one, just not that one');
+    });
+
     await check('first run happens once, however many times the application starts', async () => {
       const before = (await db.query('SELECT count(*)::int n FROM public.auth_user')).rows[0].n;
       const again = await bootstrapFirstRun({
