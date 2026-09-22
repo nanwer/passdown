@@ -24,4 +24,5 @@ export const migrationManifest: { name: string; checksum: string }[] = [
   { name: '021_invitations.sql', checksum: '5c8994dd0a6a260d2f44c373e563327b973d2483ff2da21c2c4f547852f6af2e' },
   { name: '022_root_workspace.sql', checksum: '91aadefae7f6f9ab3a4d55bd0f5fe4caaaaeac7624c9ac1437c18a6cb7df6100' },
   { name: '023_first_workspace_is_root.sql', checksum: 'c2a196ba94bfa286af9e315533f86598af47c6e57da347a73b15eabbaf7937b2' },
+  { name: '024_manager_reads_own_pictures.sql', checksum: 'debf979fa0f74d840f11f9e07ddb40da815214956ed0aae4434558b5e4462fd1' },
 ];

@@ -65,6 +65,14 @@ Owner-only authoring; manual saves without browser draft backup; category depth 
 1. Open **Studio → a workspace → Tools & materials**. Expect items used by guides to show a total such as `3 guides`, and unused items to show nothing.
 2. Use the **All / Active / Inactive** tabs with the search, kind and category filters. Expect All to equal Active plus Inactive under whatever else is filtered.
 
+## Pictures on a step
+
+1. Open a draft and find **Pictures**. Expect a dashed control reading **Add a picture / Drop one here, or choose a file** — no `Choose File` widget from the browser.
+2. Drop an image onto it, or choose one. Expect the picture itself to appear beside **Describe this picture**, not a broken image.
+3. Describe it and choose **Add to step**. Expect a card with the picture, **Description** and **Caption** on full-width fields, and the ordering controls at the top right.
+4. Choose **Use one already added**. Expect each picture in the list to be shown, not a grid of broken images.
+5. Repeat at 390px wide. Expect the picture and its fields to stack rather than squeeze.
+
 ## The front page
 
 1. Open the home page. Expect a heading, a sentence and the search field, then the category chips, then the guides — the first guide visible without scrolling on a desktop screen.

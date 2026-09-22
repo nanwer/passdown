@@ -1040,6 +1040,15 @@ export async function structuredChecks({
     // Nor from another workspace, whoever is asking.
     assert.equal(await store.assetReadable(who, 'private', openPicture), false);
 
+    // A picture nothing refers to at all, which is every picture between being
+    // uploaded and the draft being saved. The editor drew a broken image for
+    // the whole of that window, and so did every thumbnail in the list offering
+    // to reuse one — a list of assets it could not display.
+    const unreferenced = await picture();
+    assert.equal(await store.assetReadable(who, 'public', unreferenced), true);
+    assert.equal(await store.assetReadable(anonymous, 'public', unreferenced), false);
+    assert.equal(await store.assetReadable(actor('outsider'), 'public', unreferenced), false);
+
     // Clearing it takes the access with it.
     await store.setCategoryImage(who, 'public', openShelf.id, null);
     assert.equal(await store.assetReadable(anonymous, 'public', openPicture), false);

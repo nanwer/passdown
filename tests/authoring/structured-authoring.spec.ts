@@ -1438,9 +1438,43 @@ test('adding a picture from the page: progress, refusal, retry and removal', asy
   await expect(page.getByRole('textbox', { name: 'Describe this picture' })).toBeVisible({
     timeout: 15000,
   });
+
+  // The author can see the picture they are describing. Readability followed a
+  // live reference, and a picture being described has none yet — so the editor
+  // asked for bytes it was refused and drew a broken image, here and on every
+  // thumbnail in the list offering to reuse one.
+  //
+  // Asserted as "this picture loaded", not "nothing is broken": an image that
+  // has not finished loading is neither, so counting broken ones passes while
+  // the request is still in flight.
+  const loaded = (where: string) =>
+    expect
+      .poll(
+        () =>
+          page
+            .locator(where)
+            .first()
+            .evaluate(
+              (img) =>
+                (img as HTMLImageElement).complete && (img as HTMLImageElement).naturalWidth > 0,
+            ),
+        { timeout: 15000 },
+      )
+      .toBe(true);
+  await loaded('.studio-picture--pending img');
+
   await page.getByRole('textbox', { name: 'Describe this picture' }).fill('A clear bench');
   await page.getByRole('button', { name: 'Add to step' }).click();
   await expect(page.getByRole('textbox', { name: 'Description' })).toHaveValue('A clear bench');
+  await loaded('.studio-picture:not(.studio-picture--pending) img');
+
+  // The control is this app's, not the browser's file widget showing through.
+  // The input stays in the page so it is still reachable by keyboard, but it is
+  // clipped to a point — it used to render as "Choose File / No file chosen",
+  // 220px of browser chrome inside the dashed box.
+  const widget = await page.locator('.studio-picture-add input[type=file]').boundingBox();
+  expect(widget!.width).toBeLessThan(2);
+  await expect(page.getByText('Drop one here, or choose a file')).toBeVisible();
 
   // A file the server will never accept is explained, and is not offered a
   // retry that would fail identically.

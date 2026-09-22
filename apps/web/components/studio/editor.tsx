@@ -12,6 +12,7 @@ import {
   Copy,
   Eye,
   Globe2,
+  ImagePlus,
   LockKeyhole,
   Plus,
   Save,
@@ -374,6 +375,7 @@ function StepPictures({
    * second time, which is the moment someone gives up on a slow connection.
    */
   const [failed, setFailed] = useState<File | null>(null);
+  const [dropping, setDropping] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const cancel = useRef<AbortController | null>(null);
 
@@ -436,38 +438,42 @@ function StepPictures({
               </Button>
             </div>
           </div>
-          <img src={`/api/media/${workspaceId}/${media.assetId}`} alt={media.alt} />
-          <label>
-            Description
-            <input
-              value={media.alt}
-              maxLength={500}
-              onChange={(e) =>
-                onChange({
-                  ...step,
-                  media: step.media.map((m) =>
-                    m.assetId === media.assetId ? { ...m, alt: e.target.value } : m,
-                  ),
-                })
-              }
-            />
-          </label>
-          <label>
-            Caption
-            <input
-              value={media.caption}
-              maxLength={200}
-              placeholder="Shown under the picture. Optional."
-              onChange={(e) =>
-                onChange({
-                  ...step,
-                  media: step.media.map((m) =>
-                    m.assetId === media.assetId ? { ...m, caption: e.target.value } : m,
-                  ),
-                })
-              }
-            />
-          </label>
+          <div className="studio-picture-body">
+            <img src={`/api/media/${workspaceId}/${media.assetId}`} alt={media.alt} />
+            <div className="studio-picture-fields">
+              <label>
+                Description
+                <input
+                  value={media.alt}
+                  maxLength={500}
+                  onChange={(e) =>
+                    onChange({
+                      ...step,
+                      media: step.media.map((m) =>
+                        m.assetId === media.assetId ? { ...m, alt: e.target.value } : m,
+                      ),
+                    })
+                  }
+                />
+              </label>
+              <label>
+                Caption
+                <input
+                  value={media.caption}
+                  maxLength={200}
+                  placeholder="Shown under the picture. Optional."
+                  onChange={(e) =>
+                    onChange({
+                      ...step,
+                      media: step.media.map((m) =>
+                        m.assetId === media.assetId ? { ...m, caption: e.target.value } : m,
+                      ),
+                    })
+                  }
+                />
+              </label>
+            </div>
+          </div>
           <PictureAnnotations
             src={`/api/media/${workspaceId}/${media.assetId}`}
             annotations={media.annotations}
@@ -497,37 +503,43 @@ function StepPictures({
 
       {pending ? (
         <div className="studio-picture studio-picture--pending">
-          <img src={`/api/media/${workspaceId}/${pending.id}`} alt="" />
-          <label>
-            Describe this picture
-            <input
-              autoFocus
-              value={alt}
-              maxLength={500}
-              placeholder="What someone who cannot see it needs to know"
-              onChange={(e) => setAlt(e.target.value)}
-            />
-          </label>
-          <Button
-            type="button"
-            disabled={!alt.trim()}
-            onClick={() => {
-              onChange({
-                ...step,
-                media: [
-                  ...step.media,
-                  { assetId: pending.id, alt: alt.trim(), caption: '', annotations: [] },
-                ],
-              });
-              setPending(null);
-              setAlt('');
-            }}
-          >
-            Add to step
-          </Button>
-          <Button type="button" variant="secondary" onClick={() => setPending(null)}>
-            Discard
-          </Button>
+          <div className="studio-picture-body">
+            <img src={`/api/media/${workspaceId}/${pending.id}`} alt="" />
+            <div className="studio-picture-fields">
+              <label>
+                Describe this picture
+                <input
+                  autoFocus
+                  value={alt}
+                  maxLength={500}
+                  placeholder="What someone who cannot see it needs to know"
+                  onChange={(e) => setAlt(e.target.value)}
+                />
+              </label>
+            </div>
+          </div>
+          <div className="studio-picture-footer">
+            <Button
+              type="button"
+              disabled={!alt.trim()}
+              onClick={() => {
+                onChange({
+                  ...step,
+                  media: [
+                    ...step.media,
+                    { assetId: pending.id, alt: alt.trim(), caption: '', annotations: [] },
+                  ],
+                });
+                setPending(null);
+                setAlt('');
+              }}
+            >
+              Add to step
+            </Button>
+            <Button type="button" variant="secondary" onClick={() => setPending(null)}>
+              Discard
+            </Button>
+          </div>
         </div>
       ) : busy ? (
         <div className="studio-picture-progress">
@@ -562,8 +574,29 @@ function StepPictures({
       ) : (
         step.media.length < 10 && (
           <div className="studio-picture-actions">
-            <label className="studio-picture-add">
-              <span>Add a picture</span>
+            {/* The label is the control; the file input behind it is what the
+                browser needs and what nobody should have to look at. It used to
+                render as "Choose File / No file chosen" inside the dashed box,
+                which is the browser's widget rather than this app's. */}
+            <label
+              className={`studio-picture-add${dropping ? ' studio-picture-add--over' : ''}`}
+              onDragOver={(event) => {
+                event.preventDefault();
+                setDropping(true);
+              }}
+              onDragLeave={() => setDropping(false)}
+              onDrop={(event) => {
+                event.preventDefault();
+                setDropping(false);
+                const file = event.dataTransfer.files?.[0];
+                if (file) void upload(file);
+              }}
+            >
+              <ImagePlus size={17} aria-hidden="true" />
+              <span>
+                <strong>Add a picture</strong>
+                <small>Drop one here, or choose a file</small>
+              </span>
               <input
                 ref={fileInput}
                 type="file"
