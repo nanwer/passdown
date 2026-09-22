@@ -2,7 +2,7 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { BookOpen, ArrowLeft, LogOut, PenLine, FolderTree, Users, Wrench } from 'lucide-react';
 import { words } from '../../lib/vocabulary';
-import { Button, ThemeToggle } from '@guide/ui';
+import { Button, SiteHeader, ThemeToggle } from '@guide/ui';
 import type { StudioSession, StudioWorkspace } from '@guide/contracts';
 import { StudioError, studioFetch } from './transport';
 import './studio.css';
@@ -22,43 +22,65 @@ export function Frame({
       <a className="skip-link" href="#main">
         Skip to content
       </a>
-      <header className="studio-header">
-        <a className="studio-brand" href="/studio">
-          <PenLine size={22} /> Passdown<span>studio</span>
-        </a>
-        <nav aria-label="Studio navigation">
-          <a href="/studio">Workspaces</a>
-          {/* Anyone who is in a workspace can see its guides. Only someone who
-              manages it gets the rest — but gating the whole group on manage
-              left a viewer with a studio that had no navigation at all. */}
-          {workspace && <a href={`/studio/${workspace.id}`}>Guides</a>}
-          {workspace?.role === 'manage' && (
-            <>
-              <a href={`/studio/${workspace.id}/categories`}>
-                <FolderTree size={17} /> {words.Things}
-              </a>
-              <a href={`/studio/${workspace.id}/catalog`}>
-                <Wrench size={17} /> Catalog
-              </a>
-              <a href={`/studio/${workspace.id}/people`}>
-                <Users size={17} /> People
-              </a>
-            </>
-          )}
-          <a href={workspace?.audience === 'private' ? `/w/${workspace.id}` : '/'}>
-            <BookOpen size={17} /> Library
-          </a>
-        </nav>
-        <div className="studio-header-actions">
-          <ThemeToggle />
-          {user && <span className="studio-user">{user}</span>}
-          {onSignOut && (
-            <button className="icon-button" onClick={onSignOut} aria-label="Sign out">
-              <LogOut size={18} />
-            </button>
-          )}
-        </div>
-      </header>
+      <SiteHeader
+        brandHref="/"
+        workspace={
+          workspace
+            ? { id: workspace.id, name: workspace.name, href: `/studio/${workspace.id}` }
+            : undefined
+        }
+        navLabel="Studio navigation"
+        sections={
+          workspace
+            ? [
+                // Anyone in the workspace can see its guides. Only someone who
+                // manages it gets the rest — gating the whole group on manage
+                // left a viewer with no navigation at all. And these are the
+                // workspace's sections, so they sit under it rather than beside
+                // the installation's own links.
+                { href: `/studio/${workspace.id}`, label: 'Guides' },
+                ...(workspace.role === 'manage'
+                  ? [
+                      {
+                        href: `/studio/${workspace.id}/categories`,
+                        label: words.Things,
+                        icon: <FolderTree size={15} />,
+                      },
+                      {
+                        href: `/studio/${workspace.id}/catalog`,
+                        label: 'Catalog',
+                        icon: <Wrench size={15} />,
+                      },
+                      {
+                        href: `/studio/${workspace.id}/people`,
+                        label: 'People',
+                        icon: <Users size={15} />,
+                      },
+                    ]
+                  : []),
+                {
+                  href: workspace.audience === 'private' ? `/w/${workspace.id}` : '/',
+                  label: 'Library',
+                  icon: <BookOpen size={15} />,
+                },
+              ]
+            : []
+        }
+        utilities={
+          <>
+            <a className="site-header-link" href="/studio">
+              Workspaces
+            </a>
+            <ThemeToggle />
+            {user && <span className="studio-user">{user}</span>}
+            {onSignOut && (
+              <button className="icon-button" onClick={onSignOut} aria-label="Sign out">
+                <LogOut size={18} />
+              </button>
+            )}
+          </>
+        }
+      />
       {children}
       <footer className="studio-footer">Local authoring · Manual saves</footer>
     </div>

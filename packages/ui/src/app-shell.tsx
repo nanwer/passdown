@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { BookOpen, ChevronDown, Globe2, Moon, Sun, LockKeyhole } from 'lucide-react';
+import { SiteHeader } from './site-header';
 export function ThemeToggle() {
   const [dark, setDark] = useState(false);
   useEffect(() => {
@@ -122,34 +123,30 @@ export function AppShell({
       >
         Skip to content
       </a>
-      <header className="site-header">
-        <a className="brand" href="/" aria-label="Passdown home">
-          <span className="brand-mark" aria-hidden="true">
-            <i />
-            <i />
-            <i />
-          </span>
-          <span>
-            Pass<span className="brand-light">down</span>
-            <small>EARLY PREVIEW</small>
-          </span>
-        </a>
-        <nav className="primary-nav" aria-label="Main navigation">
-          <a
-            className={active === 'library' ? 'active' : ''}
-            href={libraryHref ?? (team ? '/preview/workshop' : '/')}
-            aria-current={active === 'library' ? 'page' : undefined}
-          >
-            <BookOpen size={17} />
-            {libraryLabel}
-          </a>
-        </nav>
-        <div className="header-actions">
-          <ThemeToggle />
-          {workspaceLabel ? <span>{workspaceLabel}</span> : <WorkspaceDisclosure team={team} />}
-          {actions}
-        </div>
-      </header>
+      {/* The same header the studio renders. Its top tier is the installation
+          and its second tier belongs to whatever you are inside — here, one
+          library. The shape does not change between the two surfaces; only the
+          utilities on the right do. */}
+      <SiteHeader
+        workspace={
+          workspaceLabel ? { id: '', name: workspaceLabel, href: libraryHref ?? '/' } : undefined
+        }
+        sections={[
+          {
+            href: libraryHref ?? (team ? '/preview/workshop' : '/'),
+            label: libraryLabel,
+            icon: <BookOpen size={15} />,
+            current: active === 'library',
+          },
+        ]}
+        utilities={
+          <>
+            <ThemeToggle />
+            {!workspaceLabel && <WorkspaceDisclosure team={team} />}
+            {actions}
+          </>
+        }
+      />
       {children}
       <footer className="site-footer">
         <a className="footer-brand" href="/">

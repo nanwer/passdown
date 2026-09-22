@@ -1877,3 +1877,25 @@ test('the library has a way into the studio that names where it goes', async ({ 
   await door.click();
   await expect(page.getByRole('heading', { name: 'Where will you create?' })).toBeVisible();
 });
+
+test('the header separates the installation from the workspace inside it', async ({ page }) => {
+  await login(page.request);
+  await page.goto('/studio/workshop/people');
+  await expect(page.getByRole('heading', { name: 'Who can reach this workspace.' })).toBeVisible();
+
+  // Where you are, on the top tier, next to the mark. Scoped to the header
+  // because the page body names the workspace too.
+  await expect(
+    page.locator('.site-header-top').getByRole('link', { name: 'Workshop operations' }),
+  ).toBeVisible();
+
+  const sections = page.getByRole('navigation', { name: 'Studio navigation' });
+  for (const label of ['Guides', 'Catalog', 'People', 'Library'])
+    await expect(sections.getByRole('link', { name: new RegExp(label) })).toBeVisible();
+
+  // And the installation's own links are not among them. A single flat row
+  // mixing "Workspaces" with "Catalog" is what made it impossible to tell which
+  // navigation you were looking at.
+  await expect(sections.getByRole('link', { name: 'Workspaces', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'Workspaces', exact: true })).toBeVisible();
+});

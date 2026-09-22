@@ -16,3 +16,4 @@ export {
   cardStyles,
   type ButtonStyleProps,
 } from './primitives';
+export { SiteHeader, type HeaderSection } from './site-header';

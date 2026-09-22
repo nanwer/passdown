@@ -1671,3 +1671,70 @@ button {
   text-decoration: none;
   font-weight: 600;
 }
+
+/* The one header.
+   Two tiers, and they are deliberately not peers: the installation above, the
+   workspace's own sections below and quieter. When local navigation is as loud
+   as global, people stop seeing the global one — which is what a single flat
+   row of "Workspaces · Guides · Things · Catalog · Library" was doing. */
+.site-header-shell {
+  border-bottom: 1px solid var(--gp-semantic-border-subtle);
+  background: var(--gp-semantic-surface-panel);
+}
+.site-header-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px var(--gp-semantic-space-page);
+}
+.site-header-sep {
+  color: var(--gp-semantic-text-secondary);
+  flex: none;
+}
+.site-header-workspace {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--gp-semantic-text-primary);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.site-header-utilities {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+.site-header-link {
+  font-size: 13px;
+  color: var(--gp-semantic-text-secondary);
+}
+.site-header-link:hover {
+  color: var(--gp-semantic-text-primary);
+}
+/* Smaller, lighter, and separated from the tier above rather than sitting in
+   it — so it reads as belonging to the workspace named above, not as a second
+   set of top-level destinations. */
+.site-header-sections {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  padding: 0 var(--gp-semantic-space-page) 10px;
+  font-size: 13px;
+}
+.site-header-sections a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding-bottom: 4px;
+  border-bottom: 2px solid transparent;
+  color: var(--gp-semantic-text-secondary);
+}
+.site-header-sections a:hover {
+  color: var(--gp-semantic-text-primary);
+}
+.site-header-sections a.current {
+  color: var(--gp-semantic-text-primary);
+  border-bottom-color: var(--gp-semantic-action-primary-background);
+}
