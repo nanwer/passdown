@@ -34,6 +34,13 @@ entry, so the persistent navigation carries what you do daily and the structure
 is somewhere you go deliberately.
 
 **Left.** Where a draft belongs: published guides live in a library and drafts
-live in the studio, so a guide still has two homes depending on its state. A
-landing page that shows your work rather than a list of workspaces. And a way
-to create a second workspace, which the product cannot do at all.
+live in the studio, so a guide still has two homes depending on its state. And a
+landing page that shows your work rather than a list of workspaces.
+
+**Decided against.** Creating a second workspace from inside the product. An
+installation serves one organisation, and one workspace already carries both
+audiences — a public library anyone may read and an internal section only
+members see, with a guide moving between them. Several workspaces would be for
+keeping separate groups apart in one installation, which is not what this is
+for. The development seed makes two, which is what made the absence look like a
+gap; it is a fixture, not a shape to reproduce.

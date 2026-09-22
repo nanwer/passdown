@@ -47,7 +47,9 @@ Allow contributors to suggest improvements, discuss instructions and help mainta
 
 ### Team administration and approvals
 
-Invitations and permissions are done. What is left is account recovery, creating a second workspace from inside the product — today an installation gets one and there is no way to make another — and review and approval workflows for teams that need controlled publication, with history and restoration tools for authorized users.
+Invitations and permissions are done. What is left is account recovery, and review and approval workflows for teams that need controlled publication, with history and restoration tools for authorized users.
+
+An installation serves one organisation and gets one workspace, which carries both audiences: a public library anyone may read and an internal section only members see. Creating further workspaces is deliberately not planned — that would be for keeping separate groups apart in one installation, which is not what Passdown is for.
 
 ### Richer ways to follow a guide
 

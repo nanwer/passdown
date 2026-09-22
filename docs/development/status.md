@@ -24,6 +24,6 @@ Passdown is an early, working application for public community guides and privat
 
 Saves are manual. Open signup is deliberately off — an account exists because somebody was invited or because the installation created the first one. Nothing sends email; invitations are links passed on by hand, and account recovery does not exist. Attachments other than pictures, cross-guide prerequisites, approval workflows and collaborative editing are not implemented.
 
-An installation gets one workspace and there is no way to create a second from inside the product. The interface is mid-migration onto shadcn components; one screen is converted and the rest still use the older stylesheets. The information architecture work is partly done — see [the backlog](../backlog.md).
+An installation serves one organisation and gets one workspace, which carries a public library and an internal section; creating further workspaces is deliberately out of scope. The interface is mid-migration onto shadcn components; one screen is converted and the rest still use the older stylesheets. The information architecture work is partly done — see [the backlog](../backlog.md).
 
 See the [roadmap](../../ROADMAP.md) for upcoming outcomes and the [manual checklist](manual-test-checklist.md) for testable behavior. The repository license covers code, not a blanket license for user-authored guide content.
