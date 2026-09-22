@@ -65,6 +65,15 @@ Owner-only authoring; manual saves without browser draft backup; category depth 
 1. Open **Studio → a workspace → Tools & materials**. Expect items used by guides to show a total such as `3 guides`, and unused items to show nothing.
 2. Use the **All / Active / Inactive** tabs with the search, kind and category filters. Expect All to equal Active plus Inactive under whatever else is filtered.
 
+## The front page
+
+1. Open the home page. Expect a heading, a sentence and the search field, then the category chips, then the guides — the first guide visible without scrolling on a desktop screen.
+2. Type in the search field. Expect the results to narrow as you type, without a page reload.
+3. Choose a category chip. Expect the guides to narrow, and a row naming that category with an **Open** link to its own page.
+4. Follow that link. Expect the category's picture, name and description, anything inside it, and a search scoped to it.
+5. Give a thing a picture under **Studio → Manage → Things**. Expect it to appear on that category's chip, on the row in step 3, on the category page, and beside the thing in the Things tree.
+6. Repeat at 390px wide. Expect the chips to scroll sideways within their row rather than widening the page.
+
 ## Libraries, and who sees which
 
 1. Sign in as a member and open the home page. Expect a tab in the header for each library you can read — **Public guides**, and one named for each workspace whose members-only library holds something.
@@ -86,5 +95,5 @@ Publish more than 24 guides in one workspace before starting; the page holds 24.
 5. Choose a category tab, then page through it. Expect the total and every page to stay within that category and its subcategories, and the search term to survive paging.
 6. Open a category page and page through it. Expect the same, with **Next** staying on that category's address.
 7. Edit the address to a page beyond the end, such as `?page=99`. Expect a plain explanation and a way back, not an empty library.
-8. In **Browse by category**, compare each card's total with the guides that category and its branches actually hold. Expect them to agree, and a members-only guide never to be counted on the public side.
+8. Open a category that has others inside it and compare each card's total under **Inside this thing** with the guides that branch actually holds. Expect them to agree, and a members-only guide never to be counted on the public side.
 9. Repeat steps 1–3 at 390px wide and in dark mode. Expect the summary and controls to stay readable and reachable without horizontal scrolling.

@@ -942,3 +942,14 @@
   width: 120px;
   height: 8px;
 }
+
+/* A thing's picture in the tree that manages it. The control to add one sits in
+   the detail panel, two clicks away, and every row looked the same whether a
+   picture existed or not — which is why nobody found the control. */
+.category-node-picture {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  object-fit: cover;
+}

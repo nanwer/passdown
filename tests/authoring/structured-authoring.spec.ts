@@ -1566,16 +1566,42 @@ test('a thing gets a picture, and it reaches exactly the readers the thing does'
     .setInputFiles({ name: 'bicycle.jpg', mimeType: 'image/jpeg', buffer: bytes });
   await expect(details.locator('.structured-thing-image')).toBeVisible({ timeout: 15000 });
 
-  // A visitor browsing sees the picture on the card, not a folder mark.
+  // A visitor browsing sees the picture in the row of things, not a folder mark.
+  // It used to be a card in a 407px grid on the front page; that grid is gone
+  // and the picture rides on the chip that filters by this thing.
   const anonymous = await browser.newContext();
   const visitor = await anonymous.newPage();
   await visitor.goto('/');
-  const card = visitor.locator('.category-browse-card').filter({ hasText: `Bicycles ${suffix}` });
-  await expect(card).toBeVisible();
-  await expect(card.locator('.category-browse-image')).toBeVisible();
-  const src = await card.locator('.category-browse-image').getAttribute('src');
+  const chips = visitor.getByRole('navigation', { name: /Guide/ });
+  const chip = chips.getByRole('link', { name: `Bicycles ${suffix}` });
+  await expect(chip).toBeVisible();
+  await expect(chip.locator('img')).toBeVisible();
+  const src = await chip.locator('img').getAttribute('src');
+  // The media route serves an allow-list of widths and 404s anything else, so
+  // asking for a size it does not serve is a broken picture, not a smaller one.
   expect(src).toContain('w=400');
   expect((await visitor.request.get(src!)).status()).toBe(200);
+
+  // And the thing's own page carries it at full size.
+  await chip.click();
+  const openThing = visitor.getByRole('link', { name: `Open Bicycles ${suffix}` });
+  await expect(openThing).toBeVisible();
+  await openThing.click();
+  await expect(visitor.locator('.category-hero-image')).toBeVisible();
+
+  // A picture asked for at a width the media route does not serve answers 404,
+  // which draws as a broken image rather than an error — visible to a person,
+  // invisible to toBeVisible(), since a broken image still takes up space.
+  for (const where of ['/', visitor.url()]) {
+    await visitor.goto(where);
+    expect(
+      await visitor.evaluate(() =>
+        [...document.images]
+          .filter((img) => img.complete && img.naturalWidth === 0)
+          .map((img) => img.src),
+      ),
+    ).toEqual([]);
+  }
 
   // The same picture on a members-only thing is not served to that visitor,
   // and the thing itself does not appear for them at all.
@@ -1604,10 +1630,8 @@ test('a thing gets a picture, and it reaches exactly the readers the thing does'
   expect(linked.status(), await linked.text()).toBe(200);
 
   expect((await visitor.request.get(`/api/media/${workspace}/${secretAsset}`)).status()).toBe(404);
-  await visitor.reload();
-  await expect(
-    visitor.locator('.category-browse-card').filter({ hasText: `Members only ${suffix}` }),
-  ).toHaveCount(0);
+  await visitor.goto('/');
+  await expect(chips.getByRole('link', { name: `Members only ${suffix}` })).toHaveCount(0);
 
   // Removing it puts the folder mark back and stops serving the bytes.
   await page.reload();
@@ -1620,6 +1644,10 @@ test('a thing gets a picture, and it reaches exactly the readers the thing does'
     page.getByRole('region', { name: 'Details' }).locator('.structured-thing-image'),
   ).toHaveCount(0);
   expect((await visitor.request.get(src!)).status()).toBe(404);
+  await visitor.goto('/');
+  await expect(chips.getByRole('link', { name: `Bicycles ${suffix}` }).locator('img')).toHaveCount(
+    0,
+  );
   await anonymous.close();
 });
 

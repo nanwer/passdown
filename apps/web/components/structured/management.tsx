@@ -408,6 +408,7 @@ function CategoryManagement({ workspace }: { workspace: StudioWorkspace }) {
             <p role="status">Loading…</p>
           ) : (
             <CategoryTree
+              pictures
               categories={visible}
               query={query}
               value={selectedId}

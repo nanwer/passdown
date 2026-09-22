@@ -18,6 +18,15 @@ export interface CategoryTreeProps {
    */
   onAddChild?: (category: Category) => void;
   addChildLabel?: (category: Category) => string;
+  /**
+   * Show each thing's picture in place of the folder mark.
+   *
+   * On by request rather than always: the picture is the point of the manager,
+   * where the control to add one lives two panels away and a row that looks
+   * identical whether or not a picture exists is why nobody found it. A picker
+   * you open mid-sentence while writing wants a list, not a gallery.
+   */
+  pictures?: boolean;
 }
 /**
  * "12 guides" with the breakdown behind it, or null when nothing is assigned.
@@ -44,7 +53,26 @@ export function CategoryTree({
   counts,
   onAddChild,
   addChildLabel = (category) => `Add something inside ${category.name}`,
+  pictures = false,
 }: CategoryTreeProps) {
+  /** The picture where there is one, and the folder mark where there is not. */
+  function mark(category: Category, open: boolean) {
+    if (pictures && category.imageAssetId)
+      return (
+        <img
+          className="category-node-picture"
+          src={`/api/media/${category.workspaceId}/${category.imageAssetId}?w=400`}
+          alt=""
+          loading="lazy"
+          decoding="async"
+        />
+      );
+    return open ? (
+      <FolderOpen size={17} aria-hidden="true" />
+    ) : (
+      <Folder size={17} aria-hidden="true" />
+    );
+  }
   /**
    * Code and totals describe a row; they are not part of its name. Keeping them
    * out of the accessible name stops every row announcing as
@@ -116,7 +144,7 @@ export function CategoryTree({
                 aria-describedby={extras.describedBy}
                 onClick={() => onSelect(category)}
               >
-                <Folder size={17} aria-hidden="true" />
+                {mark(category, false)}
                 <span>
                   <strong>{category.name}</strong>
                   <small>{categoryPath(category)}</small>
@@ -174,11 +202,7 @@ export function CategoryTree({
                   aria-describedby={extras.describedBy}
                   onClick={() => onSelect(category)}
                 >
-                  {open && children ? (
-                    <FolderOpen size={17} aria-hidden="true" />
-                  ) : (
-                    <Folder size={17} aria-hidden="true" />
-                  )}
+                  {mark(category, open && children)}
                   <span>{category.name}</span>
                   {extras.badges}
                   {category.archived && <small>Archived</small>}

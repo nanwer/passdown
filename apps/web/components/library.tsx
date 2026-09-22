@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { words } from '../lib/vocabulary';
 import { AppShell } from '@guide/ui';
-import { GuideArtwork, GuideCard } from '@guide/guide-ui';
+import { GuideCard } from '@guide/guide-ui';
 import type { DemoGuide } from '@guide/testing';
 import {
   libraryPageSize,
@@ -10,16 +10,13 @@ import {
   type CategoryCounts,
 } from '@guide/contracts';
 import {
-  ArrowDown,
   ArrowLeft,
   ArrowRight,
   ArrowUpRight,
-  BookOpen,
-  Globe2,
+  FolderTree,
   LockKeyhole,
   PenLine,
   Search,
-  SlidersHorizontal,
 } from 'lucide-react';
 import { t } from '../lib/messages';
 import { LibrarySearchField } from './library-search-field';
@@ -87,6 +84,10 @@ export function Library({
     if (next) params.set('category', next);
     return `${base}${params.size ? '?' + params : ''}`;
   };
+  // The category a chip has selected, when this library has a real taxonomy.
+  // The chips filter the list in place; this is the same thing's own page,
+  // which is where its picture, its description and anything inside it live.
+  const chosen = selectedCategory ? undefined : taxonomy?.find((item) => item.id === category);
   const first = guides.length ? offset + 1 : 0;
   const last = offset + guides.length;
   const currentPage = Math.floor(offset / limit) + 1;
@@ -130,7 +131,19 @@ export function Library({
         {selectedCategory ? (
           <section className="category-hero page-width">
             <CategoryBreadcrumbs category={selectedCategory} base={guideBase} />
-            <div className="eyebrow">{libraryName.toUpperCase()}</div>
+            {/* The picture had one home, the browse grid on the front page. That
+                grid is gone, so it shows here instead — at the size it deserves,
+                on the page about this one thing. */}
+            {selectedCategory.imageAssetId && (
+              <img
+                className="category-hero-image"
+                src={`/api/media/${selectedCategory.workspaceId}/${selectedCategory.imageAssetId}?w=400`}
+                alt=""
+                decoding="async"
+              />
+            )}
+            {/* The library names itself in the header tab and again in the
+                breadcrumb above. A third label here was only noise. */}
             <h1>{selectedCategory.name}</h1>
             <p>
               {selectedCategory.description ||
@@ -138,64 +151,24 @@ export function Library({
             </p>
           </section>
         ) : (
-          <section className="hero page-width">
-            <div className="hero-copy">
-              <div className="eyebrow">
-                <span className="status-dot" />
-                {team ? 'TEAM KNOWLEDGE, ALL TOGETHER' : 'A LITTLE KNOW-HOW GOES A LONG WAY'}
-              </div>
-              <h1>
-                {team ? (
-                  <>
-                    Shared knowledge.
-                    <br />
-                    <em>Better work.</em>
-                  </>
-                ) : (
-                  <>
-                    Good knowledge.
-                    <br />
-                    <em>Put to work.</em>
-                  </>
-                )}
-              </h1>
-              <p>{team ? t.teamDescription : t.heroDescription}</p>
-              <a href="#collection" className="text-link">
-                {team ? 'Explore team procedures' : 'Find your next guide'}
-                <ArrowDown size={18} />
-              </a>
-              <div className="hero-note">
-                {team ? <LockKeyhole size={15} /> : <Globe2 size={15} />}
-                <span>
-                  {team
-                    ? 'A shared foundation, a private workspace.'
-                    : 'Built for communities. Useful to everyone.'}
-                </span>
-              </div>
-            </div>
-            <div className="hero-feature">
-              <GuideArtwork kind={team ? 'bench' : 'bicycle'} detail />
-              <div className="feature-caption">
-                <div>
-                  <span className="eyebrow">
-                    {team ? 'WORKSPACE NOTES / 001' : 'EVERYDAY OBJECTS / 001'}
-                  </span>
-                  <strong>
-                    {team ? 'A place for good work.' : 'Small details. A better ride.'}
-                  </strong>
-                </div>
-                <a
-                  href={`${guideBase}/guides/${team ? 'bench-handover' : 'bicycle-brake'}`}
-                  className="round-link"
-                  aria-label={team ? 'Read the workbench guide' : 'Read the bicycle guide'}
-                >
-                  <ArrowUpRight size={23} />
-                </a>
-              </div>
-            </div>
+          /* A library is a place you search, not a product being sold to
+             someone already standing in it. The hero cost 613px and ended in a
+             link reading "Find your next guide" with an arrow pointing down —
+             an apology for the 1,293px between the header and the first guide. */
+          <section className="library-search-band page-width">
+            <h1>{team ? t.teamFindTitle : t.findTitle}</h1>
+            <p>{team ? t.teamFindDescription : t.findDescription}</p>
+            <LibrarySearchField
+              query={query}
+              category={category}
+              base={searchBase}
+              label={t.searchLabel}
+              placeholder={t.searchPlaceholder}
+              buttonLabel={t.searchButton}
+            />
           </section>
         )}
-        {taxonomy && (
+        {taxonomy && selectedCategory && (
           <CategoryBrowse
             categories={taxonomy}
             parentId={selectedCategory?.id ?? null}
@@ -208,27 +181,20 @@ export function Library({
           id="collection"
           aria-labelledby="collection-title"
         >
-          <div className="collection-heading">
-            <div>
-              <div className="eyebrow">{libraryName.toUpperCase()}</div>
+          {selectedCategory ? (
+            <div className="collection-heading">
               <h2 id="collection-title">
-                {selectedCategory
-                  ? `Guides in ${selectedCategory.name}`
-                  : team
-                    ? 'Your team’s field guide'
-                    : 'A place to start'}
+                Guides in {selectedCategory.name}
                 <span className="count">{total}</span>
               </h2>
             </div>
-            <span className="collection-note">
-              <BookOpen size={16} />
-              {synthetic
-                ? 'Synthetic team preview'
-                : team
-                  ? 'Your published team procedures'
-                  : 'A growing library of everyday know-how'}
-            </span>
-          </div>
+          ) : (
+            // The page's one heading is the search band above. This names the
+            // list for anyone navigating by headings without repeating it.
+            <h2 id="collection-title" className="sr-only">
+              {team ? 'Team guides' : 'Guides'}
+            </h2>
+          )}
           {synthetic && (
             <div className="preview-banner">
               <LockKeyhole size={18} />
@@ -238,46 +204,86 @@ export function Library({
               </p>
             </div>
           )}
-          <div
-            className={
-              selectedCategory ? 'library-toolbar library-toolbar--category' : 'library-toolbar'
-            }
-          >
-            <LibrarySearchField
-              query={query}
-              category={selectedCategory ? '' : category}
-              base={searchBase}
-              label={t.searchLabel}
-              placeholder={t.searchPlaceholder}
-              buttonLabel={t.searchButton}
-            />
-            <div className="sort-label">
-              <SlidersHorizontal size={16} />
-              Curated collection
+          {selectedCategory ? (
+            // Inside a category the category is the page, so the search narrows
+            // what is already on it and belongs beside the results.
+            <div className="library-toolbar library-toolbar--category">
+              <LibrarySearchField
+                query={query}
+                category=""
+                base={searchBase}
+                label={t.searchLabel}
+                placeholder={t.searchPlaceholder}
+                buttonLabel={t.searchButton}
+              />
             </div>
-          </div>
-          {!selectedCategory && (
-            <nav className="category-tabs" aria-label={`Guide ${words.things}`}>
-              <LibraryCategoryLink href={link('')} base={base} category="" current={!category}>
-                {t.allCategories}
-              </LibraryCategoryLink>
-              {(taxonomy
-                ? taxonomy
-                    .filter((item) => item.parentId === null)
-                    .map((item) => ({ value: item.id, label: item.name }))
-                : categories.map((item) => ({ value: item, label: item }))
-              ).map((item) => (
-                <LibraryCategoryLink
-                  key={item.value}
-                  href={link(item.value)}
-                  base={base}
-                  category={item.value}
-                  current={category === item.value || category === item.label}
-                >
-                  {item.label}
+          ) : (
+            <div className="library-filters">
+              <nav className="category-tabs" aria-label={`Guide ${words.things}`}>
+                <LibraryCategoryLink href={link('')} base={base} category="" current={!category}>
+                  {t.allCategories}
                 </LibraryCategoryLink>
-              ))}
-            </nav>
+                {(taxonomy
+                  ? taxonomy
+                      .filter((item) => item.parentId === null)
+                      .map((item) => ({
+                        value: item.id,
+                        label: item.name,
+                        // Recognition beats reading: a model number means
+                        // nothing, a picture of the thing means everything.
+                        image: item.imageAssetId
+                          ? `/api/media/${item.workspaceId}/${item.imageAssetId}?w=400`
+                          : null,
+                      }))
+                  : categories.map((item) => ({ value: item, label: item, image: null }))
+                ).map((item) => (
+                  <LibraryCategoryLink
+                    key={item.value}
+                    href={link(item.value)}
+                    base={base}
+                    category={item.value}
+                    current={category === item.value || category === item.label}
+                  >
+                    {item.image && <img src={item.image} alt="" loading="lazy" decoding="async" />}
+                    {item.label}
+                  </LibraryCategoryLink>
+                ))}
+              </nav>
+              <span className="library-count">
+                {total} {total === 1 ? 'guide' : 'guides'}
+              </span>
+            </div>
+          )}
+          {chosen && (
+            /* The browse grid was the only way into a category's own page, and
+               it is gone. This appears only once you have picked a category, so
+               the default page keeps its shape. */
+            <Link
+              className="library-chosen-category"
+              href={`${guideBase}/categories/${chosen.id}`}
+              // Without this the link announces as its own contents — the name,
+              // then the description, then the word Open.
+              aria-label={`Open ${chosen.name}`}
+            >
+              {chosen.imageAssetId ? (
+                <img
+                  src={`/api/media/${chosen.workspaceId}/${chosen.imageAssetId}?w=400`}
+                  alt=""
+                  decoding="async"
+                />
+              ) : (
+                <span className="library-chosen-icon">
+                  <FolderTree size={17} aria-hidden="true" />
+                </span>
+              )}
+              <span className="library-chosen-copy">
+                <strong>{chosen.name}</strong>
+                {chosen.description && <span>{chosen.description}</span>}
+              </span>
+              <span className="library-chosen-go">
+                Open <ArrowRight size={15} aria-hidden="true" />
+              </span>
+            </Link>
           )}
           <p className="sr-only" role="status">
             {total} {total === 1 ? 'guide' : 'guides'} found.

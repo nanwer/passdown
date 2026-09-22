@@ -2,7 +2,9 @@ import { expect, test } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 test('library filters and reader navigation use the same public records', async ({ page }) => {
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: 'Good knowledge. Put to work.' })).toBeVisible();
+  // The page opens on the thing people came for, not on a headline about it.
+  await expect(page.getByRole('heading', { level: 1, name: 'Find a guide.' })).toBeVisible();
+  await expect(page.getByRole('searchbox')).toBeVisible();
   await expect(page.locator('.guide-card')).toHaveCount(6);
   await page.getByRole('link', { name: 'Electronics', exact: true }).click();
   await expect(page.locator('.guide-card')).toHaveCount(3);

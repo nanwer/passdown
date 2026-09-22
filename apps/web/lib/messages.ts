@@ -10,12 +10,11 @@ export const messages = {
     nothingYet: 'Nothing here yet',
     nothingYetHelp: 'This is where guides will appear once someone writes one.',
     clearFilters: 'Clear filters',
-    heroTitle: 'Good knowledge. Put to work.',
-    heroDescription:
-      'Practical know-how, carefully documented. Explore visual guides that make the things around you a little easier to understand.',
-    teamTitle: 'Shared knowledge. Better work.',
-    teamDescription:
-      'Clear instructions for the tasks your team comes back to. One familiar place to learn, prepare, and pass knowledge on.',
+    findTitle: 'Find a guide.',
+    findDescription: 'Search the library, or narrow it down by what the guide is about.',
+    teamFindTitle: 'Find a procedure.',
+    teamFindDescription:
+      'Search what your team has published, or narrow it down by what it is about.',
   },
 };
 export const t = messages.en;

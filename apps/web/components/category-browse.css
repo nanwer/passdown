@@ -89,6 +89,18 @@
   color: var(--gp-semantic-text-primary);
   overflow-wrap: anywhere;
 }
+/* A category's picture, on the page about that category. Its only home used to
+   be the browse grid on the front page, which is gone. */
+.category-hero-image {
+  display: block;
+  width: 100%;
+  max-width: 320px;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border: 1px solid var(--gp-semantic-border-subtle);
+  border-radius: var(--gp-semantic-radius-panel);
+  margin-block: 20px 4px;
+}
 .category-hero {
   padding-block: 40px 36px;
 }

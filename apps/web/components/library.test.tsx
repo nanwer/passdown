@@ -59,9 +59,7 @@ const page = (count: number) => Array.from({ length: count }, (_, n) => guide(n)
 it('a bounded page reports the whole collection instead of ending silently', () => {
   render(<Library guides={page(24)} categories={[]} total={176} offset={0} limit={24} />);
 
-  expect(screen.getByRole('heading', { level: 2, name: /A place to start/ })).toHaveTextContent(
-    '176',
-  );
+  expect(screen.getByText('176 guides')).toBeInTheDocument();
   expect(screen.getByRole('status')).toHaveTextContent('176 guides found. Showing 1 to 24.');
   const pager = screen.getByRole('navigation', { name: 'Library pages' });
   expect(pager).toHaveTextContent('Showing 1–24 of 176 guides');
@@ -106,32 +104,46 @@ it('a collection that fits on one page is shown without a pager', () => {
 });
 
 it('browse cards count guides from the database totals, not from the listed page', () => {
-  const taxonomy: Category[] = [
-    {
-      id: 'category-1',
-      workspaceId: 'public',
-      code: 'GC-0001',
-      name: 'Bicycles',
-      domain: 'guide',
-      parentId: null,
-      description: '',
-      visibility: 'public',
-      archived: false,
-      version: 1,
-      sortOrder: 0,
-      imageAssetId: null,
-      path: [{ id: 'category-1', name: 'Bicycles' }],
-    },
-  ];
+  // The grid used to sit on the front page listing root categories. It now
+  // appears one level in, as the way to narrow a category further, and the
+  // counts it shows still have to come from the database subtree totals rather
+  // than from however many guides this page happens to be showing.
+  const parent: Category = {
+    id: 'category-1',
+    workspaceId: 'public',
+    code: 'GC-0001',
+    name: 'Bicycles',
+    domain: 'guide',
+    parentId: null,
+    description: '',
+    visibility: 'public',
+    archived: false,
+    version: 1,
+    sortOrder: 0,
+    imageAssetId: null,
+    path: [{ id: 'category-1', name: 'Bicycles' }],
+  };
+  const child: Category = {
+    ...parent,
+    id: 'category-2',
+    code: 'GC-0002',
+    name: 'Brakes',
+    parentId: 'category-1',
+    path: [
+      { id: 'category-1', name: 'Bicycles' },
+      { id: 'category-2', name: 'Brakes' },
+    ],
+  };
   const counts: CategoryCounts[] = [
-    { categoryId: 'category-1', direct: 0, subtree: 0, publishedDirect: 90, publishedSubtree: 176 },
+    { categoryId: 'category-2', direct: 0, subtree: 0, publishedDirect: 90, publishedSubtree: 176 },
   ];
 
   render(
     <Library
       guides={page(24)}
       categories={[]}
-      taxonomy={taxonomy}
+      taxonomy={[parent, child]}
+      selectedCategory={parent}
       categoryCounts={counts}
       total={176}
       offset={0}
@@ -139,6 +151,6 @@ it('browse cards count guides from the database totals, not from the listed page
     />,
   );
 
-  const browse = screen.getByRole('region', { name: 'Browse things' });
-  expect(within(browse).getByRole('link', { name: /Bicycles/ })).toHaveTextContent('176 guides');
+  const browse = screen.getByRole('region', { name: 'Inside this thing' });
+  expect(within(browse).getByRole('link', { name: /Brakes/ })).toHaveTextContent('176 guides');
 });

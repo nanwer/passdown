@@ -39,11 +39,20 @@ destination beside the one holding the guides — and it could not reach a
 separate team workspace at all. The public library is called Public guides,
 because "Repair collective" is an operator's word for their own workspace.
 
-**Left.** Where a draft belongs: published guides live in a library and drafts
-live in the studio, so a guide still has two homes depending on its state. That
-is the last structural question, and it is a design decision rather than a move
-— a draft has no reader, so putting it in a library needs an answer about who
-sees what.
+**Also done, by being answered rather than built.** Where a draft belongs was
+filed here as the last structural question. It is not one: a draft has no
+reader, and the studio is where things without readers live. Published guides
+are in a library, drafts are in the studio, and that is the answer rather than a
+tension to resolve.
+
+The front page opens on its search and its guides. It used to spend 613px on a
+hero and another 407px on a picture grid of categories, putting the first guide
+at 1401px on a desktop screen and 1769px on a phone — and the same categories
+were drawn twice from the same query, once as that grid and again as a chip row
+400px below it. Now: heading, search, one chip row carrying each thing's
+picture, then the guides, with the first at 448px. Choosing a category offers a
+row leading to its own page, which is where a picture, a description and
+anything inside it belong.
 
 The workspace picker no longer appears when there is one workspace, which on a
 real installation is always. It remains for the development seed, which has two.
