@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import pg from 'pg';
 import { readSchemaState } from './schema-state';
 
@@ -15,6 +15,7 @@ import {
 import {
   ApplicationError,
   createDraftSchema,
+  inviteSchema,
   saveDraftSchema,
   publishSchema,
   assetPageSize,
@@ -31,6 +32,8 @@ import {
   type PublishInput,
   type GuideFamily,
   type GuideTypeSelection,
+  type InviteInput,
+  type WorkspacePeople,
 } from '@guide/contracts';
 
 /** True for our own errors however the contracts module was bundled. */
@@ -230,6 +233,18 @@ async function resolveGuideType(
   // would leave a value in the release snapshot that no screen can explain.
   if (!type.prompt) return { key: type.key, subject: '' };
   return { key: type.key, subject: selection.subject.trim() };
+}
+
+/**
+ * What is stored for an invitation token.
+ *
+ * Plain SHA-256 rather than a password hash on purpose: this is a 256-bit
+ * random value, not something a person chose, so there is nothing to slow an
+ * attacker down about — and a slow hash on a public endpoint is a way to be
+ * knocked over.
+ */
+function hashToken(token: string): string {
+  return createHash('sha256').update(token).digest('hex');
 }
 
 export function createApplicationStore(options: { connectionString: string }) {
@@ -477,6 +492,211 @@ export function createApplicationStore(options: { connectionString: string }) {
         client.release();
       }
     },
+    /**
+     * Who is in a workspace, and who has been asked.
+     *
+     * Both together because they are one list on screen: somebody with a
+     * pending invitation is as much a part of the answer to "who has access"
+     * as somebody who has already accepted.
+     */
+    /**
+     * What to show the holder of an invitation link, before they have an
+     * account. Null for anything that is not a live invitation — expired,
+     * already used and never existed are deliberately indistinguishable.
+     */
+    /**
+     * Confirm an address without sending anything to it.
+     *
+     * Reached only from accepting an invitation, where a manager of the
+     * workspace named the address and the link was the proof of that. There is
+     * no mail server to verify it any other way.
+     */
+    async markEmailVerified(userId: string): Promise<void> {
+      const client = await pool.connect();
+      try {
+        await client.query('UPDATE public.auth_user SET email_verified=true WHERE id=$1', [userId]);
+      } finally {
+        client.release();
+      }
+    },
+
+    async describeInvitation(
+      token: string,
+    ): Promise<{ workspaceId: string; workspaceName: string; email: string; role: string } | null> {
+      const client = await pool.connect();
+      try {
+        const { rows } = await client.query(
+          'SELECT workspace_id, workspace_name, email, role FROM app.describe_invitation($1)',
+          [hashToken(token)],
+        );
+        if (!rows.length) return null;
+        return {
+          workspaceId: rows[0].workspace_id,
+          workspaceName: rows[0].workspace_name,
+          email: rows[0].email,
+          role: rows[0].role,
+        };
+      } finally {
+        client.release();
+      }
+    },
+
+    /**
+     * Redeem an invitation for an account that has just been created.
+     *
+     * Runs outside a workspace scope because the person is not yet in one. The
+     * database function is what decides: it re-checks the token, the expiry and
+     * that nobody has used it already, all while holding the row.
+     */
+    async acceptInvitation(token: string, userId: string): Promise<string | null> {
+      const client = await pool.connect();
+      try {
+        const { rows } = await client.query('SELECT app.accept_invitation($1,$2) AS workspace', [
+          hashToken(token),
+          userId,
+        ]);
+        return rows[0].workspace ?? null;
+      } finally {
+        client.release();
+      }
+    },
+
+    async listPeople(actor: Actor, workspaceId: string): Promise<WorkspacePeople> {
+      return transaction(actor, workspaceId, async (c) => {
+        await owner(c, workspaceId);
+        const members = (
+          await c.query(
+            `SELECT m.actor_id, m.role, m.active, u.name, u.email
+             FROM app.membership m JOIN public.auth_user u ON u.id = m.actor_id
+             WHERE m.workspace_id=$1 ORDER BY lower(u.name), u.email`,
+            [workspaceId],
+          )
+        ).rows;
+        const invitations = (
+          await c.query(
+            `SELECT i.id, i.email, i.role, i.expires_at, u.name AS invited_by
+             FROM app.invitation i JOIN public.auth_user u ON u.id = i.invited_by
+             WHERE i.workspace_id=$1 AND i.accepted_at IS NULL AND i.expires_at > now()
+             ORDER BY i.created_at DESC`,
+            [workspaceId],
+          )
+        ).rows;
+        return {
+          members: members.map((row) => ({
+            actorId: row.actor_id,
+            name: row.name,
+            email: row.email,
+            role: row.role,
+            active: row.active,
+            isYou: actor.kind === 'user' && actor.id === row.actor_id,
+          })),
+          invitations: invitations.map((row) => ({
+            id: row.id,
+            email: row.email,
+            role: row.role,
+            expiresAt: new Date(row.expires_at).toISOString(),
+            invitedBy: row.invited_by,
+          })),
+        };
+      });
+    },
+
+    /**
+     * Invite somebody, and hand back the only copy of the link.
+     *
+     * The token is returned once and never again — what is stored is its hash,
+     * so this value cannot be recovered from the database afterwards. A lost
+     * link is replaced by revoking and inviting again, which is the same
+     * property that makes a stolen backup useless.
+     */
+    async inviteToWorkspace(
+      actor: Actor,
+      workspaceId: string,
+      input: InviteInput,
+      lifetimeDays = 7,
+    ): Promise<{ id: string; token: string; expiresAt: string }> {
+      const data = parse(inviteSchema, input);
+      return transaction(actor, workspaceId, async (c) => {
+        await owner(c, workspaceId);
+        const already = await c.query(
+          `SELECT 1 FROM app.membership m JOIN public.auth_user u ON u.id = m.actor_id
+           WHERE m.workspace_id=$1 AND app.normalized_name(u.email)=app.normalized_name($2)`,
+          [workspaceId, data.email],
+        );
+        if (already.rowCount)
+          throw new ApplicationError(
+            'VALIDATION_ERROR',
+            'That person is already in this workspace.',
+            422,
+          );
+        const token = randomBytes(32).toString('base64url');
+        const id = randomUUID();
+        const expiresAt = new Date(Date.now() + lifetimeDays * 86400000);
+        try {
+          await c.query(
+            `INSERT INTO app.invitation(workspace_id,id,email,role,token_hash,expires_at,invited_by)
+             VALUES($1,$2,$3,$4,$5,$6,app.actor_id())`,
+            [workspaceId, id, data.email, data.role, hashToken(token), expiresAt],
+          );
+        } catch (error) {
+          if ((error as { code?: string }).code === '23505')
+            throw new ApplicationError(
+              'VALIDATION_ERROR',
+              'That address already has an invitation waiting. Revoke it first to issue a new one.',
+              422,
+            );
+          throw error;
+        }
+        return { id, token, expiresAt: expiresAt.toISOString() };
+      });
+    },
+
+    async revokeInvitation(actor: Actor, workspaceId: string, id: string): Promise<void> {
+      await transaction(actor, workspaceId, async (c) => {
+        await owner(c, workspaceId);
+        const result = await c.query(
+          'DELETE FROM app.invitation WHERE workspace_id=$1 AND id=$2 AND accepted_at IS NULL',
+          [workspaceId, id],
+        );
+        if (!result.rowCount) throw missing();
+      });
+    },
+
+    /**
+     * Change or withdraw someone's access.
+     *
+     * The rule that a workspace keeps at least one manager is not checked here.
+     * It is a database trigger, because it is the one mistake the product
+     * cannot recover from — a workspace with nobody who can manage it has
+     * nobody who can appoint anybody.
+     */
+    async setMemberRole(
+      actor: Actor,
+      workspaceId: string,
+      memberId: string,
+      role: 'manage' | 'view',
+    ): Promise<void> {
+      await transaction(actor, workspaceId, async (c) => {
+        await owner(c, workspaceId);
+        const result = await c.query(
+          'UPDATE app.membership SET role=$3 WHERE workspace_id=$1 AND actor_id=$2',
+          [workspaceId, memberId, role],
+        );
+        if (!result.rowCount) throw missing();
+      });
+    },
+
+    async removeMember(actor: Actor, workspaceId: string, memberId: string): Promise<void> {
+      await transaction(actor, workspaceId, async (c) => {
+        await owner(c, workspaceId);
+        const result = await c.query(
+          'DELETE FROM app.membership WHERE workspace_id=$1 AND actor_id=$2',
+          [workspaceId, memberId],
+        );
+        if (!result.rowCount) throw missing();
+      });
+    },
+
     async guideTypeSettings(
       actor: Actor,
       workspaceId: string,

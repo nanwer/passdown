@@ -997,3 +997,76 @@
   display: grid;
   gap: 10px;
 }
+
+/* People. Members and pending invitations share one list shape, because they
+   are two answers to the same question and reading them as one list is the
+   point. */
+.people-list {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.people-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--gp-semantic-border-subtle);
+}
+.people-list li:last-child {
+  border-bottom: none;
+}
+.people-who {
+  display: grid;
+  gap: 2px;
+  font-size: 14px;
+  min-width: 0;
+}
+.people-who span {
+  color: var(--gp-semantic-text-secondary);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.people-you {
+  margin-left: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--gp-semantic-text-secondary);
+}
+.people-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.people-role select {
+  font-size: 13px;
+}
+
+/* The link is shown once and never again, so it is given the weight of
+   something you have to act on rather than a line of confirmation text. */
+.invite-issued {
+  border-color: var(--gp-semantic-focus-ring);
+}
+.invite-link {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+}
+.invite-link code {
+  flex: 1 1 260px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--gp-semantic-border-subtle);
+  border-radius: 8px;
+  background: var(--gp-semantic-surface-sunken);
+  font-size: 12.5px;
+  overflow-wrap: anywhere;
+}

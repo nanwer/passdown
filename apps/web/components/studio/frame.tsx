@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
-import { BookOpen, ArrowLeft, LogOut, PenLine, FolderTree, Wrench } from 'lucide-react';
+import { BookOpen, ArrowLeft, LogOut, PenLine, FolderTree, Users, Wrench } from 'lucide-react';
 import { words } from '../../lib/vocabulary';
 import { Button, ThemeToggle } from '@guide/ui';
 import type { StudioSession, StudioWorkspace } from '@guide/contracts';
@@ -36,6 +36,9 @@ export function Frame({
               </a>
               <a href={`/studio/${workspace.id}/catalog`}>
                 <Wrench size={17} /> Catalog
+              </a>
+              <a href={`/studio/${workspace.id}/people`}>
+                <Users size={17} /> People
               </a>
             </>
           )}

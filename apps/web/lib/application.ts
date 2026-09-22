@@ -8,6 +8,16 @@ import { assertOrigin } from './http';
 type Application = {
   store: ReturnType<typeof createApplicationStore>;
   identity: ReturnType<typeof createIdentity>;
+  /**
+   * The same identity, with sign-up open.
+   *
+   * Sign-up stays disabled on the public surface: nobody creates an account
+   * here by deciding to. This instance exists so that accepting an invitation
+   * can create the one account that a manager of a workspace already
+   * authorised by name, and it is never reachable from a route that has not
+   * checked a token first.
+   */
+  invitedSignUp: ReturnType<typeof createIdentity>;
   origin: string;
 };
 const applicationGlobal = globalThis as typeof globalThis & { guideApplication?: Application };
@@ -26,10 +36,12 @@ export function getApplication(): Application {
       503,
     );
   const identity = createIdentity({ connectionString, secret, baseURL });
+  const invitedSignUp = createIdentity({ connectionString, secret, baseURL, allowSignUp: true });
   const store = createApplicationStore({ connectionString });
   return (applicationGlobal.guideApplication = {
     store,
     identity,
+    invitedSignUp,
     origin: new URL(baseURL).origin,
   });
 }

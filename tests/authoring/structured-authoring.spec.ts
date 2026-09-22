@@ -1772,3 +1772,62 @@ test('an account created for someone cannot do anything until it picks a passwor
     await db.end();
   }
 });
+
+test('somebody is invited, joins from the link, and the link then does nothing', async ({
+  page,
+  browser,
+}) => {
+  await login(page.request);
+  const suffix = randomUUID().slice(0, 8);
+  const invitee = `joiner-${suffix}@example.test`;
+
+  await page.goto('/studio/workshop/people');
+  await expect(page.getByRole('heading', { name: 'Who can reach this workspace.' })).toBeVisible();
+
+  await page.getByRole('textbox', { name: 'Invite by email', exact: true }).fill(invitee);
+  // Not an exact match: a select's options are part of its label's text, so
+  // the accessible name carries them too.
+  await page.getByLabel(/They can/).selectOption('view');
+  await page.getByRole('button', { name: 'Create an invitation', exact: true }).click();
+
+  // Shown once, in full, because it cannot be recovered afterwards.
+  await expect(page.getByRole('heading', { name: `Send this link to ${invitee}` })).toBeVisible();
+  const link = (await page.locator('.invite-link code').textContent())!;
+  expect(link).toContain('/invite/');
+  await expect(page.locator('.invite-issued')).toContainText(invitee);
+
+  // A stranger opens it — no account, no session.
+  const stranger = await browser.newContext();
+  const guest = await stranger.newPage();
+  await guest.goto(link);
+  await expect(guest.getByRole('heading', { name: /Join Workshop operations/ })).toBeVisible();
+  await guest.getByRole('textbox', { name: 'Your name', exact: true }).fill('Sam Joiner');
+  await guest.getByLabel('Password', { exact: true }).fill('a-perfectly-good-password');
+  await guest.getByLabel('Password again', { exact: true }).fill('a-perfectly-good-password');
+  await guest.getByRole('button', { name: /^Join Workshop operations/ }).click();
+  await expect(guest).toHaveURL(/\/studio\/workshop$/);
+
+  // They are in, and only as far as view goes.
+  const theirSession = await guest.request.get('/api/studio/session');
+  expect((await theirSession.json()).workspaces).toEqual([
+    expect.objectContaining({ id: 'workshop', role: 'view' }),
+  ]);
+  expect((await guest.request.get('/api/studio/workshop/people')).status()).toBe(404);
+
+  // The same link is spent. Grafana shipped copyable links that kept working
+  // after acceptance; this is the assertion that says ours does not.
+  const second = await browser.newContext();
+  const late = await second.newPage();
+  await late.goto(link);
+  await expect(
+    late.getByRole('heading', { name: 'This invitation is no longer valid.' }),
+  ).toBeVisible();
+
+  // And the manager's list now shows a member rather than a pending invitation.
+  await page.reload();
+  await expect(page.locator('.people-who strong').filter({ hasText: 'Sam Joiner' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Waiting to be accepted' })).toHaveCount(0);
+
+  await stranger.close();
+  await second.close();
+});

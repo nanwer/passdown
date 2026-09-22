@@ -537,7 +537,22 @@ try {
       await assert.rejects(runtime.query('CREATE TABLE app.illegal(id int)'));
       await assert.rejects(runtime.query("UPDATE app.release SET license='all-rights-reserved'"));
       await assert.rejects(runtime.query('DELETE FROM app.audit'));
-      await assert.rejects(runtime.query("UPDATE app.membership SET role='manage'"));
+      // Membership became writable by the runtime role in 021, so that a
+      // manager can invite and remove people. What protects it is row-level
+      // rather than a withheld grant, and row-level security filters instead of
+      // failing: with no actor scope set, the policy matches nothing and this
+      // changes no rows. Asserting the count is the stronger statement anyway —
+      // a rejection only says the statement did not run, this says nothing moved.
+      assert.equal(
+        (await runtime.query("UPDATE app.membership SET role='manage'")).rowCount,
+        0,
+        "an unscoped connection may not change anyone's permissions",
+      );
+      assert.equal(
+        (await runtime.query('DELETE FROM app.membership')).rowCount,
+        0,
+        'nor remove anyone',
+      );
     },
   );
   await check(
@@ -967,6 +982,116 @@ try {
       assert.equal((await readSchemaState(owner)).ok, true);
     },
   );
+  await check('an invitation is a single-use secret that is never stored', async () => {
+    const invite = await store.inviteToWorkspace(actor('owner'), 'private', {
+      email: 'newcomer@test.local',
+      role: 'view',
+    });
+    assert(invite.token.length >= 32);
+
+    // What is kept is a hash. A copy of this table is not a set of working
+    // invitations, which is the whole reason for hashing a token nobody chose.
+    const stored = (
+      await owner.query('SELECT token_hash FROM app.invitation WHERE id=$1', [invite.id])
+    ).rows[0];
+    assert(stored.token_hash && stored.token_hash !== invite.token);
+    assert.equal(stored.token_hash.length, 64);
+    assert.equal(
+      (
+        await owner.query('SELECT count(*)::int n FROM app.invitation WHERE token_hash=$1', [
+          invite.token,
+        ])
+      ).rows[0].n,
+      0,
+      'the raw token appears nowhere in the table',
+    );
+
+    // Anyone holding the link learns who invited them and to what.
+    const described = await store.describeInvitation(invite.token);
+    assert.equal(described?.workspaceId, 'private');
+    assert.equal(described?.role, 'view');
+    // A token that is one character different is simply not an invitation.
+    assert.equal(await store.describeInvitation(invite.token.slice(0, -1) + 'x'), null);
+
+    // Redeeming it makes a member with the permission it carried.
+    await owner.query(
+      "INSERT INTO auth_user(id,name,email,email_verified,active) VALUES('newcomer','Newcomer','newcomer@test.local',true,true) ON CONFLICT DO NOTHING",
+    );
+    assert.equal(await store.acceptInvitation(invite.token, 'newcomer'), 'private');
+    const people = await store.listPeople(actor('owner'), 'private');
+    assert.equal(people.members.find((m) => m.actorId === 'newcomer')?.role, 'view');
+
+    // And it is spent. A link that keeps working after it has been used is the
+    // bug Grafana had to fix.
+    assert.equal(await store.acceptInvitation(invite.token, 'outsider'), null);
+    assert.equal(await store.describeInvitation(invite.token), null);
+    assert.equal(
+      people.invitations.find((i) => i.id === invite.id),
+      undefined,
+      'a spent invitation stops being listed as waiting',
+    );
+  });
+
+  await check('a workspace can never be left with nobody who can manage it', async () => {
+    // 'private' has several managers by now, so pick one that does not.
+    const solo = 'public';
+    const managers = (
+      await owner.query(
+        "SELECT actor_id FROM app.membership WHERE workspace_id=$1 AND role='manage' AND active",
+        [solo],
+      )
+    ).rows;
+    // Reduce to a single manager for the duration of this check.
+    await owner.query('BEGIN');
+    try {
+      for (const extra of managers.slice(1))
+        await owner.query('DELETE FROM app.membership WHERE workspace_id=$1 AND actor_id=$2', [
+          solo,
+          extra.actor_id,
+        ]);
+      const last = managers[0].actor_id;
+      await assert.rejects(
+        store.setMemberRole(actor(last), solo, last, 'view'),
+        /at least one person who can manage/,
+      );
+      await assert.rejects(
+        store.removeMember(actor(last), solo, last),
+        /at least one person who can manage/,
+      );
+      await assert.rejects(
+        owner.query(
+          'UPDATE app.membership SET active=false WHERE workspace_id=$1 AND actor_id=$2',
+          [solo, last],
+        ),
+        /at least one person who can manage/,
+        'deactivating the last manager is the same mistake wearing a different hat',
+      );
+    } finally {
+      await owner.query('ROLLBACK');
+    }
+  });
+
+  await check('only a manager can see or change who is in a workspace', async () => {
+    // 'reader' holds view on the private workspace.
+    await denied(store.listPeople(actor('reader'), 'private'));
+    await denied(
+      store.inviteToWorkspace(actor('reader'), 'private', {
+        email: 'sneak@test.local',
+        role: 'manage',
+      }),
+    );
+    await denied(store.removeMember(actor('reader'), 'private', 'owner'));
+    await denied(store.listPeople(anonymous, 'private'));
+
+    // And the rows themselves are invisible, not merely the methods.
+    const seen = await scoped(
+      actor('reader'),
+      'private',
+      async (c) => (await c.query('SELECT count(*)::int n FROM app.invitation')).rows[0].n,
+    );
+    assert.equal(seen, 0, 'row-level security hides invitations from a viewer');
+  });
+
   await check('no policy or function decides access by a role that no longer exists', async () => {
     // Nineteen policies and two functions compared a role to 'owner'. Migration
     // 019 moved every one of them onto app.member_manages, and this is the
@@ -987,12 +1112,29 @@ try {
       'these still decide access by a role the schema no longer permits',
     );
 
-    // And the rename really did reach every one of them.
+    // Every policy decides permission through app.member_manages rather than
+    // comparing a role to a literal itself.
+    //
+    // This replaced a count of nineteen, which was the number of policies on
+    // the day it was written and broke the moment invitations added four more.
+    // Naming the rule instead of the tally is what makes it survive: a new
+    // policy that compares roles by hand fails this, and adding an ordinary one
+    // does not.
+    const direct = await owner.query(
+      `SELECT tablename || '.' || policyname AS name FROM pg_policies
+       WHERE schemaname='app'
+         AND (coalesce(qual,'') LIKE '%member_role%' OR coalesce(with_check,'') LIKE '%member_role%')`,
+    );
+    assert.deepEqual(
+      direct.rows.map((r: { name: string }) => r.name),
+      [],
+      'these compare a membership role themselves instead of asking app.member_manages',
+    );
     const managing = await owner.query(
       `SELECT count(*)::int n FROM pg_policies WHERE schemaname='app'
          AND (coalesce(qual,'') LIKE '%member_manages%' OR coalesce(with_check,'') LIKE '%member_manages%')`,
     );
-    assert.equal(managing.rows[0].n, 19);
+    assert(managing.rows[0].n >= 19, 'the policies that gate on managing are still there');
 
     // The column cannot hold anything else, whatever the application believes.
     await assert.rejects(

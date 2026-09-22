@@ -47,6 +47,37 @@ export const changePasswordSchema = z.strictObject({
   newPassword: z.string().min(12).max(200),
 });
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
+export const workspaceRoleSchema = z.enum(['manage', 'view']);
+export const inviteSchema = z.strictObject({
+  email: z.email().max(200),
+  role: workspaceRoleSchema,
+});
+export type InviteInput = z.infer<typeof inviteSchema>;
+export const acceptInvitationSchema = z.strictObject({
+  token: z.string().min(20).max(200),
+  name: z.string().trim().min(1).max(120),
+  password: z.string().min(12).max(200),
+});
+export type AcceptInvitationInput = z.infer<typeof acceptInvitationSchema>;
+export type WorkspaceMember = {
+  actorId: string;
+  name: string;
+  email: string;
+  role: 'manage' | 'view';
+  active: boolean;
+  isYou: boolean;
+};
+export type WorkspaceInvitation = {
+  id: string;
+  email: string;
+  role: 'manage' | 'view';
+  expiresAt: string;
+  invitedBy: string;
+};
+export type WorkspacePeople = {
+  members: WorkspaceMember[];
+  invitations: WorkspaceInvitation[];
+};
 export const publishSchema = z.strictObject({
   expectedVersion: z.number().int().min(1),
   expectedRelease: z.number().int().min(1).nullable(),
