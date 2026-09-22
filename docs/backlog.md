@@ -34,8 +34,13 @@ entry, so the persistent navigation carries what you do daily and the structure
 is somewhere you go deliberately.
 
 **Left.** Where a draft belongs: published guides live in a library and drafts
-live in the studio, so a guide still has two homes depending on its state. And a
-landing page that shows your work rather than a list of workspaces.
+live in the studio, so a guide still has two homes depending on its state. That
+is the last structural question, and it is a design decision rather than a move
+— a draft has no reader, so putting it in a library needs an answer about who
+sees what.
+
+The workspace picker no longer appears when there is one workspace, which on a
+real installation is always. It remains for the development seed, which has two.
 
 **Decided against.** Creating a second workspace from inside the product. An
 installation serves one organisation, and one workspace already carries both

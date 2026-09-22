@@ -1984,3 +1984,49 @@ test('managing a workspace is one place, and closed to someone who only views', 
   ).toHaveCount(0);
   await theirs.close();
 });
+
+test('nobody is asked to choose from a list of one workspace', async ({ page }) => {
+  await login(page.request);
+  const config = readConfig();
+  const ownerURL = new URL(config.GUIDE_OWNER_DATABASE_URL!);
+  ownerURL.pathname = '/guide_app_e2e';
+  const db = new pg.Client({ connectionString: ownerURL.href });
+  await db.connect();
+
+  // With more than one, the list is worth showing.
+  await page.goto('/studio');
+  await expect(page.getByRole('heading', { name: 'Where will you create?' })).toBeVisible();
+
+  const standIn = `stand-in-${randomUUID().slice(0, 8)}`;
+  try {
+    // An installation serves one organisation, so one workspace is the normal
+    // shape and this page would otherwise ask you to pick from a list of one.
+    //
+    // A stand-in manager goes in first: the database refuses to leave a
+    // workspace with nobody who can manage it, which is the rule working
+    // rather than a problem with this scenario.
+    await db.query(
+      'INSERT INTO public.auth_user(id,name,email,email_verified,active) VALUES($1,$1,$1 || $2,true,true)',
+      [standIn, '@example.test'],
+    );
+    await db.query(
+      "INSERT INTO app.membership(workspace_id,actor_id,role) VALUES('repair-collective',$1,'manage')",
+      [standIn],
+    );
+    await db.query(
+      "UPDATE app.membership SET active=false WHERE workspace_id='repair-collective' AND actor_id=(SELECT id FROM public.auth_user WHERE email=$1)",
+      [config.GUIDE_LOCAL_OWNER_EMAIL],
+    );
+    await page.goto('/studio');
+    await expect(page).toHaveURL(/\/studio\/workshop$/);
+    await expect(page.getByRole('heading', { name: 'Where will you create?' })).toHaveCount(0);
+  } finally {
+    await db.query(
+      "UPDATE app.membership SET active=true WHERE workspace_id='repair-collective' AND actor_id=(SELECT id FROM public.auth_user WHERE email=$1)",
+      [config.GUIDE_LOCAL_OWNER_EMAIL],
+    );
+    await db.query('DELETE FROM app.membership WHERE actor_id=$1', [standIn]);
+    await db.query('DELETE FROM public.auth_user WHERE id=$1', [standIn]);
+    await db.end();
+  }
+});
