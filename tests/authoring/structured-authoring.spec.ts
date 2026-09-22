@@ -1784,7 +1784,7 @@ test('somebody is invited, joins from the link, and the link then does nothing',
   await page.goto('/studio/workshop/people');
   await expect(page.getByRole('heading', { name: 'Who can reach this workspace.' })).toBeVisible();
 
-  await page.getByRole('textbox', { name: 'Invite by email', exact: true }).fill(invitee);
+  await page.getByRole('textbox', { name: 'Email', exact: true }).fill(invitee);
   // Not an exact match: a select's options are part of its label's text, so
   // the accessible name carries them too.
   await page.getByLabel(/They can/).selectOption('view');

@@ -231,3 +231,27 @@
   --gp-component-dialog-backdrop: var(--gp-semantic-surface-overlay);
   --gp-component-dialog-shadow: var(--gp-semantic-shadow-dialog);
 }
+:root {
+  --background: var(--gp-semantic-surface-canvas);
+  --foreground: var(--gp-semantic-text-primary);
+  --card: var(--gp-semantic-surface-panel);
+  --card-foreground: var(--gp-semantic-text-primary);
+  --popover: var(--gp-semantic-surface-panel);
+  --popover-foreground: var(--gp-semantic-text-primary);
+  --primary: var(--gp-semantic-action-primary-background);
+  --primary-foreground: var(--gp-semantic-action-primary-foreground);
+  --secondary: var(--gp-semantic-surface-sunken);
+  --secondary-foreground: var(--gp-semantic-text-primary);
+  --muted: var(--gp-semantic-surface-sunken);
+  --muted-foreground: var(--gp-semantic-text-secondary);
+  --accent: var(--gp-semantic-accent-background);
+  --accent-foreground: var(--gp-semantic-accent-foreground);
+  --destructive: var(--gp-semantic-status-error-foreground);
+  --destructive-foreground: var(--gp-semantic-surface-canvas);
+  --border: var(--gp-semantic-border-subtle);
+  --input: var(--gp-semantic-border-control);
+  --ring: var(--gp-semantic-focus-ring);
+  --radius: var(--gp-semantic-radius-control);
+  --font-sans: var(--gp-semantic-font-body);
+  --font-mono: var(--gp-semantic-font-code);
+}

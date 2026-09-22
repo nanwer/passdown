@@ -1,11 +1,54 @@
 @import 'tailwindcss';
+/* Tailwind v4 discovers class names by scanning source files, and its automatic
+   detection stops at this app. The shared component packages live outside it, so
+   their utilities would never be generated — which shows up as components that
+   render with the right markup and none of the styling. */
+@source '../../../packages/ui/src';
+@source '../../../packages/guide-ui/src';
+/**
+ * Tailwind's view of the palette.
+ *
+ * The --background, --foreground and friends these read are generated from
+ * tokens.json alongside the --gp- names, so there is one palette and shadcn's
+ * components simply know it by its own vocabulary. Nothing here is a colour;
+ * change the palette in tokens.json and everything downstream follows.
+ */
 @theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted-surface: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  /* The names the pre-Tailwind components already use. They point at the same
+     tokens, so the two vocabularies cannot drift; they go as those components
+     are converted. */
   --color-canvas: var(--gp-semantic-surface-canvas);
   --color-panel: var(--gp-semantic-surface-panel);
   --color-ink: var(--gp-semantic-text-primary);
   --color-muted: var(--gp-semantic-text-secondary);
   --color-action: var(--gp-semantic-action-primary-background);
   --font-sans: var(--gp-semantic-font-body);
+  --font-mono: var(--gp-semantic-font-code);
 }
 * {
   box-sizing: border-box;

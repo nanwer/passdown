@@ -1,7 +1,17 @@
 'use client';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Copy, Check, UserPlus } from 'lucide-react';
-import { Button } from '@guide/ui';
+import {
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  Input,
+  Label,
+  Select,
+  buttonVariants,
+  cardStyles,
+  cn,
+} from '@guide/ui';
 import type { StudioWorkspace, WorkspacePeople } from '@guide/contracts';
 import { ErrorNotice, SessionGate } from './frame';
 import { studioFetch } from './transport';
@@ -99,27 +109,33 @@ function PeopleList({ workspace }: { workspace: StudioWorkspace }) {
       <div className="people-page">
         {error && <ErrorNotice error={error} />}
 
-        <form className="studio-card studio-form" onSubmit={invite}>
-          <label>
-            Invite by email
-            <input
-              name="email"
-              type="email"
-              required
-              maxLength={200}
-              placeholder="them@example.com"
-            />
-          </label>
-          <label>
-            They can
-            <select name="role" defaultValue="view">
-              <option value="view">View — read published guides</option>
-              <option value="manage">Manage — everything, including inviting people</option>
-            </select>
-          </label>
-          <Button type="submit" loading={pending}>
-            <UserPlus size={16} /> Create an invitation
-          </Button>
+        <form onSubmit={invite} className={cn(cardStyles, 'p-6')}>
+          <CardHeader>
+            <CardTitle>Invite somebody</CardTitle>
+            <CardDescription>They get a link to open. Nothing is emailed.</CardDescription>
+          </CardHeader>
+          <div className="grid gap-4">
+            <Label>
+              Email
+              <Input
+                name="email"
+                type="email"
+                required
+                maxLength={200}
+                placeholder="them@example.com"
+              />
+            </Label>
+            <Label>
+              They can
+              <Select name="role" defaultValue="view">
+                <option value="view">View — read published guides</option>
+                <option value="manage">Manage — everything, including inviting people</option>
+              </Select>
+            </Label>
+            <button type="submit" disabled={pending} className={cn(buttonVariants(), 'w-full')}>
+              <UserPlus size={16} /> Create an invitation
+            </button>
+          </div>
         </form>
 
         {issued && (
@@ -131,8 +147,9 @@ function PeopleList({ workspace }: { workspace: StudioWorkspace }) {
             </p>
             <div className="invite-link">
               <code>{issued.link}</code>
-              <Button
-                variant="secondary"
+              <button
+                type="button"
+                className={buttonVariants({ variant: 'secondary' })}
                 onClick={() => {
                   void navigator.clipboard?.writeText(issued.link).then(
                     () => setCopied(true),
@@ -142,7 +159,7 @@ function PeopleList({ workspace }: { workspace: StudioWorkspace }) {
               >
                 {copied ? <Check size={16} /> : <Copy size={16} />}
                 {copied ? 'Copied' : 'Copy'}
-              </Button>
+              </button>
             </div>
           </div>
         )}
@@ -183,8 +200,9 @@ function PeopleList({ workspace }: { workspace: StudioWorkspace }) {
                       <option value="manage">Manage</option>
                     </select>
                   </label>
-                  <Button
-                    variant="ghost"
+                  <button
+                    type="button"
+                    className={buttonVariants({ variant: 'ghost', size: 'sm' })}
                     disabled={pending || (member.role === 'manage' && managers.length === 1)}
                     onClick={() => {
                       if (!window.confirm(`Remove ${member.name} from ${workspace.name}?`)) return;
@@ -196,7 +214,7 @@ function PeopleList({ workspace }: { workspace: StudioWorkspace }) {
                     }}
                   >
                     Remove
-                  </Button>
+                  </button>
                 </div>
               </li>
             ))}
@@ -224,8 +242,9 @@ function PeopleList({ workspace }: { workspace: StudioWorkspace }) {
                     </span>
                   </div>
                   <div className="people-actions">
-                    <Button
-                      variant="ghost"
+                    <button
+                      type="button"
+                      className={buttonVariants({ variant: 'ghost', size: 'sm' })}
                       disabled={pending}
                       onClick={() =>
                         void act(() =>
@@ -236,7 +255,7 @@ function PeopleList({ workspace }: { workspace: StudioWorkspace }) {
                       }
                     >
                       Revoke
-                    </Button>
+                    </button>
                   </div>
                 </li>
               ))}
