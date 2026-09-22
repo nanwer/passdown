@@ -65,14 +65,15 @@ Owner-only authoring; manual saves without browser draft backup; category depth 
 1. Open **Studio → a workspace → Tools & materials**. Expect items used by guides to show a total such as `3 guides`, and unused items to show nothing.
 2. Use the **All / Active / Inactive** tabs with the search, kind and category filters. Expect All to equal Active plus Inactive under whatever else is filtered.
 
-## Public and internal sections
+## Libraries, and who sees which
 
-1. Sign in as a member of a public workspace and open the public home. Expect a **Public / Internal** switch above the search field.
-2. Stay on Public. Expect only publicly published guides; a members-only guide must not appear here even though you can read it.
-3. Choose **Internal**. Expect the members-only releases of that workspace.
-4. Open the same internal address in a private window. Expect 404, with no sign-in prompt and no hint that the section exists.
-5. As a visitor on the public home, expect no Public/Internal switch at all.
-6. Choose **New guide** in a public workspace. Expect a **Section** choice defaulting to Public, and a note that it cannot be changed later. Repeat in a private workspace and expect no choice, only the members-only note.
+1. Sign in as a member and open the home page. Expect a tab in the header for each library you can read — **Public guides**, and one named for each workspace whose members-only library holds something.
+2. Stay on **Public guides**. Expect only publicly published guides; a members-only guide must not appear here even though you can read it.
+3. Choose the members-only tab. Expect the members-only releases of that workspace, and the tab marked as the current one.
+4. Open the same members-only address in a private window. Expect 404, with no sign-in prompt and no hint that the library exists.
+5. As a visitor on the home page, expect a single tab reading **Public guides**, no link to any members-only library, and a **Sign in** button where a member sees **Open studio**.
+6. Narrow the window to a phone width. Expect the tabs to wrap rather than push the page sideways.
+7. Choose **New guide** in a public workspace. Expect a **Section** choice defaulting to Public, and a note that a guide can move between sections later. Repeat in a private workspace and expect no choice, only the members-only note.
 
 ## A library larger than one page
 

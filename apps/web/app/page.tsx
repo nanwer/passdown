@@ -3,9 +3,10 @@ import { isConfigured } from '../lib/application';
 import {
   emptyLibraryPage,
   getPublicScope,
-  getSections,
+  getLibraries,
   readLibraryPage,
   rootWorkspaceId,
+  viewerSignedIn,
 } from '../lib/queries';
 import { resolveCategoryFilter } from '../lib/category-filter';
 export const dynamic = 'force-dynamic';
@@ -30,7 +31,7 @@ export default async function Page({
   // Answering that question properly is the information architecture work in
   // docs/backlog.md. Until then the page renders empty rather than falling over.
   const scope = rootWorkspace ? await getPublicScope(rootWorkspace) : null;
-  const sections = rootWorkspace && scope ? await getSections(rootWorkspace, 'public') : undefined;
+  const [libraries, signedIn] = await Promise.all([getLibraries('/'), viewerSignedIn()]);
   const [taxonomy, categoryCounts, categoryNames] = scope
     ? await Promise.all([scope.categories(), scope.categoryCounts(), scope.categoryNames()])
     : [[], [], []];
@@ -54,7 +55,8 @@ export default async function Page({
       categoryCounts={categoryCounts}
       query={query}
       category={selected?.id ?? category}
-      sections={sections}
+      libraries={libraries}
+      signedIn={signedIn}
     />
   );
 }

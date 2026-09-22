@@ -13,6 +13,7 @@ export function Reader({
   workspaceName,
   editHref,
   family,
+  signedIn = false,
 }: {
   guide: DemoGuide | PublishedGuide;
   team?: boolean;
@@ -33,6 +34,8 @@ export function Reader({
    * subject. Only relatives the reader may open are present.
    */
   family?: GuideFamily;
+  /** Whether there is a session. Decides what the header's one button offers. */
+  signedIn?: boolean;
 }) {
   // Sample guides ship their artwork inline and have no stored pictures, so
   // only a persisted guide gets a media source.
@@ -41,6 +44,9 @@ export function Reader({
       ? (assetId: string, width?: number) =>
           `/api/media/${guide.workspaceId}/${assetId}${width ? `?w=${width}` : ''}`
       : undefined;
+  // The same name the library uses for itself. "Repair collective" was this
+  // project's own seed leaking into every installation's header.
+  const libraryName = workspaceName ?? (team ? 'Workshop operations' : 'Public guides');
   const base = basePath ?? (team ? '/preview/workshop' : '/');
   // Relatives live beside this guide: '/guides/:id' publicly, or under the
   // workspace path when reading a members-only section.
@@ -55,7 +61,7 @@ export function Reader({
     <AppShell
       team={team}
       libraryHref={base}
-      workspaceLabel={persistent ? (workspaceName ?? 'Repair collective') : undefined}
+      workspaceLabel={persistent ? libraryName : undefined}
       footerNote={persistent ? 'Write, share, and keep useful knowledge close.' : undefined}
       actions={
         editHref ? (
@@ -70,7 +76,7 @@ export function Reader({
               Studio
             </Link>
           </>
-        ) : persistent ? (
+        ) : !persistent ? undefined : signedIn ? (
           // Named for where it goes, not for one thing you can do there. As
           // "Write a guide" it was the only door from the public library into
           // the studio, so anyone looking for the catalog, things or people had
@@ -78,7 +84,12 @@ export function Reader({
           <Link className="button button--primary" href="/studio">
             <PenLine size={16} aria-hidden="true" /> Open studio
           </Link>
-        ) : undefined
+        ) : (
+          // A visitor has no studio to open.
+          <Link className="button button--primary" href="/sign-in">
+            Sign in
+          </Link>
+        )
       }
     >
       <main id="main" className="reader page-width" tabIndex={-1}>

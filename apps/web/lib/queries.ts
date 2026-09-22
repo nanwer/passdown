@@ -84,13 +84,6 @@ function demoScope(scope: NonNullable<ReturnType<typeof queries.inWorkspace>>) {
   };
 }
 /**
- * The workspace this installation shows at its root.
- *
- * Null when it has none — an installation whose workspaces are all private has
- * no public front page, and that is a configuration rather than a fault. The
- * sample library keeps its own name because it is a fixture, not a deployment.
- */
-/**
  * Whether whoever is asking may edit this workspace's guides.
  *
  * Used to decide whether a reading page offers an Edit affordance. Answering
@@ -103,6 +96,25 @@ export async function viewerManages(workspaceId: string): Promise<boolean> {
   if (actor.kind !== 'user') return false;
   const workspaces = await getApplication().store.listWorkspaces(actor);
   return workspaces.some((w) => w.id === workspaceId && w.role === 'manage');
+}
+
+/**
+ * The workspace this installation shows at its root.
+ *
+ * Null when it has none — an installation whose workspaces are all private has
+ * no public front page, and that is a configuration rather than a fault. The
+ * sample library keeps its own name because it is a fixture, not a deployment.
+ */
+/**
+ * Whether there is a session behind this request.
+ *
+ * The header offered "Open studio" to everyone, including a visitor with no
+ * account, because the condition it asked was whether the installation had a
+ * database rather than whether anybody was signed in.
+ */
+export async function viewerSignedIn(): Promise<boolean> {
+  if (!isConfigured()) return false;
+  return (await currentActor()).kind === 'user';
 }
 
 export async function rootWorkspaceId(): Promise<string | null> {
@@ -119,13 +131,6 @@ export async function getPublicScope(workspaceId?: string) {
   }
   return getPersistentScope({ kind: 'anonymous' }, id);
 }
-/**
- * A section is a view over one workspace, not a separate workspace.
- * `public` is the projection an anonymous visitor would see, and stays that way
- * even for a signed-in member. `internal` is the members-only side and requires
- * an active membership.
- */
-export type Section = 'public' | 'internal';
 async function getPersistentScope(
   actor: Actor,
   workspaceId: string,
@@ -171,24 +176,56 @@ export async function getInternalScope(workspaceId: string) {
   return getPersistentScope(actor, workspaceId, 'members');
 }
 /**
- * Section links for a workspace, or undefined when the viewer is not a member.
- * Returning undefined is what keeps the internal section unadvertised: there is
- * no tab, no count and no placeholder for anyone who cannot open it.
+ * Every library this visitor can read, in the order they should be offered.
+ *
+ * This replaces a switch between the public and members-only sections of one
+ * workspace. That switch showed the wrong axis: on a real installation the
+ * public workspace's internal section is usually empty, while a separate team
+ * workspace — which the switch could not reach at all — is where the members-only
+ * guides actually are.
+ *
+ * The public library is named for what it is rather than for the workspace
+ * behind it. "Repair collective" is an operator's word for their own workspace
+ * and means nothing to somebody who has just arrived.
+ *
+ * An empty members-only library is left out. A tab that leads to nothing is
+ * worse than no tab, and one appears as soon as something is published there.
+ *
+ * Returns what the visitor can read, including the single-entry case. Whether
+ * one library is worth drawing a tab strip for is the header's decision, not
+ * this function's.
  */
-export async function getSections(
-  workspaceId: string,
-  active: Section,
-): Promise<{ active: Section; publicHref: string; internalHref: string } | undefined> {
-  if (!isConfigured()) return undefined;
+export async function getLibraries(
+  currentHref: string,
+): Promise<{ href: string; label: string; current: boolean }[]> {
+  if (!isConfigured()) return [];
+  const root = await rootWorkspaceId();
   const actor = await currentActor();
-  if (actor.kind !== 'user') return undefined;
-  const memberships = await getApplication().store.listWorkspaces(actor);
-  const membership = memberships.find((workspace) => workspace.id === workspaceId);
-  // A private workspace has no public side, so there is nothing to switch
-  // between and no switch is offered.
-  if (!membership || membership.audience !== 'public') return undefined;
-  return { active, publicHref: '/', internalHref: `/w/${workspaceId}` };
+  const libraries: { href: string; label: string; current: boolean }[] = [];
+  if (root) libraries.push({ href: '/', label: 'Public guides', current: currentHref === '/' });
+  if (actor.kind !== 'user') return libraries;
+
+  const store = getApplication().store;
+  for (const workspace of await store.listWorkspaces(actor)) {
+    const href = `/w/${workspace.id}`;
+    const scope = await getInternalScope(workspace.id);
+    if (!scope) continue;
+    // One row, because the question is "is there anything here", not "what".
+    // The library being looked at stays in the list even when it is empty —
+    // dropping it would take the current tab out from under the reader.
+    const current = currentHref === href;
+    const { total } = await scope.list({ limit: 1 });
+    if (!total && !current) continue;
+    libraries.push({
+      href,
+      // A member knows their own workspace by name; that is the point of it.
+      label: workspace.id === root ? `${workspace.name} · members` : workspace.name,
+      current,
+    });
+  }
+  return libraries;
 }
+
 export function getTeamPreviewScope() {
   if (process.env.GUIDE_DEMO_PREVIEW !== '1') return null;
   // This identity is confined to original, synthetic fixtures. Never connect this path to a real repository.

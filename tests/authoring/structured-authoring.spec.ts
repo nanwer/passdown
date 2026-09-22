@@ -615,7 +615,7 @@ test('catalog listing reports how many guides use each item and filters by statu
   await expect(row.locator('.catalog-usage')).toHaveCount(0);
 });
 
-test('one site, two sections: members switch between public and internal, others see neither', async ({
+test('libraries are tabs: a member switches between them, a visitor gets only the public one', async ({
   page,
   browser,
 }) => {
@@ -663,22 +663,37 @@ test('one site, two sections: members switch between public and internal, others
     license: 'all-rights-reserved',
   });
 
-  // A member sees the switch, and the public side stays a public-only view.
+  // A member gets a tab for every library they can read, and the public one
+  // stays a public-only view.
   await page.goto('/');
-  const sections = page.getByRole('navigation', { name: 'Workspace sections' });
-  await expect(sections).toBeVisible();
+  const libraries = page.getByRole('navigation', { name: 'Libraries' });
+  await expect(libraries.getByRole('link', { name: 'Public guides' })).toHaveAttribute(
+    'aria-current',
+    'page',
+  );
   await expect(page.getByText(internalTitle, { exact: false })).toHaveCount(0);
 
-  // The internal side shows it.
-  await sections.getByRole('link', { name: 'Internal' }).click();
+  // Named for the workspace, because that is what a member knows it by.
+  const members = libraries.locator(`a[href="/w/${workspace}"]`);
+  await expect(members).toContainText('Repair collective');
+  await members.click();
   await expect(page).toHaveURL(new RegExp(`/w/${workspace}$`));
   await expect(page.getByText(internalTitle, { exact: false }).first()).toBeVisible();
 
-  // A visitor gets neither the section nor a hint that it exists.
+  // Three tabs on this installation, and a phone is where a header full of
+  // labels has pushed the page sideways before.
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  await expect(libraries.getByRole('link', { name: 'Public guides' })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+
+  // A visitor gets one tab, and no hint that the other library exists.
   const anonymous = await browser.newContext();
   const visitor = await anonymous.newPage();
   await visitor.goto('/');
-  await expect(visitor.getByRole('navigation', { name: 'Workspace sections' })).toHaveCount(0);
+  const theirs = visitor.getByRole('navigation', { name: 'Libraries' });
+  await expect(theirs.getByRole('link')).toHaveCount(1);
+  await expect(theirs.locator(`a[href="/w/${workspace}"]`)).toHaveCount(0);
   await expect(visitor.getByText(internalTitle, { exact: false })).toHaveCount(0);
   expect((await visitor.request.get(`/w/${workspace}`)).status()).toBe(404);
   await anonymous.close();
@@ -1866,7 +1881,10 @@ test('the only person who manages a workspace is not offered a way out of it', a
   await expect(page.getByText('One person manages this workspace')).toBeVisible();
 });
 
-test('the library has a way into the studio that names where it goes', async ({ page }) => {
+test('the library has a way into the studio that names where it goes', async ({
+  page,
+  browser,
+}) => {
   // The only door from the public library used to be labelled "Write a guide",
   // so anyone looking for the catalog, things or people had no reason to press
   // it — and there was no other way through. This lives in the authoring suite
@@ -1878,6 +1896,19 @@ test('the library has a way into the studio that names where it goes', async ({ 
   await expect(door).toHaveAttribute('href', '/studio');
   await door.click();
   await expect(page.getByRole('heading', { name: 'Where will you create?' })).toBeVisible();
+
+  // A visitor has no studio to open. The same button offered it to everybody,
+  // because it asked whether the installation had a database rather than
+  // whether anybody was signed in.
+  const anonymous = await browser.newContext();
+  const visitor = await anonymous.newPage();
+  await visitor.goto('/');
+  await expect(visitor.getByRole('link', { name: /Open studio/ })).toHaveCount(0);
+  await expect(visitor.getByRole('link', { name: 'Sign in', exact: true })).toHaveAttribute(
+    'href',
+    '/sign-in',
+  );
+  await anonymous.close();
 });
 
 test('the header separates the installation from the workspace inside it', async ({ page }) => {

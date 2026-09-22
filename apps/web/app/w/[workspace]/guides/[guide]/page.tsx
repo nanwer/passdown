@@ -23,6 +23,8 @@ export default async function Page({ params }: Props) {
       family={family}
       team={scope.workspace.audience === 'private'}
       persistent
+      // Reaching this page at all means an active membership.
+      signedIn
       basePath={`/w/${workspace}`}
       workspaceName={scope.workspace.name}
       editHref={(await viewerManages(workspace)) ? `/studio/${workspace}/${id}` : undefined}

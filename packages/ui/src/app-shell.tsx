@@ -95,6 +95,7 @@ export function AppShell({
   actions,
   libraryHref,
   libraryLabel = 'Library',
+  libraries = [],
   workspaceLabel,
   footerNote = 'Original sample guides · Read-only development preview',
 }: {
@@ -104,6 +105,12 @@ export function AppShell({
   actions?: ReactNode;
   libraryHref?: string;
   libraryLabel?: string;
+  /**
+   * Every library this visitor can read. Drawn as the header's second tier,
+   * which is already a tab strip — so the switch travels with the header
+   * instead of being a control somewhere down the page.
+   */
+  libraries?: { href: string; label: string; current: boolean }[];
   workspaceLabel?: string;
   footerNote?: string;
 }) {
@@ -128,21 +135,35 @@ export function AppShell({
           library. The shape does not change between the two surfaces; only the
           utilities on the right do. */}
       <SiteHeader
+        // The tabs name the library, so repeating it in the tier above would
+        // say the same word twice at two different sizes.
         workspace={
-          workspaceLabel ? { id: '', name: workspaceLabel, href: libraryHref ?? '/' } : undefined
+          workspaceLabel && !libraries.length
+            ? { id: '', name: workspaceLabel, href: libraryHref ?? '/' }
+            : undefined
         }
-        sections={[
-          {
-            href: libraryHref ?? (team ? '/preview/workshop' : '/'),
-            label: libraryLabel,
-            icon: <BookOpen size={15} />,
-            current: active === 'library',
-          },
-        ]}
+        navLabel={libraries.length ? 'Libraries' : 'Main navigation'}
+        sections={
+          libraries.length
+            ? libraries.map((library) => ({
+                href: library.href,
+                label: library.label,
+                icon: library.href === '/' ? <Globe2 size={15} /> : <LockKeyhole size={15} />,
+                current: library.current,
+              }))
+            : [
+                {
+                  href: libraryHref ?? (team ? '/preview/workshop' : '/'),
+                  label: libraryLabel,
+                  icon: <BookOpen size={15} />,
+                  current: active === 'library',
+                },
+              ]
+        }
         utilities={
           <>
             <ThemeToggle />
-            {!workspaceLabel && <WorkspaceDisclosure team={team} />}
+            {!workspaceLabel && !libraries.length && <WorkspaceDisclosure team={team} />}
             {actions}
           </>
         }

@@ -1,6 +1,11 @@
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
-import { getPublicScope, readLibraryPage } from '../../../lib/queries';
+import {
+  getLibraries,
+  getPublicScope,
+  readLibraryPage,
+  viewerSignedIn,
+} from '../../../lib/queries';
 import { Library } from '../../../components/library';
 export const dynamic = 'force-dynamic';
 type Props = {
@@ -23,9 +28,13 @@ export default async function Page({ params, searchParams }: Props) {
   if (!category) notFound();
   const search = await searchParams;
   const query = typeof search.q === 'string' ? search.q.slice(0, 200) : '';
-  const [categoryCounts, page] = await Promise.all([
+  const [categoryCounts, page, libraries, signedIn] = await Promise.all([
     scope.categoryCounts(),
     readLibraryPage(scope, { categoryId: id, search: query }, search.page),
+    // The library this category belongs to, not the page you are on, so the
+    // tab for it stays marked while you browse inside it.
+    getLibraries('/'),
+    viewerSignedIn(),
   ]);
   return (
     <Library
@@ -39,6 +48,8 @@ export default async function Page({ params, searchParams }: Props) {
       categoryCounts={categoryCounts}
       query={query}
       persistent
+      libraries={libraries}
+      signedIn={signedIn}
     />
   );
 }

@@ -2,8 +2,9 @@ import { notFound } from 'next/navigation';
 import {
   emptyLibraryPage,
   getInternalScope,
-  getSections,
+  getLibraries,
   readLibraryPage,
+  viewerSignedIn,
 } from '../../../lib/queries';
 import { Library } from '../../../components/library';
 import { resolveCategoryFilter } from '../../../lib/category-filter';
@@ -21,7 +22,10 @@ export default async function Page({
   // existence is not advertised.
   const scope = await getInternalScope(workspace);
   if (!scope) notFound();
-  const sections = await getSections(workspace, 'internal');
+  const [libraries, signedIn] = await Promise.all([
+    getLibraries(`/w/${workspace}`),
+    viewerSignedIn(),
+  ]);
   const paramsValue = await searchParams;
   const query = typeof paramsValue.q === 'string' ? paramsValue.q.slice(0, 200) : '';
   const category =
@@ -51,7 +55,8 @@ export default async function Page({
       persistent
       basePath={`/w/${workspace}`}
       workspaceName={scope.workspace.name}
-      sections={sections}
+      libraries={libraries}
+      signedIn={signedIn}
     />
   );
 }

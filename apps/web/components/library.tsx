@@ -41,7 +41,8 @@ export function Library({
   total = guides.length,
   offset = 0,
   limit = libraryPageSize,
-  sections,
+  libraries,
+  signedIn = false,
 }: {
   guides: (DemoGuide | PublishedGuide)[];
   categories: string[];
@@ -64,12 +65,18 @@ export function Library({
   offset?: number;
   limit?: number;
   /**
-   * Public and members-only views of one workspace. Omitted entirely for
-   * visitors and signed-in nonmembers, so the internal section is not
-   * advertised to anyone who cannot open it.
+   * The libraries this visitor can read, drawn as tabs in the header. A
+   * members-only library is absent for anyone who cannot open it, so the tab
+   * strip never advertises a door that would answer 404.
    */
-  sections?: { active: 'public' | 'internal'; publicHref: string; internalHref: string };
+  libraries?: { href: string; label: string; current: boolean }[];
+  /** Whether there is a session. Decides what the header's one button offers. */
+  signedIn?: boolean;
 }) {
+  // What this library is called. It was two literals — the names of this
+  // project's own development seed — which is the same mistake as the root
+  // workspace id being a literal: every other installation read as ours.
+  const libraryName = workspaceName ?? (team ? 'Workshop operations' : 'Public guides');
   const base = basePath ?? (team ? '/preview/workshop' : '/');
   const guideBase = base === '/' ? '' : base;
   const synthetic = team && !persistent;
@@ -97,10 +104,11 @@ export function Library({
     <AppShell
       team={team}
       libraryHref={base}
-      workspaceLabel={persistent ? (workspaceName ?? 'Repair collective') : undefined}
+      workspaceLabel={persistent ? libraryName : undefined}
+      libraries={libraries}
       footerNote={persistent ? 'Write, share, and keep useful knowledge close.' : undefined}
       actions={
-        persistent ? (
+        !persistent ? undefined : signedIn ? (
           // Named for where it goes, not for one thing you can do there. As
           // "Write a guide" it was the only door from the public library into
           // the studio, so anyone looking for the catalog, things or people had
@@ -108,14 +116,21 @@ export function Library({
           <Link className="button button--primary" href="/studio">
             <PenLine size={16} aria-hidden="true" /> Open studio
           </Link>
-        ) : undefined
+        ) : (
+          // A visitor has no studio to open. The same button used to say so to
+          // everybody, because it asked whether the installation had a database
+          // rather than whether anybody was signed in.
+          <Link className="button button--primary" href="/sign-in">
+            Sign in
+          </Link>
+        )
       }
     >
       <main id="main" tabIndex={-1}>
         {selectedCategory ? (
           <section className="category-hero page-width">
             <CategoryBreadcrumbs category={selectedCategory} base={guideBase} />
-            <div className="eyebrow">{team ? 'WORKSPACE KNOWLEDGE' : 'EXPLORE THE COLLECTIVE'}</div>
+            <div className="eyebrow">{libraryName.toUpperCase()}</div>
             <h1>{selectedCategory.name}</h1>
             <p>
               {selectedCategory.description ||
@@ -195,9 +210,7 @@ export function Library({
         >
           <div className="collection-heading">
             <div>
-              <div className="eyebrow">
-                {team ? 'WORKSHOP OPERATIONS' : 'THE REPAIR COLLECTIVE'}
-              </div>
+              <div className="eyebrow">{libraryName.toUpperCase()}</div>
               <h2 id="collection-title">
                 {selectedCategory
                   ? `Guides in ${selectedCategory.name}`
@@ -224,24 +237,6 @@ export function Library({
                 experience. It contains no real team data and does not sign you in.
               </p>
             </div>
-          )}
-          {sections && (
-            <nav className="section-switch" aria-label="Workspace sections">
-              <a
-                href={sections.publicHref}
-                aria-current={sections.active === 'public' ? 'page' : undefined}
-              >
-                <Globe2 size={15} />
-                Public
-              </a>
-              <a
-                href={sections.internalHref}
-                aria-current={sections.active === 'internal' ? 'page' : undefined}
-              >
-                <LockKeyhole size={15} />
-                Internal
-              </a>
-            </nav>
           )}
           <div
             className={

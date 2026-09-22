@@ -2,7 +2,12 @@ import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { Reader } from '../../../components/reader';
 import { isConfigured } from '../../../lib/application';
-import { getPublicScope, rootWorkspaceId, viewerManages } from '../../../lib/queries';
+import {
+  getPublicScope,
+  rootWorkspaceId,
+  viewerManages,
+  viewerSignedIn,
+} from '../../../lib/queries';
 export const dynamic = 'force-dynamic';
 type GuidePageProps = { params: Promise<{ guide: string }> };
 
@@ -25,5 +30,13 @@ export default async function Page({ params }: GuidePageProps) {
   // to that workspace's editor — and is offered only to somebody who may.
   const root = await rootWorkspaceId();
   const editHref = root && (await viewerManages(root)) ? `/studio/${root}/${id}` : undefined;
-  return <Reader guide={guide} persistent={isConfigured()} family={family} editHref={editHref} />;
+  return (
+    <Reader
+      guide={guide}
+      persistent={isConfigured()}
+      family={family}
+      editHref={editHref}
+      signedIn={await viewerSignedIn()}
+    />
+  );
 }

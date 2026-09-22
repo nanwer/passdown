@@ -31,7 +31,13 @@ reachable. One header across both surfaces, with a workspace's own sections
 beneath the installation's rather than beside them. A guide is edited from the
 page you read it on. The tree, the catalog and the people sit behind one Manage
 entry, so the persistent navigation carries what you do daily and the structure
-is somewhere you go deliberately.
+is somewhere you go deliberately. The front page answers "which library" rather
+than "which section of the one workspace": a visitor gets the public one, a
+member gets a tab for each library they can read. The old switch offered Public
+and Internal for a single workspace, which on this installation meant an empty
+destination beside the one holding the guides — and it could not reach a
+separate team workspace at all. The public library is called Public guides,
+because "Repair collective" is an operator's word for their own workspace.
 
 **Left.** Where a draft belongs: published guides live in a library and drafts
 live in the studio, so a guide still has two homes depending on its state. That
