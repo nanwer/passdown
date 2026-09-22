@@ -1,6 +1,6 @@
 /**
- * Replaces the local library with a worked example of a flat-pack furniture
- * company, public and internal.
+ * Replaces the local library with a worked example of flat-pack furniture,
+ * public and internal.
  *
  * Destructive on purpose: it empties the guides, things, catalog and pictures of
  * the local development database before writing its own, so that what you are
@@ -19,7 +19,9 @@
  */
 import pg from 'pg';
 import { randomUUID } from 'node:crypto';
-import { rm } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { readConfig } from './local-config.mjs';
 import { requireLocal } from './migrate-local.mjs';
@@ -37,11 +39,14 @@ import {
   type ShowcaseCategory,
   type ShowcaseGuide,
   type ShowcaseItem,
+  type ShowcasePhoto,
   type ShowcaseStep,
 } from './showcase-content';
 
 const config = readConfig();
 const origin = config.BETTER_AUTH_URL || 'http://127.0.0.1:3100';
+/** Downloaded photographs, kept out of the repository and out of the way. */
+const photoCache = join(tmpdir(), 'passdown-showcase-photos');
 const PUBLIC_WORKSPACE = 'repair-collective';
 const PRODUCTION_WORKSPACE = 'workshop';
 
@@ -140,17 +145,6 @@ async function empty(client: pg.Client) {
   return before;
 }
 
-async function renameWorkspaces(client: pg.Client) {
-  await client.query('UPDATE app.workspace SET name=$2 WHERE id=$1', [
-    PUBLIC_WORKSPACE,
-    'Nordhavn Home',
-  ]);
-  await client.query('UPDATE app.workspace SET name=$2 WHERE id=$1', [
-    PRODUCTION_WORKSPACE,
-    'Nordhavn Production',
-  ]);
-}
-
 /** Every category, depth first, so a child is always created after its parent. */
 async function createCategories(
   workspace: string,
@@ -224,11 +218,63 @@ async function drawPicture(label: string, seed: number) {
   return sharp(Buffer.from(svg)).png().toBuffer();
 }
 
+/**
+ * A photograph from Wikimedia Commons.
+ *
+ * Fetched when the seed runs rather than committed, so this repository carries
+ * no image files — and cached on disk afterwards, so running the seed twenty
+ * times during a week's work asks Wikimedia for each picture once.
+ *
+ * Returns null when it cannot be had: no network, or a rate limit that outlasts
+ * the retries. A seed that only works online is a seed that fails on a train,
+ * and a drawing is a reasonable thing to fall back to as long as it says so.
+ */
+async function fetchPhoto(photo: ShowcasePhoto): Promise<Buffer | null> {
+  const cached = join(photoCache, createHash('sha256').update(photo.url).digest('hex') + '.bin');
+  try {
+    return await readFile(cached);
+  } catch {
+    /* Not fetched yet. */
+  }
+  for (let attempt = 0; attempt < 4; attempt++) {
+    try {
+      const response = await fetch(photo.url, {
+        headers: { 'user-agent': 'passdown-seed/0.1 (local development)' },
+        signal: AbortSignal.timeout(25000),
+      });
+      if (response.status === 429) {
+        process.stdout.write('  …Wikimedia is asking for a slower pace, waiting 20s\n');
+        await wait(20);
+        continue;
+      }
+      if (!response.ok) {
+        process.stdout.write(
+          `  …photograph unavailable (${response.status}), drawing one instead\n`,
+        );
+        return null;
+      }
+      const bytes = Buffer.from(await response.arrayBuffer());
+      await mkdir(photoCache, { recursive: true });
+      await writeFile(cached, bytes);
+      return bytes;
+    } catch (e) {
+      // Said out loud. A silent fallback is why the first run of this quietly
+      // drew diagrams for eight guides meant to carry photographs.
+      process.stdout.write(
+        `  …photograph unavailable (${e instanceof Error ? e.message : e}), drawing one instead\n`,
+      );
+      return null;
+    }
+  }
+  process.stdout.write('  …photograph still rate limited, drawing one instead\n');
+  return null;
+}
+
 let pictureSeed = 0;
 
-/** Uploads a drawn picture and returns its asset id. */
-async function uploadPicture(workspace: string, label: string) {
-  const bytes = await drawPicture(label, ++pictureSeed);
+/** Uploads a picture and returns its asset id. */
+async function uploadPicture(workspace: string, label: string, photo?: ShowcasePhoto) {
+  const bytes = (photo && (await fetchPhoto(photo))) ?? (await drawPicture(label, ++pictureSeed));
   const form = new FormData();
   form.append('file', new Blob([new Uint8Array(bytes)], { type: 'image/png' }), 'cover.png');
   const response = await withPatience('uploading a picture', () =>
@@ -295,9 +341,9 @@ function body(step: ShowcaseStep) {
  */
 function documentFor(
   guide: ShowcaseGuide,
-  thing: string,
   catalog: Map<string, CatalogItem>,
   title: string,
+  illustrated?: { assetId: string; step?: string; alt: string; caption: string },
 ) {
   const requirementIds = new Map<string, string>();
   const requirements = (guide.needs ?? []).map((need) => {
@@ -326,11 +372,22 @@ function documentFor(
   const stepIds = new Map<string, string>();
   for (const step of guide.steps) stepIds.set(step.title, randomUUID());
 
+  const onStep = illustrated?.step ?? guide.steps[0]?.title;
   const steps = guide.steps.map((step) => ({
     id: stepIds.get(step.title)!,
     title: step.title,
     body: body(step),
-    media: [],
+    media:
+      illustrated && step.title === onStep
+        ? [
+            {
+              assetId: illustrated.assetId,
+              alt: illustrated.alt,
+              caption: illustrated.caption,
+              annotations: [],
+            },
+          ]
+        : [],
     callouts: [],
     requirements: (step.uses ?? []).map((use) => {
       const requirementId = requirementIds.get(use.item);
@@ -388,10 +445,20 @@ async function writeGuides(
     const category = categories.get(guide.thing);
     if (!category) throw new Error(`No thing called "${guide.thing}"`);
     const title = composeGuideTitle(type, { thing: guide.thing, subject: guide.subject });
-    const document = documentFor(guide, guide.thing, catalog, title);
 
     // A cover of its own, so a listing shows the guide rather than the thing.
-    const cover = await uploadPicture(workspace, title);
+    // Where there is a photograph it is both the cover and the picture on the
+    // step it illustrates, which is how an author would use it.
+    const cover = await uploadPicture(workspace, title, guide.photo);
+    const illustrated = guide.photo
+      ? {
+          assetId: cover,
+          step: guide.photo.step,
+          alt: guide.photo.alt,
+          caption: guide.photo.credit,
+        }
+      : undefined;
+    const document = documentFor(guide, catalog, title, illustrated);
     const created = await call<{ guide: DraftGuide }>(`/api/studio/${workspace}/guides`, 'POST', {
       document,
       categoryId: category.id,
@@ -433,9 +500,8 @@ try {
   console.log(
     `Removed ${before.guides} guides, ${before.categories} things and ${before.items} catalog items.`,
   );
-  await renameWorkspaces(client);
 
-  console.log('\nNordhavn Home — what a customer reads');
+  console.log('\nThe public library — what a customer reads');
   const homeThings = await createCategories(PUBLIC_WORKSPACE, publicCategories, 'public');
   const homeCatalog = await createCatalog(
     PUBLIC_WORKSPACE,
@@ -447,7 +513,7 @@ try {
     await setPicture(PUBLIC_WORKSPACE, homeThings.get(node.name)!, seed++);
   const home = await writeGuides(PUBLIC_WORKSPACE, publicGuides, homeThings, homeCatalog, 'public');
 
-  console.log('\nNordhavn Production — what the factory reads');
+  console.log('\nThe members-only library — what the factory reads');
   const factoryThings = await createCategories(
     PRODUCTION_WORKSPACE,
     productionCategories,

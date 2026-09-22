@@ -31,12 +31,19 @@ Open signup is deliberately off: an account exists because somebody was invited 
 
 ### A library to look at
 
-`pnpm seed:showcase` replaces the local library with a worked example of a
-flat-pack furniture company: twenty-two public assembly, repair and care guides,
+`pnpm seed:showcase` replaces the local library with a worked example drawn from
+flat-pack furniture: twenty-two public assembly, repair and care guides,
 twenty-two members-only production procedures, the things they are about, and
 the catalog they draw on. It writes through the application's own API, so
 everything in it is something you could have written by hand. It is destructive,
 and it refuses to run against anything but the local `guide_app` database.
+
+Nothing in it is branded: the workspaces keep the names your installation gave
+them, and catalog items carry part numbers rather than a made-up manufacturer.
+A few guides carry photographs from Wikimedia Commons, every one either CC0 or a
+work of the United States government, fetched when the seed runs and cached
+afterwards rather than committed here. Without a network, or while Wikimedia is
+rate limiting, those guides get a drawn diagram and the seed says so.
 
 ## Run locally
 
