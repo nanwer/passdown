@@ -83,12 +83,26 @@ function demoScope(scope: NonNullable<ReturnType<typeof queries.inWorkspace>>) {
     categoryCounts: async (): Promise<CategoryCounts[]> => [],
   };
 }
-export async function getPublicScope(workspaceId = 'repair-collective') {
+/**
+ * The workspace this installation shows at its root.
+ *
+ * Null when it has none — an installation whose workspaces are all private has
+ * no public front page, and that is a configuration rather than a fault. The
+ * sample library keeps its own name because it is a fixture, not a deployment.
+ */
+export async function rootWorkspaceId(): Promise<string | null> {
+  if (!isConfigured()) return 'repair-collective';
+  return getApplication().store.rootWorkspace();
+}
+
+export async function getPublicScope(workspaceId?: string) {
+  const id = workspaceId ?? (await rootWorkspaceId());
+  if (!id) return null;
   if (!isConfigured()) {
-    const scope = queries.inWorkspace({ kind: 'anonymous' }, workspaceId);
+    const scope = queries.inWorkspace({ kind: 'anonymous' }, id);
     return scope ? demoScope(scope) : null;
   }
-  return getPersistentScope({ kind: 'anonymous' }, workspaceId);
+  return getPersistentScope({ kind: 'anonymous' }, id);
 }
 /**
  * A section is a view over one workspace, not a separate workspace.

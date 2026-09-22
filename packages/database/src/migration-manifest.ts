@@ -22,4 +22,6 @@ export const migrationManifest: { name: string; checksum: string }[] = [
   { name: '019_two_permissions.sql', checksum: 'd34b2810576dec75ea5d82d515875f43dc354210a773a0a095b56ee8294d01b0' },
   { name: '020_first_run_admin.sql', checksum: '1b33e866ab3d1d8d4fbce91ddb061c791ca23b90eea184ea9ddeb16189e9137c' },
   { name: '021_invitations.sql', checksum: '5c8994dd0a6a260d2f44c373e563327b973d2483ff2da21c2c4f547852f6af2e' },
+  { name: '022_root_workspace.sql', checksum: '91aadefae7f6f9ab3a4d55bd0f5fe4caaaaeac7624c9ac1437c18a6cb7df6100' },
+  { name: '023_first_workspace_is_root.sql', checksum: 'c2a196ba94bfa286af9e315533f86598af47c6e57da347a73b15eabbaf7937b2' },
 ];

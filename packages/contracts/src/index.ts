@@ -92,6 +92,14 @@ export type StudioWorkspace = {
   name: string;
   audience: 'public' | 'private';
   /**
+   * Whether this installation serves this workspace's library at its root.
+   *
+   * Carried on the workspace so the browser can work out where a published
+   * guide can be read without asking. It used to be decided by comparing the
+   * workspace id to a name written in the source.
+   */
+  isRoot: boolean;
+  /**
    * What this person may do in this workspace. Manage is everything; view is
    * reading what has been published to members. There is deliberately nothing
    * between the two — the database enforced exactly this split long before it

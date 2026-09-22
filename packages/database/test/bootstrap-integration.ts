@@ -94,6 +94,15 @@ export async function verifyBootstrap(
         assert.equal(membership[0].name, 'Anvil & Forge');
         assert.equal(membership[0].workspace_id, 'anvil-forge');
 
+        // And it is the workspace this installation serves at its root, so the
+        // front page resolves to something. Without this a fresh deployment came
+        // up with a library that pointed at nothing.
+        assert.equal(membership[0].audience, 'public');
+        assert.equal(
+          (await db.query('SELECT app.root_workspace() AS id')).rows[0].id,
+          'anvil-forge',
+        );
+
         // The password handed to the operator is the one that actually works.
         // Worth asserting rather than assuming: a bootstrap that prints a
         // password nobody can sign in with is the same as no bootstrap at all.

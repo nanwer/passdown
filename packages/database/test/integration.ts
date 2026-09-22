@@ -43,7 +43,7 @@ await owner.query(
   "INSERT INTO auth_user(id,name,email,email_verified,active) VALUES('owner','Owner','owner@test.local',true,true),('mixed','Mixed','mixed@test.local',true,true),('reader','Reader','reader@test.local',true,true),('outsider','Outsider','outsider@test.local',true,true),('suspended','Suspended','suspended@test.local',true,false),('unverified','Unverified','unverified@test.local',false,true)",
 );
 await owner.query(
-  "INSERT INTO app.workspace VALUES('public','Public','public'),('private','Private','private'); INSERT INTO app.membership VALUES('public','owner','manage',true),('private','owner','manage',true),('public','mixed','manage',true),('private','mixed','view',true),('private','reader','view',true),('private','suspended','manage',true),('private','unverified','manage',true)",
+  "INSERT INTO app.workspace(id,name,audience,root) VALUES('public','Public','public',true),('private','Private','private',false); INSERT INTO app.membership VALUES('public','owner','manage',true),('private','owner','manage',true),('public','mixed','manage',true),('private','mixed','view',true),('private','reader','view',true),('private','suspended','manage',true),('private','unverified','manage',true)",
 );
 const store = createApplicationStore({ connectionString: runtimeURL.href });
 const runtime = new pg.Pool({ connectionString: runtimeURL.href, max: 1 });
@@ -982,6 +982,51 @@ try {
       assert.equal((await readSchemaState(owner)).ok, true);
     },
   );
+  await check('an installation names its own root workspace, at most one', async () => {
+    // This was a string in the application, which is why every installation
+    // that did not carry this project's development seed answered 500 on its
+    // front page and linked public guides at a members-only path.
+    const root = await store.rootWorkspace();
+    assert.equal(root, 'public', 'the public workspace is the one served at the root');
+
+    // At most one, and it must be public — a members-only library cannot be
+    // where anonymous visitors land.
+    await assert.rejects(
+      owner.query("UPDATE app.workspace SET root=true WHERE id='private'"),
+      /workspace_root_is_public/,
+    );
+    const second = await owner.connect();
+    try {
+      await second.query('BEGIN');
+      await second.query(
+        "INSERT INTO app.workspace(id,name,audience) VALUES('another','Another','public')",
+      );
+      await assert.rejects(
+        second.query("UPDATE app.workspace SET root=true WHERE id='another'"),
+        /workspace_single_root/,
+      );
+      await second.query('ROLLBACK');
+    } finally {
+      second.release();
+    }
+
+    // An installation may have none, and callers have to cope rather than
+    // assume — that assumption is what crashed the front page.
+    //
+    // On one held connection, because an uncommitted change is invisible to
+    // any other. Asking the store here would read a different connection and
+    // quietly pass against the unchanged row.
+    const held = await owner.connect();
+    try {
+      await held.query('BEGIN');
+      await held.query('UPDATE app.workspace SET root=false');
+      assert.equal((await held.query('SELECT app.root_workspace() AS id')).rows[0].id, null);
+      await held.query('ROLLBACK');
+    } finally {
+      held.release();
+    }
+  });
+
   await check('an invitation is a single-use secret that is never stored', async () => {
     const invite = await store.inviteToWorkspace(actor('owner'), 'private', {
       email: 'newcomer@test.local',

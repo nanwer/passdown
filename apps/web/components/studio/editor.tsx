@@ -1087,7 +1087,7 @@ function Editor({ workspace, guideId }: { workspace: StudioWorkspace; guideId: s
               <a
                 className="studio-text-link"
                 href={
-                  guide.audience === 'public' && workspace.id === 'repair-collective'
+                  guide.audience === 'public' && workspace.isRoot
                     ? `/guides/${guide.id}`
                     : `/w/${workspace.id}/guides/${guide.id}`
                 }

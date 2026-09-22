@@ -1,6 +1,12 @@
 import { Library } from '../components/library';
 import { isConfigured } from '../lib/application';
-import { emptyLibraryPage, getPublicScope, getSections, readLibraryPage } from '../lib/queries';
+import {
+  emptyLibraryPage,
+  getPublicScope,
+  getSections,
+  readLibraryPage,
+  rootWorkspaceId,
+} from '../lib/queries';
 import { resolveCategoryFilter } from '../lib/category-filter';
 export const dynamic = 'force-dynamic';
 export default async function Page({
@@ -9,7 +15,9 @@ export default async function Page({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const params = await searchParams;
-  const rootWorkspace = 'repair-collective';
+  // Asked, not assumed. This used to be the name of a development seed, which
+  // is why every other installation's front page answered 500.
+  const rootWorkspace = await rootWorkspaceId();
   const query = typeof params.q === 'string' ? params.q.slice(0, 200) : '';
   const category = typeof params.category === 'string' ? params.category.slice(0, 100) : '';
   // The workspace whose public library this installation shows at its root.
@@ -21,8 +29,8 @@ export default async function Page({
   //
   // Answering that question properly is the information architecture work in
   // docs/backlog.md. Until then the page renders empty rather than falling over.
-  const scope = await getPublicScope();
-  const sections = scope ? await getSections(rootWorkspace, 'public') : undefined;
+  const scope = rootWorkspace ? await getPublicScope(rootWorkspace) : null;
+  const sections = rootWorkspace && scope ? await getSections(rootWorkspace, 'public') : undefined;
   const [taxonomy, categoryCounts, categoryNames] = scope
     ? await Promise.all([scope.categories(), scope.categoryCounts(), scope.categoryNames()])
     : [[], [], []];

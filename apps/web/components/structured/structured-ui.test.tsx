@@ -15,6 +15,7 @@ const workspace: StudioWorkspace = {
   id: 'public',
   name: 'Repair collective',
   audience: 'public',
+  isRoot: true,
   role: 'manage',
 };
 const names = ['Electronics', 'Computers', 'Laptops', 'Maker', 'Model'];

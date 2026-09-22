@@ -362,7 +362,7 @@ export function createApplicationStore(options: { connectionString: string }) {
         async (c) =>
           (
             await c.query(
-              'SELECT w.id,w.name,w.audience,m.role FROM app.workspace w JOIN app.membership m ON m.workspace_id=w.id WHERE m.actor_id=app.actor_id() AND m.active ORDER BY w.name',
+              'SELECT w.id,w.name,w.audience,w.root AS "isRoot",m.role FROM app.workspace w JOIN app.membership m ON m.workspace_id=w.id WHERE m.actor_id=app.actor_id() AND m.active ORDER BY w.name',
             )
           ).rows,
       );
@@ -515,6 +515,24 @@ export function createApplicationStore(options: { connectionString: string }) {
       const client = await pool.connect();
       try {
         await client.query('UPDATE public.auth_user SET email_verified=true WHERE id=$1', [userId]);
+      } finally {
+        client.release();
+      }
+    },
+
+    /**
+     * The workspace this installation serves at its root, if it has one.
+     *
+     * Null is an ordinary answer, not an error: an installation whose only
+     * workspace is private has no public front page, and the first-run
+     * bootstrap creates a public one but nothing guarantees it stays that way.
+     * Every caller has to handle that, which is the whole point of asking
+     * rather than assuming a name.
+     */
+    async rootWorkspace(): Promise<string | null> {
+      const client = await pool.connect();
+      try {
+        return (await client.query('SELECT app.root_workspace() AS id')).rows[0].id ?? null;
       } finally {
         client.release();
       }

@@ -34,7 +34,15 @@ export async function seedLocal(config: Record<string, string>) {
     }
     await client.query('BEGIN');
     await client.query(
-      "INSERT INTO app.workspace(id,name,audience) VALUES('repair-collective','Repair collective','public'),('workshop','Workshop operations','private') ON CONFLICT(id) DO NOTHING",
+      // The public one is the workspace this installation serves at its root.
+      // Migration 022 designates whatever is already there, but a database that
+      // is migrated before it is seeded has nothing to designate — so the seed
+      // has to say, exactly as the first-run bootstrap does.
+      // Claims the root only when the installation has none, which is the same
+      // rule the first-run bootstrap follows. Asserting it unconditionally
+      // collides with a database that already designated one, and ON CONFLICT
+      // does not help because the collision is on a different index.
+      "INSERT INTO app.workspace(id,name,audience,root) VALUES('repair-collective','Repair collective','public',NOT EXISTS(SELECT 1 FROM app.workspace WHERE root)),('workshop','Workshop operations','private',false) ON CONFLICT(id) DO NOTHING",
     );
     await client.query(
       "INSERT INTO app.membership(workspace_id,actor_id,role) VALUES('repair-collective',$1,'manage'),('workshop',$1,'manage') ON CONFLICT(workspace_id,actor_id) DO NOTHING",
