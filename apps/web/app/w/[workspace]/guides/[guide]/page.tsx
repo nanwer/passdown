@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
-import { getMemberScope } from '../../../../../lib/queries';
+import { getMemberScope, viewerManages } from '../../../../../lib/queries';
 import { Reader } from '../../../../../components/reader';
 export const dynamic = 'force-dynamic';
 type Props = { params: Promise<{ workspace: string; guide: string }> };
@@ -25,6 +25,7 @@ export default async function Page({ params }: Props) {
       persistent
       basePath={`/w/${workspace}`}
       workspaceName={scope.workspace.name}
+      editHref={(await viewerManages(workspace)) ? `/studio/${workspace}/${id}` : undefined}
     />
   );
 }

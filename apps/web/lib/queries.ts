@@ -90,6 +90,21 @@ function demoScope(scope: NonNullable<ReturnType<typeof queries.inWorkspace>>) {
  * no public front page, and that is a configuration rather than a fault. The
  * sample library keeps its own name because it is a fixture, not a deployment.
  */
+/**
+ * Whether whoever is asking may edit this workspace's guides.
+ *
+ * Used to decide whether a reading page offers an Edit affordance. Answering
+ * false for an anonymous visitor is the common case and costs one query; the
+ * alternative is a reading page that advertises an editor nobody can open.
+ */
+export async function viewerManages(workspaceId: string): Promise<boolean> {
+  if (!isConfigured()) return false;
+  const actor = await currentActor();
+  if (actor.kind !== 'user') return false;
+  const workspaces = await getApplication().store.listWorkspaces(actor);
+  return workspaces.some((w) => w.id === workspaceId && w.role === 'manage');
+}
+
 export async function rootWorkspaceId(): Promise<string | null> {
   if (!isConfigured()) return 'repair-collective';
   return getApplication().store.rootWorkspace();

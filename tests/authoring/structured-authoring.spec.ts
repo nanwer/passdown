@@ -1899,3 +1899,35 @@ test('the header separates the installation from the workspace inside it', async
   await expect(sections.getByRole('link', { name: 'Workspaces', exact: true })).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Workspaces', exact: true })).toBeVisible();
 });
+
+test('a guide is edited from the page you read it on, by whoever may', async ({
+  page,
+  browser,
+}) => {
+  await login(page.request);
+  const suffix = randomUUID().slice(0, 8);
+  const shelf = await category(page.request, 'workshop', `Edit-in-place ${suffix}`);
+  const created = await draft(page.request, 'workshop', shelf.id, `Read and edit ${suffix}`);
+  // Arranged through the API. What this scenario is about is the affordance on
+  // the reading page, not the act of publishing.
+  await api(page.request, `/api/studio/workshop/guides/${created.id}/publish`, 'POST', {
+    expectedVersion: created.version,
+    expectedRelease: null,
+    license: 'all-rights-reserved',
+  });
+
+  // Read it where a member reads it.
+  await page.goto(`/w/workshop/guides/${created.id}`);
+  const edit = page.getByRole('link', { name: 'Edit', exact: true });
+  await expect(edit).toBeVisible();
+  await edit.click();
+  await expect(page).toHaveURL(new RegExp(`/studio/workshop/${created.id}$`));
+
+  // An anonymous visitor is not offered an editor. The workspace is private, so
+  // they cannot see the page at all — which is the stronger statement.
+  const stranger = await browser.newContext();
+  const guest = await stranger.newPage();
+  const seen = await guest.goto(`/w/workshop/guides/${created.id}`);
+  expect(seen?.status()).toBe(404);
+  await stranger.close();
+});

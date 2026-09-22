@@ -1703,8 +1703,16 @@ button {
 .site-header-utilities {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 10px;
   margin-left: auto;
+  /* Wraps rather than pushing the page sideways. A second action in here — an
+     Edit beside the studio link — was enough to overflow a phone. */
+  min-width: 0;
+}
+.site-header-top {
+  flex-wrap: wrap;
 }
 .site-header-link {
   font-size: 13px;

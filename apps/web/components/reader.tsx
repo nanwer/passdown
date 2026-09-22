@@ -11,6 +11,7 @@ export function Reader({
   persistent = false,
   basePath,
   workspaceName,
+  editHref,
   family,
 }: {
   guide: DemoGuide | PublishedGuide;
@@ -18,6 +19,15 @@ export function Reader({
   persistent?: boolean;
   basePath?: string;
   workspaceName?: string;
+  /**
+   * Where this guide is edited, for someone who may edit it.
+   *
+   * A guide had two places: the one people read and a separate copy inside the
+   * studio, which you could only reach by knowing it was there. Offering the
+   * edit from the page you are already on is what every comparable product
+   * does — iFixit puts an Edit tab on the reading page itself.
+   */
+  editHref?: string;
   /**
    * Where this guide sits among broader and narrower versions of the same
    * subject. Only relatives the reader may open are present.
@@ -48,7 +58,19 @@ export function Reader({
       workspaceLabel={persistent ? (workspaceName ?? 'Repair collective') : undefined}
       footerNote={persistent ? 'Write, share, and keep useful knowledge close.' : undefined}
       actions={
-        persistent ? (
+        editHref ? (
+          // Edit is the thing to do from here, so it takes the weight and the
+          // studio link goes quiet. Two filled buttons side by side also pushed
+          // the header past the viewport at phone width.
+          <>
+            <Link className="button button--primary" href={editHref}>
+              <PenLine size={16} aria-hidden="true" /> Edit
+            </Link>
+            <Link className="site-header-link" href="/studio">
+              Studio
+            </Link>
+          </>
+        ) : persistent ? (
           // Named for where it goes, not for one thing you can do there. As
           // "Write a guide" it was the only door from the public library into
           // the studio, so anyone looking for the catalog, things or people had
