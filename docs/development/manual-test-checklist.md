@@ -63,8 +63,14 @@ Owner-only authoring; manual saves without browser draft backup; category depth 
 
 ## Catalog usage
 
-1. Open **Studio → a workspace → Tools & materials**. Expect items used by guides to show a total such as `3 guides`, and unused items to show nothing.
-2. Use the **All / Active / Inactive** tabs with the search, kind and category filters. Expect All to equal Active plus Inactive under whatever else is filtered.
+1. Open **Studio → a workspace → Manage → Catalog**. Expect items used by guides to show a total such as `3 guides`, counting each guide once, with the drafts/published split on hover. Unused items show nothing.
+2. Use the **All / Active / Inactive** tabs together with the search. Expect All to equal Active plus Inactive for whatever the search matches.
+
+## Newer components are no longer overridden by older styles
+
+1. Open **Studio → a workspace → Manage → People**. Expect **Invite somebody** as a compact card heading, rounded input and select fields, and white text on the blue **Create an invitation** button.
+2. Repeat in dark mode and at 390px wide. Expect the same, with nothing overflowing.
+3. Open the library, a guide, the studio, a guide in the editor and **Add from catalog**. Expect every one to look exactly as it did before this change; only the People screen was meant to change.
 
 ## Invitations, second time round
 
