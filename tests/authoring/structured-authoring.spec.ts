@@ -2303,7 +2303,7 @@ test('nobody is asked to choose from a list of one workspace', async ({ page }) 
 test('management tables sort every column, remember their columns, and survive opening a record', async ({
   page,
 }) => {
-  test.setTimeout(120000);
+  test.setTimeout(300000);
   await login(page.request);
   const workspace = 'repair-collective';
   const suffix = randomUUID().slice(0, 6);
@@ -2312,8 +2312,24 @@ test('management tables sort every column, remember their columns, and survive o
     { length: 27 },
     (_, n) => `Sorter ${suffix} ${String(n).padStart(2, '0')}`,
   );
+  // Twenty-seven writes on top of everything the suite has already done can
+  // meet the API's per-minute limit, which is right to refuse them. So each
+  // write waits its turn, as the showcase seed does, rather than failing.
+  const patiently = async (data: unknown) => {
+    for (let tries = 0; ; tries++) {
+      const response = await page.request.post(`/api/studio/${workspace}/catalog`, {
+        headers,
+        data,
+      });
+      if (response.status() !== 429 || tries >= 3) {
+        expect(response.ok(), await response.text()).toBeTruthy();
+        return;
+      }
+      await page.waitForTimeout(Number(response.headers()['retry-after'] ?? 60) * 1000);
+    }
+  };
   for (const [n, name] of names.entries())
-    await api(page.request, `/api/studio/${workspace}/catalog`, 'POST', {
+    await patiently({
       name,
       specification: `${27 - n} mm`,
       description: '',

@@ -1,6 +1,7 @@
 'use client';
+import * as X from './studio-styles';
 import { useEffect, useState, type FormEvent } from 'react';
-import { Button } from '@guide/ui';
+import { Button, cn } from '@guide/ui';
 import { Frame, ErrorNotice } from './frame';
 import { studioFetch } from './transport';
 import './studio.css';
@@ -69,11 +70,11 @@ export function AcceptInvitation({ token }: { token: string }) {
 
   return (
     <Frame>
-      <main id="main" tabIndex={-1} className="studio-container studio-narrow">
+      <main id="main" tabIndex={-1} className={X.narrowContainer}>
         {invitation === undefined ? (
-          <p className="studio-hint">Checking this invitation…</p>
+          <p className={X.hint}>Checking this invitation…</p>
         ) : invitation === null ? (
-          <div className="studio-page-heading">
+          <div className={X.pageHeading}>
             <h1>This invitation is no longer valid.</h1>
             <p>
               It may have been used already, withdrawn, or simply run out. Ask whoever sent it for a
@@ -82,7 +83,7 @@ export function AcceptInvitation({ token }: { token: string }) {
           </div>
         ) : (
           <>
-            <div className="studio-page-heading">
+            <div className={X.pageHeading}>
               <h1>Join {invitation.workspaceName}.</h1>
               <p>
                 You have been invited as <strong>{invitation.email}</strong>, and you will be able
@@ -96,18 +97,18 @@ export function AcceptInvitation({ token }: { token: string }) {
                   : 'Choose a password to finish.'}
               </p>
             </div>
-            <form className="studio-card studio-form" onSubmit={submit}>
+            <form className={cn(X.card, X.form)} onSubmit={submit}>
               {error && <ErrorNotice error={error} />}
               {invitation.hasAccount ? (
                 <>
-                  <p className="studio-hint">
+                  <p className={X.hint}>
                     If you are already signed in as {invitation.email}, accepting is all that is
                     left. Otherwise sign in first and open this link again.
                   </p>
                   <Button type="submit" loading={pending}>
                     Join {invitation.workspaceName}
                   </Button>
-                  <a className="studio-text-link" href="/sign-in">
+                  <a className={X.textLink} href="/sign-in">
                     Sign in as {invitation.email}
                   </a>
                 </>
@@ -129,7 +130,7 @@ export function AcceptInvitation({ token }: { token: string }) {
                       maxLength={200}
                     />
                   </label>
-                  <p className="studio-hint" id="invite-password-hint">
+                  <p className={X.hint} id="invite-password-hint">
                     At least twelve characters.
                   </p>
                   <label>

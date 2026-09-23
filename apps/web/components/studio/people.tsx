@@ -1,4 +1,5 @@
 'use client';
+import * as X from './studio-styles';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Copy, Check, UserPlus } from 'lucide-react';
 import {
@@ -89,14 +90,14 @@ function PeopleList({ workspace }: { workspace: StudioWorkspace }) {
 
   if (workspace.role !== 'manage')
     return (
-      <main id="main" tabIndex={-1} className="studio-container studio-narrow">
+      <main id="main" tabIndex={-1} className={X.narrowContainer}>
         <ErrorNotice error="Only someone who manages this workspace can see who is in it." />
       </main>
     );
 
   return (
-    <main id="main" tabIndex={-1} className="studio-container studio-narrow">
-      <div className="studio-page-heading">
+    <main id="main" tabIndex={-1} className={X.narrowContainer}>
+      <div className={X.pageHeading}>
         <StudioTrail workspace={workspace} section="Manage" />
         <h1>Who can reach this workspace.</h1>
         <p>
@@ -106,7 +107,7 @@ function PeopleList({ workspace }: { workspace: StudioWorkspace }) {
       </div>
       <ManageTabs workspace={workspace} active="people" />
 
-      <div className="people-page">
+      <div className="grid gap-6">
         {error && <ErrorNotice error={error} />}
 
         <form onSubmit={invite} className={cn(cardStyles, 'p-6')}>
@@ -139,13 +140,13 @@ function PeopleList({ workspace }: { workspace: StudioWorkspace }) {
         </form>
 
         {issued && (
-          <div className="studio-card invite-issued">
+          <div className={cn(X.card, 'invite-issued border-focus')}>
             <h2>Send this link to {issued.email}</h2>
             <p>
               It works once, and it is only shown here. Nothing is emailed, and this link cannot be
               recovered later — if it goes missing, revoke the invitation and make another.
             </p>
-            <div className="invite-link">
+            <div className="invite-link mt-3 flex flex-wrap items-center gap-2.5 [&_code]:min-w-0 [&_code]:flex-[1_1_260px] [&_code]:rounded-[8px] [&_code]:border [&_code]:border-solid [&_code]:border-line [&_code]:bg-sunken [&_code]:px-3 [&_code]:py-2.5 [&_code]:text-[12.5px] [&_code]:wrap-anywhere">
               <code>{issued.link}</code>
               <button
                 type="button"
@@ -164,20 +165,24 @@ function PeopleList({ workspace }: { workspace: StudioWorkspace }) {
           </div>
         )}
 
-        <section className="people-section">
+        <section className="[&_h2]:mx-0 [&_h2]:mt-0 [&_h2]:mb-1 [&_h2]:text-[17px]">
           <h2>In this workspace</h2>
-          <ul className="people-list">
+          <ul className="people-list m-0 grid list-none gap-0.5 p-0 [&_li]:flex [&_li]:flex-wrap [&_li]:items-center [&_li]:justify-between [&_li]:gap-3 [&_li]:border-b [&_li]:border-solid [&_li]:border-b-line [&_li]:px-0 [&_li]:py-3 [&_li:last-child]:[border-bottom:0]">
             {people?.members.map((member) => (
               <li key={member.actorId}>
-                <div className="people-who">
+                <div className="people-who grid min-w-0 gap-0.5 text-[14px] [&_span]:text-[13px] [&_span]:text-muted [&_span]:wrap-anywhere">
                   <strong>
                     {member.name}
-                    {member.isYou && <span className="people-you">you</span>}
+                    {member.isYou && (
+                      <span className="ml-2 text-[11px] font-semibold tracking-[0.06em] text-muted uppercase">
+                        you
+                      </span>
+                    )}
                   </strong>
                   <span>{member.email}</span>
                 </div>
-                <div className="people-actions">
-                  <label className="people-role">
+                <div className="flex items-center gap-2">
+                  <label className="[&_select]:text-[13px]">
                     <span className="sr-only">Permission for {member.name}</span>
                     <select
                       value={member.role}
@@ -220,7 +225,7 @@ function PeopleList({ workspace }: { workspace: StudioWorkspace }) {
             ))}
           </ul>
           {managers.length === 1 && (
-            <p className="studio-hint">
+            <p className={X.hint}>
               One person manages this workspace, so they cannot step down or be removed. Give
               someone else manage first, and the controls open up.
             </p>
@@ -228,12 +233,12 @@ function PeopleList({ workspace }: { workspace: StudioWorkspace }) {
         </section>
 
         {people && people.invitations.length > 0 && (
-          <section className="people-section">
+          <section className="[&_h2]:mx-0 [&_h2]:mt-0 [&_h2]:mb-1 [&_h2]:text-[17px]">
             <h2>Waiting to be accepted</h2>
-            <ul className="people-list">
+            <ul className="people-list m-0 grid list-none gap-0.5 p-0 [&_li]:flex [&_li]:flex-wrap [&_li]:items-center [&_li]:justify-between [&_li]:gap-3 [&_li]:border-b [&_li]:border-solid [&_li]:border-b-line [&_li]:px-0 [&_li]:py-3 [&_li:last-child]:[border-bottom:0]">
               {people.invitations.map((invitation) => (
                 <li key={invitation.id}>
-                  <div className="people-who">
+                  <div className="people-who grid min-w-0 gap-0.5 text-[14px] [&_span]:text-[13px] [&_span]:text-muted [&_span]:wrap-anywhere">
                     <strong>{invitation.email}</strong>
                     <span>
                       {invitation.role === 'manage' ? 'Manage' : 'View'} · invited by{' '}
@@ -241,7 +246,7 @@ function PeopleList({ workspace }: { workspace: StudioWorkspace }) {
                       {new Date(invitation.expiresAt).toLocaleDateString()}
                     </span>
                   </div>
-                  <div className="people-actions">
+                  <div className="flex items-center gap-2">
                     <button
                       type="button"
                       className={buttonVariants({ variant: 'ghost', size: 'sm' })}

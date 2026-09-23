@@ -1,4 +1,5 @@
 'use client';
+import * as X from './studio-styles';
 import { FolderTree, Users, Wrench, ArrowRight } from 'lucide-react';
 import { cardStyles, cn } from '@guide/ui';
 import type { StudioWorkspace } from '@guide/contracts';
@@ -30,7 +31,7 @@ export function Manage({ workspaceId }: { workspaceId: string }) {
 function ManageIndex({ workspace }: { workspace: StudioWorkspace }) {
   if (workspace.role !== 'manage')
     return (
-      <main id="main" tabIndex={-1} className="studio-container studio-narrow">
+      <main id="main" tabIndex={-1} className={X.narrowContainer}>
         <ErrorNotice error="Only someone who manages this workspace can set it up." />
       </main>
     );
@@ -59,8 +60,8 @@ function ManageIndex({ workspace }: { workspace: StudioWorkspace }) {
   ];
 
   return (
-    <main id="main" tabIndex={-1} className="studio-container studio-narrow">
-      <div className="studio-page-heading">
+    <main id="main" tabIndex={-1} className={X.narrowContainer}>
+      <div className={X.pageHeading}>
         <StudioTrail workspace={workspace} section="Manage" current />
         <h1>Set up this workspace.</h1>
         <p>
@@ -68,15 +69,25 @@ function ManageIndex({ workspace }: { workspace: StudioWorkspace }) {
           guide happens under Guides; this is the structure behind it.
         </p>
       </div>
-      <div className="manage-sections">
+      <div className="grid gap-3">
         {sections.map((section) => (
-          <a key={section.href} href={section.href} className={cn(cardStyles, 'manage-section')}>
-            <span className="manage-section-icon">{section.icon}</span>
-            <span className="manage-section-body">
+          <a
+            key={section.href}
+            href={section.href}
+            className={cn(cardStyles, 'flex items-start gap-3.5 px-5 py-4.5 hover:border-focus')}
+          >
+            <span className="grid size-9.5 flex-none place-items-center rounded-[10px] bg-sunken text-muted">
+              {section.icon}
+            </span>
+            <span className="grid min-w-0 gap-[3px] [&_span]:text-[13px] [&_span]:leading-[1.5] [&_span]:text-muted [&_strong]:text-[15px] [&_strong]:text-ink">
               <strong>{section.title}</strong>
               <span>{section.description}</span>
             </span>
-            <ArrowRight size={18} className="manage-section-arrow" aria-hidden="true" />
+            <ArrowRight
+              size={18}
+              className="ml-auto flex-none self-center text-muted"
+              aria-hidden="true"
+            />
           </a>
         ))}
       </div>

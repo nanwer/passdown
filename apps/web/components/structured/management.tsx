@@ -1,4 +1,5 @@
 'use client';
+import * as X from '../studio/studio-styles';
 import * as S from './structured-styles';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
@@ -174,7 +175,7 @@ function ManagementHeading({
 }) {
   return (
     <>
-      <div className="studio-page-heading">
+      <div className={X.pageHeading}>
         <StudioTrail workspace={workspace} section="Manage" />
         <h1>{title}</h1>
         <p>{lede}</p>
@@ -275,7 +276,7 @@ function ThingPicture({
           </label>
         ) : (
           <>
-            <label className="studio-picture-add">
+            <label className={X.pictureAddParts}>
               <span>{category.imageAssetId ? 'Replace picture' : 'Add a picture'}</span>
               <input
                 ref={fileInput}
@@ -433,7 +434,7 @@ function ThingsManagement({ workspace }: { workspace: StudioWorkspace }) {
   }
 
   return (
-    <main className={`studio-container ${S.management}`} id="main" tabIndex={-1}>
+    <main className={cn(X.container, S.management)} id="main" tabIndex={-1}>
       <ManagementHeading
         workspace={workspace}
         active="things"
@@ -1001,7 +1002,7 @@ function CatalogManagement({ workspace }: { workspace: StudioWorkspace }) {
   }
 
   return (
-    <main className={`studio-container ${S.management}`} id="main" tabIndex={-1}>
+    <main className={cn(X.container, S.management)} id="main" tabIndex={-1}>
       <ManagementHeading
         workspace={workspace}
         active="catalog"

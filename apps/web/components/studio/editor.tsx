@@ -1,4 +1,5 @@
 'use client';
+import * as X from './studio-styles';
 import {
   useEffect,
   useRef,
@@ -18,7 +19,7 @@ import {
   Save,
   Trash2,
 } from 'lucide-react';
-import { Button, Dialog } from '@guide/ui';
+import { Button, Dialog, cn } from '@guide/ui';
 import { StepRenderer } from '@guide/guide-ui';
 import {
   guideDocumentSchema,
@@ -41,6 +42,30 @@ import { moveBy, newStep, reorder } from './model';
 import { RichTextEditor } from './rich-text-editor';
 import { StepRequirements } from './step-requirements';
 import { StudioError, studioFetch, studioUpload } from './transport';
+// Pictures: the cover and each step's, with the controls to add and order them.
+const pictureAddClass = cn(
+  X.pictureAddParts,
+  'inline-flex w-[fit-content] cursor-pointer flex-row items-center gap-[11px] rounded-[10px] border border-dashed border-control px-4.5 py-[13px] text-muted hover:border-action hover:text-ink focus-within:[outline:2px_solid_var(--gp-semantic-action-primary-background)] focus-within:outline-offset-[2px] max-[640px]:w-full',
+);
+const pictureAddOver = 'border-action text-ink';
+const picturesClass =
+  'm-0 grid gap-3 [border:0] p-0 [&_legend]:p-0 [&_legend]:text-[13px] [&_legend]:text-muted';
+const pictureCard =
+  'studio-picture grid gap-3 rounded-[10px] border border-solid border-line p-3.5 [&_img]:h-22.5 [&_img]:w-30 [&_img]:rounded-[7px] [&_img]:bg-sunken [&_img]:object-cover max-[640px]:[&_img]:h-40 max-[640px]:[&_img]:w-full [&_label]:grid [&_label]:gap-[5px] [&_label]:text-[12px] [&_label]:text-muted [&_label_input]:w-full';
+const pictureBody =
+  'grid grid-cols-[120px_minmax(0,1fr)] [align-items:start] gap-3.5 max-[640px]:grid-cols-[1fr]';
+const pictureFields = 'grid min-w-0 gap-2.5';
+const pictureFooter = 'flex flex-wrap gap-2';
+const pictureProgress =
+  'flex flex-wrap items-center gap-2.5 [&_label]:grid [&_label]:flex-[1_1_200px] [&_label]:gap-1 [&_label]:text-[13px] [&_progress]:h-2 [&_progress]:w-full';
+const pictureActions = 'flex flex-wrap items-center gap-2';
+const outlineItem =
+  'studio-outline-item flex w-full items-baseline gap-3.5 rounded-[6px] border border-solid border-transparent bg-transparent px-3 py-[13px] text-start text-[14px] wrap-anywhere [&_span]:shrink-0 [&_span]:font-[monospace] [&_span]:text-[12px] [&_span]:text-muted [&_strong]:min-w-0';
+const outlineItemSelected =
+  'selected border-action bg-raised forced-colors:border-2 forced-colors:border-solid forced-colors:border-[Highlight]';
+const annotateHandle =
+  'studio-annotate-handle absolute inline-flex h-6.5 min-w-[26px] [transform:translate(-50%,-50%)] cursor-grab items-center justify-center rounded-[999px] border-2 border-solid border-raised bg-action p-0 text-[12px] font-bold text-action-ink';
+
 function fingerprint(guide: DraftGuide) {
   return JSON.stringify({
     document: guide.document,
@@ -153,9 +178,9 @@ function PictureAnnotations({
   };
 
   return (
-    <div className="studio-annotate">
+    <div className="mt-2.5 grid gap-2.5">
       <div
-        className="studio-annotate-frame"
+        className="studio-annotate-frame relative block cursor-crosshair overflow-hidden rounded-[10px] border border-solid border-line [&&_img]:block [&&_img]:h-auto [&&_img]:w-full"
         ref={frame}
         onClick={(event) => {
           // Only a click on the image itself adds a mark; a click on an
@@ -170,7 +195,10 @@ function PictureAnnotations({
         }}
       >
         <img src={src} alt="" />
-        <svg className="studio-annotate-arrows" aria-hidden="true">
+        <svg
+          className="pointer-events-none absolute inset-0 size-full [&_line]:stroke-action [&_line]:[stroke-linecap:round] [&_line]:[stroke-width:3]"
+          aria-hidden="true"
+        >
           {annotations.map((a, index) =>
             a.type === 'arrow' ? (
               <line
@@ -189,8 +217,8 @@ function PictureAnnotations({
             type="button"
             className={
               focused && focused.index === handle.index && focused.end === handle.end
-                ? 'studio-annotate-handle selected'
-                : 'studio-annotate-handle'
+                ? `${annotateHandle} selected [outline:2px_solid_var(--gp-semantic-focus-ring)] outline-offset-[2px]`
+                : annotateHandle
             }
             style={{ left: annotationPercent(handle.x), top: annotationPercent(handle.y) }}
             aria-label={describe(handle)}
@@ -201,7 +229,7 @@ function PictureAnnotations({
           </button>
         ))}
       </div>
-      <div className="studio-annotate-tools">
+      <div className="flex flex-wrap items-center gap-2">
         <Button
           type="button"
           variant="secondary"
@@ -218,14 +246,14 @@ function PictureAnnotations({
         >
           Add an arrow
         </Button>
-        <p className="studio-hint">
+        <p className={cn(X.hint, 'm-0 flex-[1_1_260px]')}>
           Click the picture to place a mark, or add one and move it with the arrow keys. Hold shift
           to move it a little at a time. Every label is read out with the step, so write what the
           mark is pointing at.
         </p>
       </div>
       {annotations.length > 0 && (
-        <ol className="studio-annotate-list">
+        <ol className="m-0 grid gap-2 pl-5.5 [&_input]:flex-1 [&_li]:flex [&_li]:items-center [&_li]:gap-2">
           {annotations.map((a, index) => (
             <li key={index}>
               <label>
@@ -311,21 +339,27 @@ function GuideCover({
   }
 
   return (
-    <fieldset className="studio-pictures studio-cover">
+    <fieldset
+      className={cn(
+        picturesClass,
+        // A variant, so it lands after the fieldset's border reset.
+        '[&]:[border-top:1px_solid_var(--gp-semantic-border-subtle)] pt-4 [&_legend]:font-semibold [&_legend]:text-ink',
+      )}
+    >
       <legend>Cover picture</legend>
-      <p className="studio-hint">
+      <p className={X.hint}>
         Shown wherever this guide appears in a list. Without one, a listing falls back to the first
         picture on a step, and then to the picture of the thing this guide is about.
       </p>
       {coverAssetId && (
-        <div className="studio-picture">
-          <div className="studio-picture-body">
+        <div className={pictureCard}>
+          <div className={pictureBody}>
             <img src={`/api/media/${workspaceId}/${coverAssetId}`} alt="" />
-            <div className="studio-picture-fields">
-              <p className="studio-hint">This guide has its own cover.</p>
+            <div className={pictureFields}>
+              <p className={X.hint}>This guide has its own cover.</p>
             </div>
           </div>
-          <div className="studio-picture-footer">
+          <div className={pictureFooter}>
             <Button type="button" variant="secondary" onClick={() => onChange(null)}>
               Remove cover
             </Button>
@@ -333,16 +367,16 @@ function GuideCover({
         </div>
       )}
       {busy ? (
-        <div className="studio-picture-progress">
+        <div className={pictureProgress}>
           <label>
             Adding your picture
             <progress value={progress} max={1} />
           </label>
         </div>
       ) : (
-        <div className="studio-picture-actions">
+        <div className={pictureActions}>
           <label
-            className={`studio-picture-add${dropping ? ' studio-picture-add--over' : ''}`}
+            className={cn(pictureAddClass, dropping && pictureAddOver)}
             onDragOver={(event) => {
               event.preventDefault();
               setDropping(true);
@@ -435,15 +469,15 @@ function ReusePicture({
     >
       {error && <ErrorNotice error={error} />}
       {assets === null ? (
-        <p className="studio-hint">Looking for pictures…</p>
+        <p className={X.hint}>Looking for pictures…</p>
       ) : available.length === 0 ? (
-        <p className="studio-hint">
+        <p className={X.hint}>
           {assets.length === 0
             ? 'No pictures have been added to this workspace yet.'
             : 'Every picture in this workspace is already on this step.'}
         </p>
       ) : (
-        <ul className="studio-reuse-grid">
+        <ul className="m-0 grid list-none grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-2.5 p-0 [&_button]:grid [&_button]:w-full [&_button]:cursor-pointer [&_button]:gap-1.5 [&_button]:rounded-[10px] [&_button]:border [&_button]:border-solid [&_button]:border-control [&_button]:bg-raised [&_button]:p-1.5 [&_button]:text-left [&_button]:text-[12px] [&_button]:text-inherit [&_img]:block [&_img]:aspect-[4/3] [&_img]:w-full [&_img]:rounded-[6px] [&_img]:bg-sunken [&_img]:object-cover [&_small]:block [&_small]:text-muted">
           {available.map((asset) => (
             <li key={asset.id}>
               <button
@@ -528,15 +562,15 @@ function StepPictures({
   }
 
   return (
-    <fieldset className="studio-pictures">
+    <fieldset className={picturesClass}>
       <legend>Pictures</legend>
       {step.media.map((media, position) => (
-        <div className="studio-picture" key={media.assetId}>
-          <div className="studio-picture-topline">
-            <span className="studio-eyebrow">
+        <div className={pictureCard} key={media.assetId}>
+          <div className="flex items-center justify-between gap-2">
+            <span className={X.eyebrow}>
               Picture {position + 1} of {step.media.length}
             </span>
-            <div className="studio-picture-order">
+            <div className="flex gap-0.5">
               <Button
                 type="button"
                 variant="ghost"
@@ -557,9 +591,9 @@ function StepPictures({
               </Button>
             </div>
           </div>
-          <div className="studio-picture-body">
+          <div className={pictureBody}>
             <img src={`/api/media/${workspaceId}/${media.assetId}`} alt={media.alt} />
-            <div className="studio-picture-fields">
+            <div className={pictureFields}>
               <label>
                 Description
                 <input
@@ -621,10 +655,10 @@ function StepPictures({
       ))}
 
       {pending ? (
-        <div className="studio-picture studio-picture--pending">
-          <div className="studio-picture-body">
+        <div className={cn(pictureCard, 'studio-picture--pending border-dashed bg-sunken')}>
+          <div className={pictureBody}>
             <img src={`/api/media/${workspaceId}/${pending.id}`} alt="" />
-            <div className="studio-picture-fields">
+            <div className={pictureFields}>
               <label>
                 Describe this picture
                 <input
@@ -637,7 +671,7 @@ function StepPictures({
               </label>
             </div>
           </div>
-          <div className="studio-picture-footer">
+          <div className={pictureFooter}>
             <Button
               type="button"
               disabled={!alt.trim()}
@@ -661,7 +695,7 @@ function StepPictures({
           </div>
         </div>
       ) : busy ? (
-        <div className="studio-picture-progress">
+        <div className={pictureProgress}>
           <label>
             Adding your picture
             <progress value={progress} max={1} />
@@ -672,9 +706,9 @@ function StepPictures({
           </Button>
         </div>
       ) : failed ? (
-        <div className="studio-picture-retry">
+        <div className="grid gap-2.5">
           <ErrorNotice error={error} />
-          <div className="studio-picture-actions">
+          <div className={pictureActions}>
             <Button type="button" onClick={() => void upload(failed)}>
               Try again
             </Button>
@@ -692,13 +726,13 @@ function StepPictures({
         </div>
       ) : (
         step.media.length < 10 && (
-          <div className="studio-picture-actions">
+          <div className={pictureActions}>
             {/* The label is the control; the file input behind it is what the
                 browser needs and what nobody should have to look at. It used to
                 render as "Choose File / No file chosen" inside the dashed box,
                 which is the browser's widget rather than this app's. */}
             <label
-              className={`studio-picture-add${dropping ? ' studio-picture-add--over' : ''}`}
+              className={cn(pictureAddClass, dropping && pictureAddOver)}
               onDragOver={(event) => {
                 event.preventDefault();
                 setDropping(true);
@@ -741,7 +775,7 @@ function StepPictures({
         )
       )}
       {error && !failed && <ErrorNotice error={error} />}
-      <p className="studio-hint">
+      <p className={X.hint}>
         JPEG, PNG or WebP, up to 20 MB. Location and camera details are removed, and pictures are
         only visible to people who can already read the guide.
       </p>
@@ -830,18 +864,18 @@ function GuideSectionPicker({
         : `The published version uses ${blocker.name}, a members-only catalog item.`;
 
   return (
-    <div className="studio-section-move">
+    <div className="mt-4.5 grid gap-2 border-t border-solid border-t-line pt-4.5 [&_button]:[justify-self:start] [&_h3]:m-0 [&_h3]:text-[14px]">
       <h3>Section</h3>
-      <p className="studio-hint">
+      <p className={X.hint}>
         {audience === 'public'
           ? 'Anyone can read the published version of this guide.'
           : 'Only members of this workspace can read this guide.'}
       </p>
       {audience === 'members' ? (
         blockers === null ? (
-          <p className="studio-hint">Checking what this guide depends on…</p>
+          <p className={X.hint}>Checking what this guide depends on…</p>
         ) : blockers.length ? (
-          <div className="studio-blockers">
+          <div className="rounded-[8px] border border-solid border-note-line bg-note-surface px-3.5 py-3 text-[13px] text-note [&_p]:mx-0 [&_p]:mt-0 [&_p]:mb-1.5 [&_p]:font-semibold [&_ul]:m-0 [&_ul]:grid [&_ul]:gap-1 [&_ul]:pl-4.5">
             <p>This guide cannot move to the public section yet:</p>
             <ul>
               {blockers.map((blocker) => (
@@ -851,7 +885,7 @@ function GuideSectionPicker({
           </div>
         ) : (
           <>
-            <p className="studio-hint">
+            <p className={X.hint}>
               Moving it out makes the published version readable by anyone, and lists it in the
               public library.
             </p>
@@ -863,7 +897,7 @@ function GuideSectionPicker({
         )
       ) : (
         <>
-          <p className="studio-hint">
+          <p className={X.hint}>
             Moving it in stops it being served publicly straight away. It does not reach copies
             people have already saved, printed or indexed, and any licence it was published under
             still applies to those.
@@ -874,7 +908,7 @@ function GuideSectionPicker({
           </Button>
         </>
       )}
-      {saved && <p className="studio-success">{saved}</p>}
+      {saved && <p className={X.success}>{saved}</p>}
       {error && <ErrorNotice error={error} />}
     </div>
   );
@@ -933,7 +967,7 @@ function GuideFamilyPicker({ workspaceId, guideId }: { workspaceId: string; guid
   }
 
   return (
-    <div className="studio-family">
+    <div className="mt-4.5 grid gap-2 border-t border-solid border-t-line pt-4.5 [&_label]:grid [&_label]:gap-1.5 [&_label]:text-[13px]">
       <label>
         Part of a broader guide
         <select
@@ -949,11 +983,11 @@ function GuideFamilyPicker({ workspaceId, guideId }: { workspaceId: string; guid
           ))}
         </select>
       </label>
-      <p className="studio-hint">
+      <p className={X.hint}>
         For a range and its models: readers of the broader guide can narrow to this one, and readers
         here can step back up. Separate from its category.
       </p>
-      {saved && <p className="studio-success">{saved}</p>}
+      {saved && <p className={X.success}>{saved}</p>}
       {error && <ErrorNotice error={error} />}
     </div>
   );
@@ -1170,7 +1204,7 @@ function Editor({ workspace, guideId }: { workspace: StudioWorkspace; guideId: s
   }
   if (!guide)
     return (
-      <main id="main" tabIndex={-1} className="studio-container">
+      <main id="main" tabIndex={-1} className={X.container}>
         {error ? (
           <>
             <ErrorNotice error={error} />
@@ -1195,14 +1229,14 @@ function Editor({ workspace, guideId }: { workspace: StudioWorkspace; guideId: s
   const changedRelease =
     guide.currentRelease && (dirty || guide.publishedVersion !== guide.version);
   return (
-    <main id="main" tabIndex={-1} className="studio-editor">
+    <main id="main" tabIndex={-1} className="bg-editor-backdrop">
       <form onSubmit={save}>
-        <header className="studio-editor-header">
+        <header className="flex items-center justify-between gap-6 border-b border-solid border-b-line bg-panel px-[4%] py-5.5 max-[1000px]:flex-col max-[1000px]:items-start max-[700px]:px-5 [&_h1]:mx-0 [&_h1]:mt-[9px] [&_h1]:mb-3 [&_h1]:max-w-[800px] [&_h1]:text-[28px] [&_h1]:tracking-[-0.7px] [&_h1]:wrap-anywhere">
           <div>
             <StudioTrail workspace={workspace} section="Guides" />
             <h1>{guide.document.title || 'Untitled guide'}</h1>
-            <div className="studio-inline">
-              <span className="studio-badge">
+            <div className={X.inline}>
+              <span className={X.badge}>
                 {guide.audience === 'public' ? 'Public on publication' : 'Members only'}
               </span>
               <span role="status">
@@ -1214,7 +1248,7 @@ function Editor({ workspace, guideId }: { workspace: StudioWorkspace; guideId: s
                       ? 'Unsaved changes'
                       : 'All changes saved'}
               </span>
-              <span className="studio-hint">
+              <span className={X.hint}>
                 Draft v{guide.version}
                 {guide.currentRelease
                   ? ` · Release ${guide.currentRelease}${changedRelease ? ' · Unpublished changes' : ' · Up to date'}`
@@ -1222,7 +1256,7 @@ function Editor({ workspace, guideId }: { workspace: StudioWorkspace; guideId: s
               </span>
             </div>
           </div>
-          <div className="studio-actions">
+          <div className={cn(X.actions, 'max-[700px]:gap-2')}>
             <Button
               variant="secondary"
               className="max-[700px]:p-2.5"
@@ -1244,7 +1278,7 @@ function Editor({ workspace, guideId }: { workspace: StudioWorkspace; guideId: s
             </Button>
             {guide.currentRelease && (
               <a
-                className="studio-text-link"
+                className={X.textLink}
                 href={
                   guide.audience === 'public' && workspace.isRoot
                     ? `/guides/${guide.id}`
@@ -1289,7 +1323,7 @@ function Editor({ workspace, guideId }: { workspace: StudioWorkspace; guideId: s
                   : 'This creates a release visible only to active members of this workspace.'
               }
             >
-              <div className="studio studio-publish">
+              <div className="studio grid min-h-0 gap-5 bg-transparent text-ink [&>[role=alert]]:m-0">
                 <p>
                   <strong>{guide.document.title}</strong> · Draft v{guide.version} · {steps.length}{' '}
                   steps
@@ -1326,12 +1360,12 @@ function Editor({ workspace, guideId }: { workspace: StudioWorkspace; guideId: s
           </div>
         </header>
         {dirty && (
-          <p className="studio-save-hint">
+          <p className="bg-warning-surface px-[4%] py-2.5 text-[13px] text-warning">
             Save your changes before publishing. Saving does not publish.
           </p>
         )}
         {invalidContent && (
-          <div className="studio-notice" role="alert">
+          <div className={X.notice} role="alert">
             Fix the instructions in{' '}
             {guide.document.steps
               .filter((item) => editorErrors[item.id])
@@ -1341,9 +1375,9 @@ function Editor({ workspace, guideId }: { workspace: StudioWorkspace; guideId: s
           </div>
         )}
         {(error || invalidContent) && (
-          <div className="studio-error-area">
+          <div className="px-[4%] pt-0 pb-6 [&_textarea]:mt-3">
             {error && <ErrorNotice error={error} />}
-            <div className="studio-actions">
+            <div className={X.actions}>
               <Button variant="secondary" onClick={() => void copy()}>
                 <Copy size={16} />
                 Copy recovery draft
@@ -1387,16 +1421,16 @@ function Editor({ workspace, guideId }: { workspace: StudioWorkspace; guideId: s
           </div>
         )}
         {releaseUrl && (
-          <div className="studio-notice" role="status">
+          <div className={X.notice} role="status">
             Release published.{' '}
-            <a ref={publishedLink} className="studio-text-link" href={releaseUrl}>
+            <a ref={publishedLink} className={X.textLink} href={releaseUrl}>
               Read published guide
             </a>
           </div>
         )}
         {requirementIssues.length > 0 && (
           <div
-            className="studio-notice"
+            className={X.notice}
             role="region"
             aria-label="Requirements to resolve before publishing"
           >
@@ -1407,7 +1441,7 @@ function Editor({ workspace, guideId }: { workspace: StudioWorkspace; guideId: s
                 <li key={issueIndex}>
                   <button
                     type="button"
-                    className="studio-issue-link"
+                    className="[border:0] [background:none] px-0 py-[3px] text-start text-inherit underline underline-offset-[3px]"
                     onClick={() => {
                       const stepIndex =
                         issue.path[0] === 'steps' && typeof issue.path[1] === 'number'
@@ -1429,19 +1463,19 @@ function Editor({ workspace, guideId }: { workspace: StudioWorkspace; guideId: s
             </ul>
           </div>
         )}
-        <div className="studio-editor-grid">
-          <aside className="studio-outline">
+        <div className="mx-auto my-auto grid min-h-[660px] max-w-[1600px] grid-cols-[260px_minmax(0,1fr)] max-[700px]:grid-cols-[1fr]">
+          <aside className="studio-outline border-e border-solid border-e-line px-5 py-8 max-[700px]:[border-inline-end:0] max-[700px]:border-b max-[700px]:border-solid max-[700px]:border-b-line max-[700px]:p-5 [&_ol]:mx-0 [&_ol]:mt-0 [&_ol]:mb-6 [&_ol]:grid [&_ol]:list-none [&_ol]:gap-2 [&_ol]:p-0 max-[700px]:[&_ol]:mx-0 max-[700px]:[&_ol]:mt-0 max-[700px]:[&_ol]:mb-4 max-[700px]:[&_ol]:max-h-52.5 max-[700px]:[&_ol]:overflow-y-auto max-[700px]:[&_ol]:p-[5px]">
             <button
               type="button"
-              className={metadata ? 'studio-outline-item selected' : 'studio-outline-item'}
+              className={cn(outlineItem, metadata && outlineItemSelected)}
               onClick={() => setMetadata(true)}
               aria-current={metadata ? 'step' : undefined}
             >
               <span>—</span>
               <strong>Guide details</strong>
             </button>
-            <div className="studio-outline-heading">
-              <span className="studio-eyebrow">Steps</span>
+            <div className="mx-3 mt-7 mb-4 flex items-center justify-between text-[12px] text-muted max-[700px]:mx-3 max-[700px]:mt-3.5 max-[700px]:mb-2">
+              <span className={X.eyebrow}>Steps</span>
               <span>{steps.length} / 100</span>
             </div>
             <ol>
@@ -1449,11 +1483,10 @@ function Editor({ workspace, guideId }: { workspace: StudioWorkspace; guideId: s
                 <li key={item.id}>
                   <button
                     type="button"
-                    className={
-                      !metadata && step.id === item.id
-                        ? 'studio-outline-item selected'
-                        : 'studio-outline-item'
-                    }
+                    className={cn(
+                      outlineItem,
+                      !metadata && step.id === item.id && outlineItemSelected,
+                    )}
                     aria-current={!metadata && step.id === item.id ? 'step' : undefined}
                     onClick={() => {
                       setSelected(item.id);
@@ -1479,14 +1512,17 @@ function Editor({ workspace, guideId }: { workspace: StudioWorkspace; guideId: s
               <Plus size={17} />
               Add step
             </Button>
-            <p className="studio-hint">Changes stay in this tab until you save.</p>
+            <p className={cn(X.hint, 'mt-6 max-[700px]:mt-3')}>
+              Changes stay in this tab until you save.
+            </p>
           </aside>
-          <section className="studio-editor-canvas">
+          <section className="studio-editor-canvas w-full max-w-[1160px] min-w-0 px-[clamp(18px,3vw,48px)] pt-7 pb-12 max-[700px]:px-4 max-[700px]:pt-5 max-[700px]:pb-9">
             {metadata ? (
               <>
-                <span className="studio-eyebrow">The essentials</span>
-                <h2>Guide details</h2>
+                <span className={X.eyebrow}>The essentials</span>
+                <h2 className="mx-0 mt-2 mb-5">Guide details</h2>
                 <MetadataFields
+                  className="mt-6.5"
                   audience={guide.audience}
                   document={guide.document}
                   workspace={workspace}
@@ -1519,8 +1555,8 @@ function Editor({ workspace, guideId }: { workspace: StudioWorkspace; guideId: s
                 />
               </>
             ) : preview ? (
-              <div className="studio-live-preview">
-                <span className="studio-eyebrow">Reader preview · Step {index + 1}</span>
+              <div className="studio-live-preview [&_.reader-step]:mt-6 [&_.step-layout]:block [&_h2]:mx-0 [&_h2]:mt-2 [&_h2]:mb-5">
+                <span className={X.eyebrow}>Reader preview · Step {index + 1}</span>
                 <StepRenderer
                   document={guide.document}
                   step={step}
@@ -1532,11 +1568,11 @@ function Editor({ workspace, guideId }: { workspace: StudioWorkspace; guideId: s
               </div>
             ) : (
               <>
-                <div className="studio-step-topline">
-                  <span className="studio-eyebrow">
+                <div className="flex items-center justify-between gap-4 border-b border-solid border-b-editor-line pb-5.5 max-[700px]:flex-col max-[700px]:items-start max-[700px]:gap-2.5 max-[700px]:pb-4">
+                  <span className={cn(X.eyebrow, 'whitespace-nowrap text-editor-muted')}>
                     Step {index + 1} of {steps.length}
                   </span>
-                  <div className="studio-step-tools">
+                  <div className="m-0 flex flex-wrap gap-0.5 [border:0] p-0">
                     <Button
                       variant="quiet"
                       size="tool"
@@ -1609,8 +1645,8 @@ function Editor({ workspace, guideId }: { workspace: StudioWorkspace; guideId: s
                     </Button>
                   </div>
                 </div>
-                <div className="studio-form studio-step-form">
-                  <label className="studio-step-title">
+                <div className={cn(X.form, 'mt-6')}>
+                  <label className="gap-2 text-[12px] text-editor-muted [&_input]:-ml-2.5 [&_input]:w-[calc(100%_+_10px)] [&_input]:rounded-[6px] [&_input]:border [&_input]:border-solid [&_input]:border-transparent [&_input]:bg-transparent [&_input]:px-2.5 [&_input]:py-2 [&_input]:text-[clamp(22px,2vw,28px)] [&_input]:leading-[1.35] [&_input]:font-[650] [&_input]:tracking-[-0.025em] [&_input]:text-editor-ink [&_input:hover]:border-editor-line [&_input:focus]:border-action [&_input:focus]:bg-editor-canvas">
                     Step title
                     <input
                       maxLength={160}
@@ -1650,7 +1686,7 @@ function Editor({ workspace, guideId }: { workspace: StudioWorkspace; guideId: s
                   />
                 )}
                 {step.callouts.length > 0 && (
-                  <div className="studio-notice">
+                  <div className={X.notice}>
                     This step has {step.callouts.length} existing note(s). They are preserved and
                     shown in Preview.
                   </div>

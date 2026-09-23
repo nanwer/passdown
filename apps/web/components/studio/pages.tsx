@@ -1,4 +1,5 @@
 'use client';
+import * as X from './studio-styles';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import {
   ArrowRight,
@@ -42,20 +43,24 @@ export function SignIn() {
   }
   return (
     <Frame>
-      <main id="main" tabIndex={-1} className="studio-signin">
-        <section className="studio-intro">
-          <span className="studio-eyebrow">A place for practical knowledge</span>
+      <main
+        id="main"
+        tabIndex={-1}
+        className="mx-auto my-auto grid min-h-[78vh] max-w-[1200px] grid-cols-[1.1fr_1fr] items-center gap-20 px-8 py-22.5 max-[1000px]:gap-[35px] max-[700px]:grid-cols-[1fr] max-[700px]:gap-8 max-[700px]:px-5 max-[700px]:py-10"
+      >
+        <section className="[&_h1]:mx-0 [&_h1]:my-6 [&_h1]:max-w-[500px] [&_h1]:text-[clamp(42px,5vw,66px)] [&_h1]:leading-[1.04] max-[700px]:[&_h1]:text-[42px] [&>p]:max-w-[450px] [&>p]:text-[18px]">
+          <span className={X.eyebrow}>A place for practical knowledge</span>
           <h1>Make the next step clear.</h1>
           <p>
             Write a useful guide, refine the details, and share a release with the people who need
             it.
           </p>
-          <div className="studio-intro-note">
+          <div className="mt-15 flex gap-4.5 border-t border-solid border-t-control pt-5.5 text-muted max-[700px]:mt-6 [&_span]:font-[monospace] [&_span]:text-action">
             <PenNote /> Your work stays a draft until you choose to publish.
           </div>
         </section>
-        <form className="studio-card studio-form" onSubmit={submit}>
-          <span className="studio-eyebrow">Welcome back</span>
+        <form className={cn(X.card, X.form)} onSubmit={submit}>
+          <span className={X.eyebrow}>Welcome back</span>
           <h2>Sign in to your studio</h2>
           <p>Use the verified local account provided by your operator.</p>
           <label>
@@ -70,7 +75,7 @@ export function SignIn() {
           <Button type="submit" loading={pending}>
             Sign in <ArrowRight size={17} />
           </Button>
-          <p className="studio-hint">
+          <p className={X.hint}>
             This local preview has no open registration or password reset. Account details and setup
             instructions are in LOCAL_ACCESS.md.
           </p>
@@ -86,13 +91,13 @@ export function Workspaces() {
   return (
     <SessionGate>
       {(session) => (
-        <main id="main" tabIndex={-1} className="studio-container">
-          <div className="studio-page-heading">
-            <span className="studio-eyebrow">Your studio</span>
+        <main id="main" tabIndex={-1} className={X.container}>
+          <div className={X.pageHeading}>
+            <span className={X.eyebrow}>Your studio</span>
             <h1>Where will you create?</h1>
             <p>Choose a workspace to continue a draft or start something useful.</p>
           </div>
-          <div className="studio-workspaces">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,310px),1fr))] gap-6">
             {session.workspaces.map((workspace) => (
               /* Not a single link any more. The card used to be one <a>, which
                  meant the only thing you could do from here was enter the
@@ -100,11 +105,17 @@ export function Workspaces() {
                  head for deliberately, and there was no way to reach it without
                  first knowing it existed. Nothing can nest inside a link, so the
                  card is a region with several. */
-              <div className="studio-card studio-workspace" key={workspace.id}>
-                <span className="studio-workspace-icon">
+              <div
+                className={cn(
+                  X.card,
+                  'studio-workspace flex flex-col gap-3.5 [transition:border-color_0.15s] hover:border-action',
+                )}
+                key={workspace.id}
+              >
+                <span className="mb-3.5 grid size-13 place-items-center rounded-[12px] bg-accent-surface text-accent-ink">
                   {workspace.audience === 'public' ? <Globe2 /> : <LockKeyhole />}
                 </span>
-                <span className="studio-eyebrow">
+                <span className={X.eyebrow}>
                   {workspace.audience === 'public' ? 'Public community' : 'Private workspace'} ·{' '}
                   {workspace.role === 'manage' ? 'you manage this' : 'you can read this'}
                 </span>
@@ -116,14 +127,17 @@ export function Workspaces() {
                     ? 'Create, edit and publish your guides.'
                     : 'Read what has been published to members here.'}
                 </p>
-                <a className="studio-text-link" href={`/studio/${workspace.id}`}>
+                <a className={cn(X.textLink, 'mt-5')} href={`/studio/${workspace.id}`}>
                   Open workspace <ArrowRight size={17} />
                 </a>
                 {/* The same two words the header uses. Three shortcuts here and
                     one entry there would be two vocabularies for one structure,
                     which is the fault this work exists to fix. */}
                 {workspace.role === 'manage' && (
-                  <nav className="studio-workspace-links" aria-label={`${workspace.name} sections`}>
+                  <nav
+                    className="mt-4 flex flex-wrap gap-4 border-t border-solid border-t-line pt-3.5 [&_a]:inline-flex [&_a]:items-center [&_a]:gap-1.5 [&_a]:text-[13px] [&_a]:text-muted [&_a:hover]:text-ink"
+                    aria-label={`${workspace.name} sections`}
+                  >
                     <a href={`/studio/${workspace.id}`}>
                       <PenLine size={15} /> Guides
                     </a>
@@ -136,7 +150,7 @@ export function Workspaces() {
             ))}
           </div>
           {!session.workspaces.length && (
-            <div className="studio-card">
+            <div className={X.card}>
               <h2>No workspaces yet</h2>
               <p>Ask your local operator to assign workspace access.</p>
             </div>
@@ -190,9 +204,9 @@ function GuideList({ workspace }: { workspace: StudioWorkspace }) {
         (status === 'published' ? guide.currentRelease !== null : guide.currentRelease === null)),
   );
   return (
-    <main id="main" tabIndex={-1} className="studio-container">
-      <div className="studio-heading-row">
-        <div className="studio-page-heading">
+    <main id="main" tabIndex={-1} className={X.container}>
+      <div className="flex items-center justify-between gap-6 max-[700px]:flex-col max-[700px]:items-start">
+        <div className={X.pageHeading}>
           <StudioTrail workspace={workspace} section="Guides" current />
           <h1>Your guides</h1>
           <p>Good instructions start with a first draft.</p>
@@ -207,7 +221,7 @@ function GuideList({ workspace }: { workspace: StudioWorkspace }) {
         )}
       </div>
       {workspace.role !== 'manage' ? (
-        <div className="studio-card">
+        <div className={X.card}>
           <h2>Explore your workspace</h2>
           <p>Authoring is currently available to workspace owners.</p>
           <a
@@ -219,8 +233,8 @@ function GuideList({ workspace }: { workspace: StudioWorkspace }) {
         </div>
       ) : (
         <>
-          <div className="studio-filters">
-            <label className="studio-search">
+          <div className="mb-6 flex gap-4 max-[700px]:flex-col [&>label:last-child]:min-w-[170px]">
+            <label className="relative flex-1 [&_input]:pl-10.5 [&_svg]:absolute [&_svg]:top-3.5 [&_svg]:left-3.5 [&_svg]:text-muted">
               <Search size={18} />
               <span className="sr-only">Filter guides</span>
               <input
@@ -255,25 +269,25 @@ function GuideList({ workspace }: { workspace: StudioWorkspace }) {
             <p role="status">Loading guides…</p>
           ) : (
             <>
-              <p className="studio-hint" role="status">
+              <p className={X.hint} role="status">
                 {filtered!.length} {filtered!.length === 1 ? 'guide' : 'guides'}
               </p>
-              <div className="studio-guide-list">
+              <div className="mt-3 border-t border-solid border-t-line">
                 {filtered!.map((guide) => (
                   <a
-                    className="studio-guide-row"
+                    className="flex items-center justify-between gap-6 border-b border-solid border-b-line px-3 py-7 hover:bg-panel max-[700px]:flex-col max-[700px]:items-start [&_h2]:mx-0 [&_h2]:my-[7px] [&_h2]:text-[23px] [&_p]:max-w-[650px]"
                     key={guide.id}
                     href={`/studio/${workspace.id}/${guide.id}`}
                   >
                     <div>
-                      <span className="studio-eyebrow">
+                      <span className={X.eyebrow}>
                         {guide.category} · {guide.stepCount} steps
                       </span>
                       <h2>{guide.title}</h2>
                       <p>{guide.summary}</p>
                     </div>
-                    <div className="studio-guide-state">
-                      <span className="studio-badge">
+                    <div className="flex min-w-[170px] flex-col items-end gap-2 max-[700px]:min-w-0 max-[700px]:flex-row max-[700px]:flex-wrap max-[700px]:items-center [&_small]:text-muted">
+                      <span className={X.badge}>
                         {guide.currentRelease ? `Release ${guide.currentRelease}` : 'Draft'}
                       </span>
                       <small>
@@ -289,7 +303,7 @@ function GuideList({ workspace }: { workspace: StudioWorkspace }) {
                 ))}
               </div>
               {!filtered!.length && (
-                <div className="studio-empty">
+                <div className="px-6 py-17.5 text-center [&_p]:mx-0 [&_p]:mt-3 [&_p]:mb-6">
                   <h2>{guides.length ? 'No matching guides' : 'Room for your first guide'}</h2>
                   <p>
                     {guides.length
@@ -328,6 +342,7 @@ export function MetadataFields({
   onDocument,
   onCategory,
   onTitleEdited,
+  className,
 }: {
   document: GuideDocument;
   audience?: 'public' | 'members';
@@ -341,9 +356,11 @@ export function MetadataFields({
    * with it — and that is only knowable here, where the keystroke lands.
    */
   onTitleEdited?: () => void;
+  /** Spacing the surrounding screen needs, such as the editor's canvas. */
+  className?: string;
 }) {
   return (
-    <div className="studio-form">
+    <div className={cn(X.form, className)}>
       <label>
         Guide title
         <input
@@ -368,7 +385,7 @@ export function MetadataFields({
           placeholder="Describe the outcome and who this guide is for."
         />
       </label>
-      <div className="studio-field-grid">
+      <div className="grid grid-cols-[2fr_1fr_1fr] gap-4 max-[1000px]:grid-cols-[1fr_1fr] max-[1000px]:[&>label:first-child]:col-[1/-1] max-[700px]:grid-cols-[1fr] max-[700px]:[&>label:first-child]:col-[auto]">
         <CategoryPicker
           workspace={workspace}
           domain="guide"
@@ -513,8 +530,8 @@ function CreateGuide({ workspace }: { workspace: StudioWorkspace }) {
     }
   }
   return (
-    <main id="main" tabIndex={-1} className="studio-container studio-narrow">
-      <div className="studio-page-heading">
+    <main id="main" tabIndex={-1} className={X.narrowContainer}>
+      <div className={X.pageHeading}>
         <StudioTrail workspace={workspace} section="Guides" />
         <h1>Start with the essentials.</h1>
         <p>You can refine everything as you write. Nothing is published yet.</p>
@@ -523,17 +540,20 @@ function CreateGuide({ workspace }: { workspace: StudioWorkspace }) {
         <ErrorNotice error="Only workspace owners can create guides in this preview." />
       ) : (
         document && (
-          <form className="studio-card" onSubmit={submit}>
+          <form className={X.card} onSubmit={submit}>
             {types.length > 0 && (
-              <fieldset className="studio-fieldset">
+              <fieldset className="m-0 grid gap-2.5 rounded-[10px] border border-solid border-line p-4 [&_legend]:px-1.5 [&_legend]:py-0 [&_legend]:text-[13px] [&_legend]:font-[650]">
                 <legend>What kind of work is this?</legend>
-                <p className="studio-hint">
+                <p className={X.hint}>
                   This is separate from what the guide is about. A floor is a {words.thing}; an
                   inspection is something you do to one.
                 </p>
-                <div className="guide-type-choices">
+                <div className="grid grid-cols-[repeat(auto-fit,minmax(210px,1fr))] gap-2">
                   {types.map((type) => (
-                    <label key={type.key} className="studio-choice">
+                    <label
+                      key={type.key}
+                      className="flex cursor-pointer items-start gap-2 rounded-[9px] border border-solid border-line px-[13px] py-[11px] has-checked:border-focus has-checked:bg-sunken [&_span]:grid [&_span]:gap-[3px] [&_span]:text-[13px] [&_span]:text-muted [&_strong]:text-ink"
+                    >
                       <input
                         type="radio"
                         name="guideType"
@@ -553,7 +573,7 @@ function CreateGuide({ workspace }: { workspace: StudioWorkspace }) {
                   ))}
                 </div>
                 {selectedType?.prompt && (
-                  <label className="guide-type-subject">
+                  <label className="grid gap-[5px] text-[13px] font-semibold text-ink [&_input]:font-normal">
                     {selectedType.prompt}
                     <input
                       maxLength={140}
@@ -578,12 +598,12 @@ function CreateGuide({ workspace }: { workspace: StudioWorkspace }) {
               }}
             />
             {workspace.audience === 'public' ? (
-              <fieldset className="studio-fieldset">
+              <fieldset className="m-0 grid gap-2.5 rounded-[10px] border border-solid border-line p-4 [&_legend]:px-1.5 [&_legend]:py-0 [&_legend]:text-[13px] [&_legend]:font-[650]">
                 <legend>Section</legend>
-                <p className="studio-hint">
+                <p className={X.hint}>
                   You can move a guide between sections later, from Guide details.
                 </p>
-                <label className="studio-choice">
+                <label className="flex cursor-pointer items-start gap-2 rounded-[9px] border border-solid border-line px-[13px] py-[11px] has-checked:border-focus has-checked:bg-sunken [&_span]:grid [&_span]:gap-[3px] [&_span]:text-[13px] [&_span]:text-muted [&_strong]:text-ink">
                   <input
                     type="radio"
                     name="audience"
@@ -596,7 +616,7 @@ function CreateGuide({ workspace }: { workspace: StudioWorkspace }) {
                     Anyone can read it once published.
                   </span>
                 </label>
-                <label className="studio-choice">
+                <label className="flex cursor-pointer items-start gap-2 rounded-[9px] border border-solid border-line px-[13px] py-[11px] has-checked:border-focus has-checked:bg-sunken [&_span]:grid [&_span]:gap-[3px] [&_span]:text-[13px] [&_span]:text-muted [&_strong]:text-ink">
                   <input
                     type="radio"
                     name="audience"
@@ -611,12 +631,12 @@ function CreateGuide({ workspace }: { workspace: StudioWorkspace }) {
                 </label>
               </fieldset>
             ) : (
-              <p className="studio-notice">
+              <p className={X.notice}>
                 Private workspace: published guides are only visible to active workspace members.
               </p>
             )}
             {error && <ErrorNotice error={error} />}
-            <div className="studio-actions">
+            <div className={cn(X.actions, 'mt-8 justify-end')}>
               <a href={`/studio/${workspace.id}`}>Cancel</a>
               <Button type="submit" loading={pending}>
                 Create draft <ArrowRight size={17} />

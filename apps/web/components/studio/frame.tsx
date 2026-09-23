@@ -1,7 +1,8 @@
 'use client';
+import * as X from './studio-styles';
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { BookOpen, ArrowLeft, LogOut, SlidersHorizontal } from 'lucide-react';
-import { Button, SiteHeader, ThemeToggle } from '@guide/ui';
+import { Button, SiteHeader, ThemeToggle, cn } from '@guide/ui';
 import type { StudioSession, StudioWorkspace } from '@guide/contracts';
 import { StudioError, studioFetch } from './transport';
 import './studio.css';
@@ -17,7 +18,7 @@ export function Frame({
   onSignOut?: () => void;
 }) {
   return (
-    <div className="studio">
+    <div className={X.studioRoot}>
       <a className="skip-link" href="#main">
         Skip to content
       </a>
@@ -65,7 +66,7 @@ export function Frame({
               Workspaces
             </a>
             <ThemeToggle />
-            {user && <span className="studio-user">{user}</span>}
+            {user && <span className={`text-[13px] text-muted max-[1000px]:hidden`}>{user}</span>}
             {onSignOut && (
               <button className="icon-button" onClick={onSignOut} aria-label="Sign out">
                 <LogOut size={18} />
@@ -75,7 +76,7 @@ export function Frame({
         }
       />
       {children}
-      <footer className="studio-footer">Local authoring · Manual saves</footer>
+      <footer className={X.footer}>Local authoring · Manual saves</footer>
     </div>
   );
 }
@@ -101,7 +102,13 @@ export function StudioTrail({
     section === 'Guides' ? `/studio/${workspace.id}` : `/studio/${workspace.id}/manage`;
   const workspaceIsCurrent = current && section === 'Guides';
   return (
-    <nav aria-label="Breadcrumb" className="studio-eyebrow studio-trail">
+    <nav
+      aria-label="Breadcrumb"
+      className={cn(
+        X.eyebrow,
+        '[&_a]:text-inherit [&_a:hover]:text-ink [&_li+li]:before:me-1.5 [&_li+li]:before:content-["/"] [&_ol]:m-0 [&_ol]:flex [&_ol]:list-none [&_ol]:flex-wrap [&_ol]:gap-1.5 [&_ol]:p-0',
+      )}
+    >
       <ol>
         <li>
           {workspaceIsCurrent ? (
@@ -123,7 +130,7 @@ export function StudioTrail({
 }
 export function ErrorNotice({ error }: { error: string }) {
   return (
-    <div className="studio-notice studio-notice--error" role="alert">
+    <div className={X.errorNotice} role="alert">
       {error}
     </div>
   );
@@ -190,7 +197,7 @@ export function SessionGate({
           }}
         />
       ) : !session ? (
-        <main className="studio-container" id="main" tabIndex={-1}>
+        <main className={X.container} id="main" tabIndex={-1}>
           {error ? (
             <>
               <ErrorNotice error={error} />
@@ -209,7 +216,7 @@ export function SessionGate({
           )}
         </main>
       ) : workspaceId && !workspace ? (
-        <main className="studio-container" id="main" tabIndex={-1}>
+        <main className={X.container} id="main" tabIndex={-1}>
           <h1>Workspace unavailable</h1>
           <p>You do not have access to this workspace.</p>
           <a href="/studio">
@@ -264,15 +271,15 @@ function ChangePassword({ onChanged }: { onChanged: () => void }) {
   }
 
   return (
-    <main className="studio-container studio-narrow" id="main" tabIndex={-1}>
-      <div className="studio-page-heading">
+    <main className={X.narrowContainer} id="main" tabIndex={-1}>
+      <div className={X.pageHeading}>
         <h1>Choose your own password.</h1>
         <p>
           This account was created with a password that was generated for it. Replace it before
           going any further — nothing else will work until you do.
         </p>
       </div>
-      <form className="studio-card studio-form" onSubmit={submit}>
+      <form className={cn(X.card, X.form)} onSubmit={submit}>
         {error && <ErrorNotice error={error} />}
         <label>
           Current password
@@ -299,7 +306,7 @@ function ChangePassword({ onChanged }: { onChanged: () => void }) {
         {/* Described rather than labelled: inside the label this text becomes
             part of the field's name, so it is read out as "New password at
             least twelve characters" every time the field is announced. */}
-        <p className="studio-hint" id="new-password-hint">
+        <p className={X.hint} id="new-password-hint">
           At least twelve characters.
         </p>
         <label>
