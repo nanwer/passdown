@@ -1,5 +1,5 @@
-/* Beneath Tailwind's utilities: see the layer order in app/globals.css. */
-@layer legacy {
+/* Element defaults and content typography: see the layer order in app/globals.css. */
+@layer defaults {
   /* Written into a step by the reader's content column, which also holds the
      requirements list — so these reach both. */
   .step-content > ul {

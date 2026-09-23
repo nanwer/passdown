@@ -10,7 +10,7 @@ import {
   type GuideRequirement,
   type RequirementUnit,
 } from '@guide/content';
-import { Dialog, buttonVariants } from '@guide/ui';
+import { Dialog, buttonVariants, iconButton } from '@guide/ui';
 import {
   addActions,
   cardDetail,
@@ -274,7 +274,7 @@ export function GuideRequirements({
                   trigger={
                     <button
                       type="button"
-                      className="icon-button"
+                      className={iconButton}
                       aria-label={`Remove original note ${entry.label}`}
                       disabled={disabled}
                     >
@@ -352,7 +352,7 @@ export function GuideRequirements({
                       trigger={
                         <button
                           type="button"
-                          className="icon-button shrink-0"
+                          className={`${iconButton} shrink-0`}
                           aria-label={`Remove ${entry.name} from guide`}
                           disabled={disabled}
                         >

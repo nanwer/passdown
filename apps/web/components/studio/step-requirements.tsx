@@ -7,7 +7,7 @@ import {
   type GuideRequirement,
   type StepRequirementUsage,
 } from '@guide/content';
-import { Dialog, buttonVariants } from '@guide/ui';
+import { Dialog, buttonVariants, iconButton } from '@guide/ui';
 import { CheckCircle2, Plus, Trash2, Wrench } from 'lucide-react';
 import {
   addActions,
@@ -163,7 +163,7 @@ export function StepRequirements({
                 {usedElsewhere ? (
                   <button
                     type="button"
-                    className="icon-button shrink-0"
+                    className={`${iconButton} shrink-0`}
                     aria-label={`Remove ${requirement.name} from this step`}
                     onClick={() => removeUsage(requirement.id)}
                     disabled={disabled}
@@ -177,7 +177,7 @@ export function StepRequirements({
                     trigger={
                       <button
                         type="button"
-                        className="icon-button shrink-0"
+                        className={`${iconButton} shrink-0`}
                         aria-label={`Remove ${requirement.name} from this step`}
                         disabled={disabled}
                       >
@@ -379,7 +379,7 @@ export function StepRequirements({
             </div>
             <button
               type="button"
-              className="icon-button mt-5 shrink-0"
+              className={`${iconButton} mt-5 shrink-0`}
               aria-label="Remove precondition"
               disabled={disabled}
               onClick={() =>

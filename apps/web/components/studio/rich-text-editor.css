@@ -1,5 +1,5 @@
-/* Beneath Tailwind's utilities: see the layer order in app/globals.css. */
-@layer legacy {
+/* Element defaults and content typography: see the layer order in app/globals.css. */
+@layer defaults {
   .rich-text-editor .rte-canvas {
     min-height: 400px;
     padding: 32px clamp(20px, 3vw, 40px) 48px;

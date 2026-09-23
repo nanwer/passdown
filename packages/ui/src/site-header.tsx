@@ -44,35 +44,53 @@ export function SiteHeader({
   navLabel?: string;
 }) {
   return (
-    <header className="site-header-shell">
-      <div className="site-header-top">
-        <a className="brand" href={brandHref} aria-label="Passdown home">
-          <span className="brand-mark" aria-hidden="true">
+    <header className="border-b border-solid border-b-line bg-panel">
+      <div className="site-header-top flex flex-wrap items-center gap-2.5 px-page py-3.5">
+        <a
+          className="inline-flex shrink-0 items-center gap-[11px] text-[20px] leading-[1.1] font-bold tracking-[-1px] max-[760px]:text-[19px]"
+          href={brandHref}
+          aria-label="Passdown home"
+        >
+          <span
+            className="flex h-8 [transform:rotate(-13deg)] items-center gap-[3px] [&_i]:block [&_i]:h-[25px] [&_i]:w-[7px] [&_i]:rounded-[1px] [&_i]:bg-action [&_i:nth-child(2)]:h-[33px] [&_i:nth-child(3)]:h-5 forced-colors:[&_i]:[background:Highlight]"
+            aria-hidden="true"
+          >
             <i />
             <i />
             <i />
           </span>
           <span>
-            Pass<span className="brand-light">down</span>
+            Pass<span className="font-normal">down</span>
           </span>
         </a>
         {workspace && (
           <>
-            <ChevronRight className="site-header-sep" size={16} aria-hidden="true" />
-            <a className="site-header-workspace" href={workspace.href ?? `/w/${workspace.id}`}>
+            <ChevronRight className="flex-none text-muted" size={16} aria-hidden="true" />
+            <a
+              className="min-w-0 overflow-hidden text-[14px] font-semibold text-ellipsis whitespace-nowrap text-ink"
+              href={workspace.href ?? `/w/${workspace.id}`}
+            >
               {workspace.name}
             </a>
           </>
         )}
-        <div className="site-header-utilities">{utilities}</div>
+        <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-2.5">
+          {utilities}
+        </div>
       </div>
       {sections.length > 0 && (
-        <nav className="site-header-sections" aria-label={navLabel}>
+        <nav
+          className="flex flex-wrap gap-4.5 px-page pt-0 pb-2.5 text-[13px]"
+          aria-label={navLabel}
+        >
           {sections.map((section) => (
             <a
               key={section.href}
               href={section.href}
-              className={cn(section.current && 'current')}
+              className={cn(
+                'inline-flex items-center gap-1.5 border-b-2 border-solid border-b-transparent pb-1 text-muted hover:text-ink',
+                section.current && 'current border-b-action text-ink',
+              )}
               aria-current={section.current ? 'page' : undefined}
             >
               {section.icon}

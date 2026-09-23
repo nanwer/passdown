@@ -1,3 +1,4 @@
+import * as P from './public-styles';
 import Link from 'next/link';
 import { words } from '../lib/vocabulary';
 import { ArrowUpRight, FolderTree, ChevronRight } from 'lucide-react';
@@ -52,10 +53,10 @@ export function CategoryBrowse({
   );
   if (!children.length) return null;
   return (
-    <section className="page-width pt-7 pb-10" aria-labelledby="category-browse-title">
+    <section className={`${P.pageWidth} pt-7 pb-10`} aria-labelledby="category-browse-title">
       <div className="mb-5 flex [align-items:end] justify-between gap-6 max-[640px]:block">
         <div>
-          <span className="eyebrow">{parentId ? 'Keep exploring' : 'Find your way'}</span>
+          <span className={P.eyebrow}>{parentId ? 'Keep exploring' : 'Find your way'}</span>
           <h2 id="category-browse-title" className="text-[clamp(22px,3vw,30px)] tracking-[-0.04em]">
             {parentId ? `Inside this ${words.thing}` : `Browse ${words.things}`}
           </h2>

@@ -1,4 +1,5 @@
 'use client';
+import { iconButton, skipLink } from './primitives';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { BookOpen, ChevronDown, Globe2, Moon, Sun, LockKeyhole } from 'lucide-react';
 import { SiteHeader } from './site-header';
@@ -20,7 +21,7 @@ export function ThemeToggle() {
   return (
     <button
       type="button"
-      className="icon-button"
+      className={iconButton}
       onClick={toggle}
       aria-label={dark ? 'Switch to light theme' : 'Switch to dark theme'}
     >
@@ -63,13 +64,20 @@ function WorkspaceDisclosure({ team }: { team: boolean }) {
   }, []);
 
   return (
-    <details className="workspace-menu" ref={detailsRef}>
-      <summary aria-label={`Current workspace: ${currentWorkspace}`}>
+    <details className="workspace-menu relative text-[12px]" ref={detailsRef}>
+      <summary
+        className="flex min-h-10.5 list-none items-center gap-2 rounded-control border border-solid border-line bg-panel px-3 forced-colors:border-[CanvasText] max-[1050px]:[&_span]:hidden max-[470px]:px-2.5 [&::-webkit-details-marker]:hidden"
+        aria-label={`Current workspace: ${currentWorkspace}`}
+      >
         {team ? <LockKeyhole size={16} /> : <Globe2 size={16} />}
         <span aria-hidden="true">{currentWorkspace}</span>
         <ChevronDown size={14} aria-hidden="true" />
       </summary>
-      <div className="workspace-options" role="group" aria-label="Choose workspace">
+      <div
+        className="absolute end-0 top-[53px] max-h-[calc(100dvh_-_24px)] w-[min(280px,calc(100vw_-_24px))] overflow-y-auto rounded-panel border border-solid border-line bg-raised p-3.5 [box-shadow:0_12px_45px_color-mix(in_srgb,var(--gp-semantic-text-primary)_12%,transparent)] forced-colors:border-[CanvasText] max-[470px]:fixed max-[470px]:end-3 max-[470px]:top-17.5 max-[470px]:max-h-[calc(100dvh_-_82px)] [&_a]:flex [&_a]:items-center [&_a]:gap-[13px] [&_a]:rounded-[6px] [&_a]:px-2 [&_a]:py-3 [&_a]:font-semibold [&_a:hover]:bg-canvas [&_p]:px-2 [&_p]:pt-0 [&_p]:pb-2 [&_p]:text-[11px] [&_p]:text-muted [&_small]:block [&_small]:text-[11px] [&_small]:font-normal [&_small]:text-muted"
+        role="group"
+        aria-label="Choose workspace"
+      >
         <p>Explore a sample workspace</p>
         <a href="/" aria-current={team ? undefined : 'page'}>
           <Globe2 size={17} />
@@ -117,7 +125,7 @@ export function AppShell({
   return (
     <div className="app-shell">
       <a
-        className="skip-link"
+        className={skipLink}
         href="#main"
         onClick={(event) => {
           const main = document.getElementById('main');
@@ -169,8 +177,8 @@ export function AppShell({
         }
       />
       {children}
-      <footer className="site-footer">
-        <a className="footer-brand" href="/">
+      <footer className="mx-auto flex w-[min(100%_-_2_*_var(--gp-semantic-space-page),1280px)] items-center justify-between gap-5 pt-0 pb-9 text-[10px] text-muted max-[760px]:flex-wrap max-[760px]:gap-3.5 max-[760px]:pb-[25px] max-[470px]:text-[9px] [&_a]:flex [&_a]:items-center [&_a]:gap-1.5 max-[760px]:[&>span]:w-full max-[760px]:[&>span]:[order:3] max-[470px]:[&_a:last-child]:ms-auto">
+        <a className="text-[12px] font-semibold text-ink" href="/">
           Made to be understood.
         </a>
         <span>{footerNote}</span>

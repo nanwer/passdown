@@ -24,7 +24,12 @@ export function Button({
       aria-busy={loading || undefined}
       className={cn(buttonVariants({ variant, size }), className)}
     >
-      {loading && <span className="spinner" aria-hidden="true" />}
+      {loading && (
+        <span
+          className="size-3.5 rounded-[50%] border-2 border-solid border-current border-e-transparent [animation:spin_900ms_linear_infinite]"
+          aria-hidden="true"
+        />
+      )}
       {children}
     </button>
   );

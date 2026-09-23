@@ -2,7 +2,7 @@
 import * as X from './studio-styles';
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { BookOpen, ArrowLeft, LogOut, SlidersHorizontal } from 'lucide-react';
-import { Button, SiteHeader, ThemeToggle, cn } from '@guide/ui';
+import { Button, SiteHeader, ThemeToggle, cn, iconButton, skipLink, headerLink } from '@guide/ui';
 import type { StudioSession, StudioWorkspace } from '@guide/contracts';
 import { StudioError, studioFetch } from './transport';
 import './studio.css';
@@ -19,7 +19,7 @@ export function Frame({
 }) {
   return (
     <div className={X.studioRoot}>
-      <a className="skip-link" href="#main">
+      <a className={skipLink} href="#main">
         Skip to content
       </a>
       <SiteHeader
@@ -62,13 +62,13 @@ export function Frame({
         }
         utilities={
           <>
-            <a className="site-header-link" href="/studio">
+            <a className={headerLink} href="/studio">
               Workspaces
             </a>
             <ThemeToggle />
             {user && <span className={`text-[13px] text-muted max-[1000px]:hidden`}>{user}</span>}
             {onSignOut && (
-              <button className="icon-button" onClick={onSignOut} aria-label="Sign out">
+              <button className={iconButton} onClick={onSignOut} aria-label="Sign out">
                 <LogOut size={18} />
               </button>
             )}

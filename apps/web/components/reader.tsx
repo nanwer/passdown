@@ -1,5 +1,6 @@
-import { AppShell, buttonVariants } from '@guide/ui';
-import { GuideArtwork, StepRenderer, PreparationList } from '@guide/guide-ui';
+import * as P from './public-styles';
+import { AppShell, buttonVariants, headerLink } from '@guide/ui';
+import { GuideArtwork, StepRenderer, PreparationList, difficultyDot } from '@guide/guide-ui';
 import { sampleArtwork, type DemoGuide } from '@guide/testing';
 import type { GuideFamily } from '@guide/contracts';
 import type { PublishedGuide } from '@guide/contracts';
@@ -73,7 +74,7 @@ export function Reader({
             <Link className={buttonVariants()} href={editHref}>
               <PenLine size={16} aria-hidden="true" /> Edit
             </Link>
-            <Link className="site-header-link" href="/studio">
+            <Link className={headerLink} href="/studio">
               Studio
             </Link>
           </>
@@ -93,23 +94,20 @@ export function Reader({
         )
       }
     >
-      <main id="main" className="reader page-width" tabIndex={-1}>
-        <a href={base} className="back-link">
+      <main id="main" className={`${P.pageWidth} pt-8 pb-18`} tabIndex={-1}>
+        <a href={base} className="inline-flex items-center gap-[9px] text-[12px] text-muted">
           <ArrowLeft size={16} />
           {team ? 'Team procedures' : 'All guides'}
         </a>
         {synthetic && (
-          <p className="reader-preview">
+          <p className="mt-5 flex items-center gap-2 text-[12px]">
             <LockKeyhole size={14} />
             Synthetic team preview · Sample data
           </p>
         )}
-        <header className="reader-header">
+        <header className="border-b border-solid border-b-line py-9 max-[760px]:py-7 [&_h1]:mt-3.5 [&_h1]:mb-5 [&_h1]:max-w-[850px] [&_h1]:text-[clamp(32px,4vw,53px)] [&_h1]:leading-[1.18] [&_h1]:font-medium [&_h1]:tracking-[-1.8px] max-[760px]:[&_h1]:text-[37px]">
           {'categoryPath' in guide && guide.categoryPath.length > 0 ? (
-            <nav
-              className="eyebrow reader-category-breadcrumb"
-              aria-label="Where this guide is filed"
-            >
+            <nav className={P.eyebrow} aria-label="Where this guide is filed">
               {guide.categoryPath.map((category, index) => (
                 <span key={category.id}>
                   {index > 0 && ' / '}
@@ -120,10 +118,13 @@ export function Reader({
               ))}
             </nav>
           ) : (
-            <div className="eyebrow">{guide.category} / VISUAL FIELD NOTES</div>
+            <div className={P.eyebrow}>{guide.category} / VISUAL FIELD NOTES</div>
           )}
           {family && family.ancestors.length > 0 && (
-            <nav className="guide-family-trail" aria-label="Broader guides">
+            <nav
+              className='mb-2.5 flex flex-wrap items-center gap-2 text-[13px] text-muted [&_a]:border-b [&_a]:border-solid [&_a]:border-b-line [&_a]:text-inherit [&_a]:no-underline [&_a:hover]:text-ink [&_a+a]:before:mr-2 [&_a+a]:before:[border:0] [&_a+a]:before:text-muted [&_a+a]:before:content-["/"]'
+              aria-label="Broader guides"
+            >
               {family.ancestors.map((ancestor) => (
                 <a key={ancestor.id} href={`${readerBase}/${ancestor.id}`}>
                   {ancestor.title}
@@ -132,8 +133,8 @@ export function Reader({
             </nav>
           )}
           <h1>{guide.title}</h1>
-          <p className="reader-summary">{guide.summary}</p>
-          <div className="reader-metadata">
+          <p className="max-w-[700px] text-[16px] leading-[1.8] text-muted">{guide.summary}</p>
+          <div className="mt-7 flex flex-wrap items-center gap-[25px] text-[12px] text-muted max-[760px]:gap-[15px] max-[760px]:text-[11px] [&_span]:flex [&_span]:items-center [&_span]:gap-2">
             <span>
               <Clock3 size={16} />
               {new Intl.NumberFormat('en', {
@@ -147,18 +148,21 @@ export function Reader({
               {guide.document.steps.length} steps
             </span>
             <span>
-              <i className={`difficulty-dot difficulty-${guide.document.difficulty}`} />
+              <i className={difficultyDot(guide.document.difficulty)} />
               {guide.document.difficulty}
             </span>
-            <span className="release-tag">
+            <span className="ms-auto rounded-[5px] border border-solid border-line px-2.5 py-[5px] text-[10px] max-[760px]:ms-0">
               {sample ? 'Sample' : 'Published'} · v{guide.release}
             </span>
           </div>
         </header>
-        <div className="reader-layout">
-          <aside className="reader-sidebar">
-            <nav aria-label="Guide steps">
-              <p className="eyebrow">IN THIS GUIDE</p>
+        <div className="grid grid-cols-[235px_minmax(0,1fr)] gap-13.5 pt-9 max-[1050px]:grid-cols-[200px_minmax(0,1fr)] max-[1050px]:gap-7 max-[760px]:grid-cols-[1fr] max-[760px]:gap-[25px]">
+          <aside className="sticky top-7.5 [align-self:start] max-[760px]:static">
+            <nav
+              className="grid gap-[7px] max-[760px]:rounded-panel max-[760px]:border max-[760px]:border-solid max-[760px]:border-line max-[760px]:bg-panel max-[760px]:p-5 [&_a]:flex [&_a]:items-baseline [&_a]:gap-3 [&_a]:rounded-[5px] [&_a]:px-1.5 [&_a]:py-[9px] [&_a]:text-[12px] [&_a:hover]:bg-sunken [&_a_span]:font-mono [&_a_span]:text-[10px] [&_a_span]:text-muted"
+              aria-label="Guide steps"
+            >
+              <p className={`${P.eyebrow} mb-4`}>IN THIS GUIDE</p>
               {guide.document.steps.map((step, index) => (
                 <a key={step.id} href={`#step-${step.id}`}>
                   <span>{String(index + 1).padStart(2, '0')}</span>
@@ -167,8 +171,10 @@ export function Reader({
               ))}
             </nav>
             <PreparationList document={guide.document} />
-            <div className="reader-credit">
-              <span className="avatar">{team ? 'WO' : 'RC'}</span>
+            <div className="flex items-center gap-2.5 py-6 text-[10px] max-[760px]:hidden [&_small]:block [&_small]:text-[10px] [&_small]:text-muted">
+              <span className="grid size-9 place-items-center rounded-[50%] bg-success-surface font-semibold text-success">
+                {team ? 'WO' : 'RC'}
+              </span>
               <div>
                 <strong>{guide.author}</strong>
                 <small>
@@ -183,9 +189,12 @@ export function Reader({
               </div>
             </div>
           </aside>
-          <div className="reader-body">
+          <div className="min-w-0">
             {family && family.children.length > 0 && (
-              <section className="guide-family-children" aria-labelledby="family-children">
+              <section
+                className="mx-0 mt-0 mb-7 rounded-[12px] border border-solid border-line bg-sunken px-5 py-4.5 [&_a]:block [&_a]:rounded-[9px] [&_a]:border [&_a]:border-solid [&_a]:border-line [&_a]:bg-raised [&_a]:px-[13px] [&_a]:py-[11px] [&_a]:font-semibold [&_a]:text-ink [&_a]:no-underline [&_h2]:mx-0 [&_h2]:mt-0 [&_h2]:mb-1.5 [&_h2]:text-[17px] [&_p]:mx-0 [&_p]:mt-0 [&_p]:mb-3 [&_p]:text-[14px] [&_p]:text-muted [&_ul]:m-0 [&_ul]:grid [&_ul]:list-none [&_ul]:gap-2 [&_ul]:p-0"
+                aria-labelledby="family-children"
+              >
                 <h2 id="family-children">Choose your version</h2>
                 <p>This guide covers the range. These cover a particular one in more detail.</p>
                 <ul>
@@ -211,9 +220,9 @@ export function Reader({
                 }
               />
             ))}
-            <div className="reader-end">
+            <div className="flex items-center justify-between gap-4 text-[16px] font-medium max-[760px]:flex-wrap">
               <span>That’s the walkthrough.</span>
-              <a className="text-link" href="#main">
+              <a className={P.textLink} href="#main">
                 Back to the beginning
                 <ArrowUp size={16} />
               </a>

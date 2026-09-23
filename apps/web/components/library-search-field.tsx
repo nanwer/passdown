@@ -101,7 +101,7 @@ export function LibrarySearchField({
       action={base}
       scroll={false}
       role="search"
-      className="search-form relative"
+      className="search-form relative flex w-[min(100%,610px)] items-center gap-3 rounded-control border border-solid border-control bg-panel py-[7px] pr-3 pl-[17px] text-muted max-[760px]:w-full max-[760px]:max-w-[none] [&_input]:h-[31px] [&_input]:w-0 [&_input]:min-w-0 [&_input]:flex-1 [&_input]:[border:none] [&_input]:bg-transparent [&_input]:p-1.5 [&_input]:text-[13px] [&_input]:text-ink [&_input]:placeholder:text-muted"
       onSubmit={submit}
     >
       <Search size={18} aria-hidden="true" />
@@ -130,7 +130,11 @@ export function LibrarySearchField({
         aria-describedby="guide-search-feedback"
       />
       {category && <input type="hidden" name="category" value={category} />}
-      <button className="search-submit" type="submit" aria-label={buttonLabel}>
+      <button
+        className="grid size-8 place-items-center rounded-[5px] [border:none] bg-sunken"
+        type="submit"
+        aria-label={buttonLabel}
+      >
         <ArrowUpRight size={18} />
       </button>
       <span

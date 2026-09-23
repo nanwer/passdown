@@ -1,5 +1,5 @@
-/* Beneath Tailwind's utilities: see the layer order in app/globals.css. */
-@layer legacy {
+/* Element defaults and content typography: see the layer order in app/globals.css. */
+@layer defaults {
   .studio h1 {
     font-size: clamp(30px, 4vw, 48px);
     line-height: 1.15;

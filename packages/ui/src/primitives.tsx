@@ -117,3 +117,11 @@ export const buttonVariants = cva(
 );
 
 export type ButtonStyleProps = VariantProps<typeof buttonVariants>;
+
+/** A square button holding only an icon, labelled for assistive technology. */
+export const iconButton =
+  'inline-flex size-10 items-center justify-center rounded-control border border-solid border-transparent bg-transparent hover:bg-sunken';
+/** A link that appears only when focused, so a keyboard can jump past the header. */
+export const skipLink = 'absolute -top-20 start-5 z-[100] bg-raised p-3 focus:top-3';
+/** A quiet text link in the header's utilities. */
+export const headerLink = 'text-[13px] text-muted hover:text-ink';
