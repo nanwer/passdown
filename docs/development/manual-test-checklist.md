@@ -87,6 +87,15 @@ Writing needs manage permission; manual saves without browser draft backup; the 
 1. Open a guide in the editor whose step titles are long enough to wrap in the left-hand outline (for example the sample _Get to know a bicycle brake_).
 2. Expect each step number (`01`, `02` …) on one line beside its title, however many lines the title takes.
 
+## The interface after the move to utilities
+
+Every screen was rebuilt from utility classes without meaning to change how anything looks. Checked element by element in 34 states; these steps are for a person's eye.
+
+1. Open the library, a thing's page, a guide, sign-in, the studio's guide list, a guide in the editor (with its menus, a table, a picture with marks, the catalog picker and the publish dialog), Manage, Things, Catalog and People. Expect each to look as it did before.
+2. Repeat at 390px wide and in dark mode.
+3. One intended difference: in the editor's reader preview at phone width, a step's title is now 22px, as in the reader itself. It used to stay at 24px.
+4. Turn on reduced motion in the operating system and expect no transitions; turn on forced colours and expect buttons, fields and dialogs to keep visible outlines.
+
 ## One button everywhere
 
 1. Look at buttons across the library, a guide, the 404 page, sign-in, the studio, the editor and People. Expect one look everywhere: primary blue, secondary with a border, the same height and text size. Hover changes the background; disabled buttons are grey and show a not-allowed cursor.

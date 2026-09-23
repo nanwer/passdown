@@ -30,7 +30,7 @@ Passdown is an early, working application for public community guides and privat
 
 Saves are manual. Open signup is deliberately off — an account exists because somebody was invited or because the installation created the first one. Nothing sends email; invitations are links passed on by hand, and account recovery does not exist. Attachments other than pictures, cross-guide prerequisites, approval workflows and collaborative editing are not implemented.
 
-An installation serves one organisation and gets one workspace, which carries a public library and an internal section; creating further workspaces is deliberately out of scope. The interface is mid-migration onto shadcn components: buttons everywhere, the people screen and the Manage overview use them, and the rest still uses the older stylesheets, now layered beneath the newer utilities so each screen can be converted on its own. One vocabulary runs through the studio: things, the catalog, and Active or Inactive.
+An installation serves one organisation and gets one workspace, which carries a public library and an internal section; creating further workspaces is deliberately out of scope. Every screen is built from Tailwind utilities on the project's design tokens; the only stylesheets left hold element defaults and the typography of rendered guide content and the editor canvas. One vocabulary runs through the studio: things, the catalog, and Active or Inactive.
 
 A showcase library is available for evaluation — `pnpm seed:showcase` — written through the API rather than into tables, so it exercises the same validation and publication rules as hand-written content.
 
