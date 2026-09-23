@@ -351,6 +351,8 @@
     overflow-wrap: anywhere;
   }
   .studio-outline-item span {
+    /* The row breaks long titles anywhere; the number must not shrink into that. */
+    flex-shrink: 0;
     font-size: 12px;
     font-family: monospace;
     color: var(--gp-semantic-text-secondary);

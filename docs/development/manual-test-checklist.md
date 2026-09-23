@@ -72,6 +72,11 @@ Owner-only authoring; manual saves without browser draft backup; category depth 
 2. Repeat in dark mode and at 390px wide. Expect the same, with nothing overflowing.
 3. Open the library, a guide, the studio, a guide in the editor and **Add from catalog**. Expect every one to look exactly as it did before this change; only the People screen was meant to change.
 
+## Step outline
+
+1. Open a guide in the editor whose step titles are long enough to wrap in the left-hand outline (for example the sample _Get to know a bicycle brake_).
+2. Expect each step number (`01`, `02` …) on one line beside its title, however many lines the title takes.
+
 ## One button everywhere
 
 1. Look at buttons across the library, a guide, the 404 page, sign-in, the studio, the editor and People. Expect one look everywhere: primary blue, secondary with a border, the same height and text size. Hover changes the background; disabled buttons are grey and show a not-allowed cursor.

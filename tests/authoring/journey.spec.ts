@@ -633,3 +633,31 @@ test('a correct sign-in clears earlier failed attempts', async ({ request }) => 
     expect(failed.status(), 'the counter should have been reset').toBe(401);
   }
 });
+
+test('a step number stays on one line beside a title that wraps', async ({ page }) => {
+  // The outline breaks long titles anywhere so they cannot overflow, and the
+  // number beside each one inherited that and could shrink, so "02" beside a
+  // two-line title was drawn as a 0 above a 2.
+  await login(page.request);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto('/studio/repair-collective/bicycle-brake');
+  const items = page.locator('.studio-outline-item');
+  await expect(items.first()).toBeVisible();
+  const rows = await items.evaluateAll((buttons) =>
+    buttons.map((button) => {
+      const [number, title] = [button.querySelector('span')!, button.querySelector('strong')!];
+      const lineHeight = parseFloat(getComputedStyle(number).lineHeight);
+      return {
+        number: number.textContent,
+        numberHeight: number.getBoundingClientRect().height,
+        lineHeight,
+        titleLines: Math.round(
+          title.getBoundingClientRect().height / parseFloat(getComputedStyle(title).lineHeight),
+        ),
+      };
+    }),
+  );
+  // The seeded guide has titles long enough to wrap; without one this proves nothing.
+  expect(rows.some((row) => row.titleLines > 1)).toBe(true);
+  for (const row of rows) expect(row.numberHeight, row.number!).toBeLessThan(row.lineHeight * 1.5);
+});
