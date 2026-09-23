@@ -11,6 +11,8 @@ playwright-report/
 LOCAL_ACCESS.md
 
 .private/
+# Per-machine editor and agent settings, ignored by git globally rather than here.
+.claude/
 LICENSE
 
 # Generated: written by scripts/migration-manifest.mjs, checked byte-for-byte
