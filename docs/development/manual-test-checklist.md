@@ -65,6 +65,12 @@ Owner-only authoring; manual saves without browser draft backup; category depth 
 1. Open **Studio → a workspace → Tools & materials**. Expect items used by guides to show a total such as `3 guides`, and unused items to show nothing.
 2. Use the **All / Active / Inactive** tabs with the search, kind and category filters. Expect All to equal Active plus Inactive under whatever else is filtered.
 
+## Invitations, second time round
+
+1. Invite an address that already has an account in another workspace. Open the link while signed out. Expect it to say the address already has an account and to offer sign-in, not a sign-up form.
+2. Sign in as that address, open the link again, and accept. Expect to land in the new workspace, and the session to list both.
+3. Invite an address, let the invitation expire, then invite it again. Expect the second invitation to be issued rather than refused.
+
 ## A guide keeps what it is
 
 1. Create a guide with a kind of work and a subject. Edit its instructions, save, reload, and publish.

@@ -642,6 +642,7 @@ export async function structuredChecks({
           itemId: item.id,
           draftGuides: 0,
           publishedGuides: 0,
+          distinctGuides: 0,
         };
         // The per-item query returns guides referenced by a draft or the
         // current release, so it is the union of the two bulk buckets.
@@ -653,6 +654,15 @@ export async function structuredChecks({
         assert(
           (counts.draftGuides > 0 || counts.publishedGuides > 0) === union.size > 0,
           `${item.name}: bulk and per-item disagree about whether anything uses it`,
+        );
+        // Exactly, not merely bounded. The summary label used the larger of the
+        // two buckets, which is the union's size only when one set contains the
+        // other — and reads as one guide when an item sits in A's release and
+        // B's draft.
+        assert.equal(
+          counts.distinctGuides,
+          union.size,
+          `${item.name}: the distinct total must be the union of drafts and releases`,
         );
         const published = detail.guides.filter((g) => g.currentRelease !== null).length;
         assert(

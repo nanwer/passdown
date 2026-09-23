@@ -7,12 +7,10 @@
  * hall is still a tree of things. "Category" describes the container and never
  * the contents, which is why the create dialog read as a form with no subject.
  *
- * iFixit calls the same object a Device and has visibly outgrown it — their
- * picker is headed "Select a device" over a list beginning with Apparel, and
- * their own create form defines one as "any thing that warrants a repair
- * manual". Dozuki, built on the same code for workplaces, renamed it to
- * Category and defines it as "like folders that your documentation gets
- * organized into". Neither word survived contact with a second audience.
+ * Every word tried for this object has failed the same way. "Device" is wrong
+ * the moment the tree holds a room or a production line; "Category" describes
+ * the container and says nothing about what is in it. Neither survives contact
+ * with a second audience.
  *
  * So the words live here rather than in forty components. Today they are
  * constants. When a workspace can choose its own — a factory saying Equipment,

@@ -7,8 +7,8 @@ const quantitySchema = z.number().positive().max(1000000000).nullable();
 /**
  * What a guide does with an item: keeps it, or uses it up.
  *
- * Dozuki states the test in one line — "Will I still have this item after this
- * procedure?" — and it is the only distinction the rules have ever needed.
+ * The test is one question — will I still have this item afterwards? — and it
+ * is the only distinction the rules have ever needed.
  * Before this, an item was permanently a tool, a material or a part, chosen
  * when it was created; but material and part behaved identically everywhere in
  * the code, and the question only has an answer once you know what a

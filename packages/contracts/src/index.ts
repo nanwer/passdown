@@ -55,10 +55,17 @@ export const inviteSchema = z.strictObject({
   role: workspaceRoleSchema,
 });
 export type InviteInput = z.infer<typeof inviteSchema>;
+/**
+ * Accepting an invitation.
+ *
+ * A name and password are how somebody with no account creates one. Somebody
+ * who already has an account signs in as it and accepts, so they send neither —
+ * the route requires them only on the path that needs them.
+ */
 export const acceptInvitationSchema = z.strictObject({
   token: z.string().min(20).max(200),
-  name: z.string().trim().min(1).max(120),
-  password: z.string().min(12).max(200),
+  name: z.string().trim().min(1).max(120).optional(),
+  password: z.string().min(12).max(200).optional(),
 });
 export type AcceptInvitationInput = z.infer<typeof acceptInvitationSchema>;
 export type WorkspaceMember = {
@@ -313,6 +320,14 @@ export type CatalogUsageCounts = {
   itemId: string;
   draftGuides: number;
   publishedGuides: number;
+  /**
+   * Guides using this item at all, counted once each.
+   *
+   * Not the larger of the two above: an item can be in one guide's published
+   * release and a different guide's draft, which is two guides and reads as one
+   * under `max`.
+   */
+  distinctGuides: number;
 };
 /**
  * A guide's place in its family: the path up to the broadest guide, and the

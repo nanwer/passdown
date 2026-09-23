@@ -48,7 +48,10 @@ function describeUsage(usage?: CatalogUsageCounts) {
     usage.draftGuides > 0 ? `${usage.draftGuides} in drafts` : null,
     usage.publishedGuides > 0 ? `${usage.publishedGuides} published` : null,
   ].filter(Boolean);
-  const total = Math.max(usage.draftGuides, usage.publishedGuides);
+  // Counted in the database, because the union of two sets is not the larger
+  // of their sizes: one guide's published release and another's draft is two
+  // guides, and `max` called that one.
+  const total = usage.distinctGuides;
   return (
     <small className="catalog-usage" aria-hidden="true" title={parts.join(' · ')}>
       {total} {total === 1 ? 'guide' : 'guides'}

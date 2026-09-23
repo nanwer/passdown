@@ -1067,7 +1067,7 @@ try {
     assert.equal(people.members.find((m) => m.actorId === 'newcomer')?.role, 'view');
 
     // And it is spent. A link that keeps working after it has been used is the
-    // bug Grafana had to fix.
+    // failure this guards against.
     assert.equal(await store.acceptInvitation(invite.token, 'outsider'), null);
     assert.equal(await store.describeInvitation(invite.token), null);
     assert.equal(
@@ -1114,6 +1114,35 @@ try {
     } finally {
       await owner.query('ROLLBACK');
     }
+  });
+
+  await check('an expired invitation does not block a new one', async () => {
+    // The unique index counts anything unaccepted, and People hides expired
+    // rows — so a manager was told to revoke an invitation they could not see,
+    // and the address could never be invited again.
+    const address = `stale-${Date.now()}@test.local`;
+    const stale = await store.inviteToWorkspace(actor('owner'), 'private', {
+      email: address,
+      role: 'view',
+    });
+    await owner.query(
+      "UPDATE app.invitation SET expires_at = now() - interval '1 day' WHERE id=$1",
+      [stale.id],
+    );
+    assert.equal(
+      await store.describeInvitation(stale.token),
+      null,
+      'an expired link leads nowhere',
+    );
+
+    const replacement = await store.inviteToWorkspace(actor('owner'), 'private', {
+      email: address,
+      role: 'view',
+    });
+    assert(replacement.token, 'and the address can be invited again');
+    const live = await store.describeInvitation(replacement.token);
+    assert.equal(live?.email, address);
+    await store.revokeInvitation(actor('owner'), 'private', replacement.id);
   });
 
   await check('roster changes are serialised, not merely checked', async () => {

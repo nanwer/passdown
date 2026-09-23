@@ -567,6 +567,26 @@ export function createApplicationStore(options: { connectionString: string }) {
       }
     },
 
+    /**
+     * The account for an address, if there is one.
+     *
+     * Invitation acceptance used to assume signing up would throw for an
+     * address that already had an account. It does not — it returns a user
+     * whose id does not exist — so acceptance inserted a membership against a
+     * missing account and failed on the foreign key.
+     */
+    async findAccount(email: string): Promise<{ id: string; email: string } | null> {
+      const client = await pool.connect();
+      try {
+        const { rows } = await client.query(
+          'SELECT id,email FROM public.auth_user WHERE app.normalized_name(email)=app.normalized_name($1)',
+          [email],
+        );
+        return rows[0] ?? null;
+      } finally {
+        client.release();
+      }
+    },
     async describeInvitation(
       token: string,
     ): Promise<{ workspaceId: string; workspaceName: string; email: string; role: string } | null> {
@@ -676,6 +696,16 @@ export function createApplicationStore(options: { connectionString: string }) {
             'That person is already in this workspace.',
             422,
           );
+        // An expired invitation is not a live one. It stayed in the way of a
+        // replacement because the unique index counts anything unaccepted, and
+        // People hides expired rows — so a manager was told to revoke something
+        // they could not see.
+        await c.query(
+          `DELETE FROM app.invitation
+           WHERE workspace_id=$1 AND app.normalized_name(email)=app.normalized_name($2)
+             AND accepted_at IS NULL AND expires_at <= now()`,
+          [workspaceId, data.email],
+        );
         const token = randomBytes(32).toString('base64url');
         const id = randomUUID();
         const expiresAt = new Date(Date.now() + lifetimeDays * 86400000);
@@ -1228,6 +1258,32 @@ export function createApplicationStore(options: { connectionString: string }) {
           )
         ).rows;
         return { ancestors, children };
+      });
+    },
+    /**
+     * The guide this one is filed under, as an author sees it.
+     *
+     * Separate from getGuideFamily because that answers a reader's question and
+     * so reads through published guides only. The picker allows a draft as a
+     * parent, then reloaded its selection from the reader's view — so a saved
+     * draft parent came back as no parent at all, and where a higher ancestor
+     * was published the picker showed that instead, which is a different guide.
+     */
+    async getGuideParent(
+      actor: Actor,
+      workspaceId: string,
+      guideId: string,
+    ): Promise<{ id: string; title: string } | null> {
+      return transaction(actor, workspaceId, async (c) => {
+        await owner(c, workspaceId);
+        const { rows } = await c.query(
+          `SELECT g.id, g.document->>'title' AS title
+           FROM app.guide_family f
+           JOIN app.guide g ON g.workspace_id = f.workspace_id AND g.id = f.parent_guide_id
+           WHERE f.workspace_id=$1 AND f.child_guide_id=$2`,
+          [workspaceId, guideId],
+        );
+        return rows[0] ?? null;
       });
     },
     async consumeRateLimit(key: string, limit: number, windowSeconds: number): Promise<boolean> {

@@ -498,13 +498,14 @@ export function structuredStore(
       return transaction(actor, workspaceId, async (c) =>
         (
           await c.query(
-            'SELECT item_id,draft_guides,published_guides FROM app.catalog_usage_counts($1)',
+            'SELECT item_id,draft_guides,published_guides,distinct_guides FROM app.catalog_usage_counts($1)',
             [workspaceId],
           )
         ).rows.map((row) => ({
           itemId: row.item_id,
           draftGuides: Number(row.draft_guides),
           publishedGuides: Number(row.published_guides),
+          distinctGuides: Number(row.distinct_guides),
         })),
       );
     },

@@ -14,8 +14,12 @@ export function GET(request: Request, context: Context) {
     const { workspace, guide } = await context.params;
     assertIdentifier(workspace);
     assertIdentifier(guide);
+    const store = getApplication().store;
     return Response.json({
-      family: await getApplication().store.getGuideFamily(actor, workspace, guide),
+      family: await store.getGuideFamily(actor, workspace, guide),
+      // The exact parent, published or not. `family` is the reader's view and
+      // drops an unpublished one, which is not what an author chose.
+      parent: await store.getGuideParent(actor, workspace, guide),
     });
   });
 }
@@ -28,6 +32,9 @@ export function PUT(request: Request, context: Context) {
     assertIdentifier(guide);
     const input = parseInput(guideFamilySchema, await readJSON(request));
     await store.setGuideParent(actor, workspace, guide, input.parentGuideId, input.sortOrder);
-    return Response.json({ family: await store.getGuideFamily(actor, workspace, guide) });
+    return Response.json({
+      family: await store.getGuideFamily(actor, workspace, guide),
+      parent: await store.getGuideParent(actor, workspace, guide),
+    });
   });
 }

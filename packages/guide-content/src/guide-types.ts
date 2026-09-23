@@ -15,16 +15,12 @@ import { z } from 'zod';
  * empty title box and no help: the fortieth changeover procedure should not be
  * named by whoever happened to write it.
  *
- * Dozuki ships almost exactly this shape, down to the prompt "What part are you
- * replacing?", and across seventeen of their public sites not one tenant had
- * rewritten a definition — they only choose which are switched on. We ship the
- * same defaults but keep them editable, because Passdown is software someone
- * deploys themselves: there the operator and the vendor are the same person,
- * and a set they cannot change without a fork is a set they cannot use.
+ * The defaults ship, and stay editable. Passdown is software somebody deploys
+ * themselves, so the operator and the vendor are the same person: a set they
+ * cannot change without a fork is a set they cannot use.
  *
- * Their placeholder names are inverted from ours — Dozuki's %device is the
- * subject and their %thing is the part. Ours match our own vocabulary instead:
- * %thing is the thing from the tree, %subject is the answer to the prompt.
+ * The placeholders match this project's own vocabulary — %thing is the thing
+ * from the tree, %subject is the answer to the prompt.
  */
 export const guideTypeSchema = z.strictObject({
   /**

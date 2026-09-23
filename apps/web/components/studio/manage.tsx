@@ -19,9 +19,9 @@ export function Manage({ workspaceId }: { workspaceId: string }) {
  *
  * The tree, the catalog and the people were peers of Guides in the navigation,
  * which made a row of five destinations where two of them are what you do daily
- * and three are what you set up occasionally. iFixit and Dozuki draw the line
- * in the same place: a guide is edited where you read it, and the structure
- * behind it lives in a console you go to deliberately.
+ * and three are what you set up occasionally. The line belongs between them: a
+ * guide is edited where you read it, and the structure behind it lives in a
+ * console you go to deliberately.
  *
  * It is a page rather than a menu because a section with no landing page is a
  * named information-architecture mistake — and because a menu that has to be

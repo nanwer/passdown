@@ -65,9 +65,9 @@ export async function requireSession(request: Request) {
   // invited later — can do nothing until its password has been replaced.
   //
   // The check lives here rather than in a redirect because this is the one
-  // gate every studio route passes through, browser or not. SonarQube forces
-  // its reset in the interface and exempts /api, which leaves the credentials
-  // it shipped with working indefinitely for anyone who skips the UI.
+  // gate every studio route passes through, browser or not. Forcing
+  // a reset in the interface while exempting /api leaves the credentials an
+  // installation shipped with working indefinitely for anyone who skips the UI.
   if (session.user.mustChangePassword)
     throw new ApplicationError(
       'PASSWORD_CHANGE_REQUIRED',

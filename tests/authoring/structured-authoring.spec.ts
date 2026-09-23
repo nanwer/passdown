@@ -1897,7 +1897,7 @@ test('an account created for someone cannot do anything until it picks a passwor
       config.GUIDE_LOCAL_OWNER_EMAIL,
     ]);
 
-    // The API refuses, not only the browser. This is the half SonarQube left
+    // The API refuses, not only the browser. This is the half commonly left
     // open by exempting its own /api routes.
     const refused = await page.request.get('/api/studio/workshop/guide-types');
     expect(refused.status()).toBe(403);
@@ -1969,8 +1969,8 @@ test('somebody is invited, joins from the link, and the link then does nothing',
   ]);
   expect((await guest.request.get('/api/studio/workshop/people')).status()).toBe(404);
 
-  // The same link is spent. Grafana shipped copyable links that kept working
-  // after acceptance; this is the assertion that says ours does not.
+  // The same link is spent. A copyable link that keeps working after
+  // acceptance is a known failure; this is the assertion that says ours does not.
   const second = await browser.newContext();
   const late = await second.newPage();
   await late.goto(link);
@@ -1985,6 +1985,92 @@ test('somebody is invited, joins from the link, and the link then does nothing',
 
   await stranger.close();
   await second.close();
+});
+
+test('the editor remembers a parent that has never been published', async ({ page }) => {
+  // The picker offers drafts as parents but reloaded its selection from the
+  // reader's ancestor trail, which only contains published guides — so a saved
+  // draft parent came back as no parent, and the author's choice was lost the
+  // moment they reopened the guide.
+  await login(page.request);
+  const workspace = 'repair-collective';
+  const suffix = randomUUID().slice(0, 8);
+  const section = await category(page.request, workspace, `Family ${suffix}`);
+  const parent = await draft(page.request, workspace, section.id, `Broad draft ${suffix}`);
+  const child = await draft(page.request, workspace, section.id, `Narrow draft ${suffix}`);
+
+  await page.goto(`/studio/${workspace}/${child.id}`);
+  await page.getByRole('button', { name: /Guide details/ }).click();
+  const picker = page.getByLabel('Part of a broader guide');
+  await picker.selectOption(parent.id);
+  await expect(page.getByText('Saved. This guide now sits beneath that one.')).toBeVisible({
+    timeout: 15000,
+  });
+
+  // Reopened, the control still shows the guide that was chosen.
+  await page.reload();
+  await page.getByRole('button', { name: /Guide details/ }).click();
+  await expect(page.getByLabel('Part of a broader guide')).toHaveValue(parent.id);
+});
+
+test('somebody who already has an account can be invited into another workspace', async ({
+  page,
+  browser,
+}) => {
+  // Acceptance assumed signing up would throw for an address that already had
+  // an account. It does not — it hands back a user whose id does not exist — so
+  // the membership insert broke its foreign key and the invitee was told the
+  // service was unavailable. There was no path in for an existing account at all.
+  await login(page.request);
+  const suffix = randomUUID().slice(0, 8);
+  const invitee = `returning-${suffix}@example.test`;
+  const password = 'a-perfectly-good-password';
+
+  // First workspace: they join the ordinary way and get an account.
+  const first = await api<{ link: string }>(page.request, '/api/studio/workshop/people', 'POST', {
+    email: invitee,
+    role: 'view',
+  });
+  const stranger = await browser.newContext();
+  const guest = await stranger.newPage();
+  await guest.goto(first.link);
+  await guest.getByRole('textbox', { name: 'Your name', exact: true }).fill('Robin Returning');
+  await guest.getByLabel('Password', { exact: true }).fill(password);
+  await guest.getByLabel('Password again', { exact: true }).fill(password);
+  await guest.getByRole('button', { name: /^Join Workshop operations/ }).click();
+  await expect(guest).toHaveURL(/\/studio\/workshop$/);
+
+  // Second workspace: the same address, which now has an account.
+  const second = await api<{ link: string }>(
+    page.request,
+    '/api/studio/repair-collective/people',
+    'POST',
+    { email: invitee, role: 'view' },
+  );
+
+  // Nobody signed in: the link says what to do rather than offering a sign-up
+  // form that cannot succeed, and the API refuses outright.
+  const anonymous = await browser.newContext();
+  const visitor = await anonymous.newPage();
+  await visitor.goto(second.link);
+  await expect(visitor.getByText(/already has an account/)).toBeVisible();
+  const refused = await visitor.request.post(
+    `/api/invitations/${second.link.split('/invite/')[1]}`,
+    { headers, data: {} },
+  );
+  expect(refused.status()).toBe(422);
+  expect(await refused.text()).toContain('Sign in as it');
+  await anonymous.close();
+
+  // Signed in as the invited address, accepting works.
+  await guest.goto(second.link);
+  await guest.getByRole('button', { name: /^Join Repair collective/ }).click();
+  await expect(guest).toHaveURL(/\/studio\/repair-collective$/);
+  const session = await guest.request.get('/api/studio/session');
+  const workspaces = (await session.json()).workspaces as { id: string }[];
+  expect(workspaces.map((w) => w.id).sort()).toEqual(['repair-collective', 'workshop']);
+
+  await stranger.close();
 });
 
 test('a workspace can be reached from the page you land on', async ({ page }) => {

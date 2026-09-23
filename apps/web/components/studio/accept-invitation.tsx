@@ -5,14 +5,24 @@ import { Frame, ErrorNotice } from './frame';
 import { studioFetch } from './transport';
 import './studio.css';
 
-type Invitation = { workspaceName: string; email: string; role: 'manage' | 'view' };
+type Invitation = {
+  workspaceName: string;
+  email: string;
+  role: 'manage' | 'view';
+  /** Whether this address already has an account, which changes what to ask for. */
+  hasAccount: boolean;
+};
 
 /**
  * Accepting an invitation.
  *
- * Outside the studio's session gate on purpose: the person here has no account
- * yet, so anything that asks who they are would send them to sign in, which is
- * the one thing they cannot do.
+ * Outside the studio's session gate on purpose: the person here usually has no
+ * account yet, so anything that asks who they are would send them to sign in,
+ * which is the one thing they cannot do.
+ *
+ * Somebody who does have an account takes the other path — sign in as that
+ * address, then accept. Offering them a sign-up form was offering something
+ * that could never succeed.
  */
 export function AcceptInvitation({ token }: { token: string }) {
   const [invitation, setInvitation] = useState<Invitation | null>();
@@ -34,7 +44,7 @@ export function AcceptInvitation({ token }: { token: string }) {
     if (pending) return;
     const fields = new FormData(event.currentTarget);
     const password = String(fields.get('password') ?? '');
-    if (password !== String(fields.get('confirmPassword') ?? '')) {
+    if (!invitation?.hasAccount && password !== String(fields.get('confirmPassword') ?? '')) {
       setError('Those two do not match.');
       return;
     }
@@ -45,7 +55,9 @@ export function AcceptInvitation({ token }: { token: string }) {
         `/api/invitations/${encodeURIComponent(token)}`,
         {
           method: 'POST',
-          body: JSON.stringify({ name: String(fields.get('name') ?? ''), password }),
+          body: JSON.stringify(
+            invitation?.hasAccount ? {} : { name: String(fields.get('name') ?? ''), password },
+          ),
         },
       );
       window.location.assign(`/studio/${result.workspace}`);
@@ -78,44 +90,64 @@ export function AcceptInvitation({ token }: { token: string }) {
                 {invitation.role === 'manage'
                   ? 'write and publish here'
                   : 'read what is published here'}
-                . Choose a password to finish.
+                .{' '}
+                {invitation.hasAccount
+                  ? 'That address already has an account, so sign in as it and accept.'
+                  : 'Choose a password to finish.'}
               </p>
             </div>
             <form className="studio-card studio-form" onSubmit={submit}>
               {error && <ErrorNotice error={error} />}
-              <label>
-                Your name
-                <input name="name" required maxLength={120} autoComplete="name" />
-              </label>
-              <label>
-                Password
-                <input
-                  name="password"
-                  type="password"
-                  autoComplete="new-password"
-                  aria-describedby="invite-password-hint"
-                  required
-                  minLength={12}
-                  maxLength={200}
-                />
-              </label>
-              <p className="studio-hint" id="invite-password-hint">
-                At least twelve characters.
-              </p>
-              <label>
-                Password again
-                <input
-                  name="confirmPassword"
-                  type="password"
-                  autoComplete="new-password"
-                  required
-                  minLength={12}
-                  maxLength={200}
-                />
-              </label>
-              <Button type="submit" loading={pending}>
-                Join {invitation.workspaceName}
-              </Button>
+              {invitation.hasAccount ? (
+                <>
+                  <p className="studio-hint">
+                    If you are already signed in as {invitation.email}, accepting is all that is
+                    left. Otherwise sign in first and open this link again.
+                  </p>
+                  <Button type="submit" loading={pending}>
+                    Join {invitation.workspaceName}
+                  </Button>
+                  <a className="studio-text-link" href="/sign-in">
+                    Sign in as {invitation.email}
+                  </a>
+                </>
+              ) : (
+                <>
+                  <label>
+                    Your name
+                    <input name="name" required maxLength={120} autoComplete="name" />
+                  </label>
+                  <label>
+                    Password
+                    <input
+                      name="password"
+                      type="password"
+                      autoComplete="new-password"
+                      aria-describedby="invite-password-hint"
+                      required
+                      minLength={12}
+                      maxLength={200}
+                    />
+                  </label>
+                  <p className="studio-hint" id="invite-password-hint">
+                    At least twelve characters.
+                  </p>
+                  <label>
+                    Password again
+                    <input
+                      name="confirmPassword"
+                      type="password"
+                      autoComplete="new-password"
+                      required
+                      minLength={12}
+                      maxLength={200}
+                    />
+                  </label>
+                  <Button type="submit" loading={pending}>
+                    Join {invitation.workspaceName}
+                  </Button>
+                </>
+              )}
             </form>
           </>
         )}

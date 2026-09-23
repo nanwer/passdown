@@ -890,15 +890,17 @@ function GuideFamilyPicker({ workspaceId, guideId }: { workspaceId: string; guid
     let active = true;
     void Promise.all([
       studioFetch<{ guides: { id: string; title: string }[] }>(`/api/studio/${workspaceId}/guides`),
-      studioFetch<{ family: { ancestors: { id: string }[] } }>(
+      studioFetch<{ parent: { id: string } | null }>(
         `/api/studio/${workspaceId}/guides/${guideId}/family`,
       ),
     ])
       .then(([list, family]) => {
         if (!active) return;
         setCandidates(list.guides.filter((g) => g.id !== guideId));
-        const ancestors = family.family.ancestors;
-        setParentId(ancestors.length ? ancestors[ancestors.length - 1]!.id : '');
+        // The exact parent this guide was filed under, published or not. Read
+        // from the reader's ancestor trail, an unpublished parent vanished and
+        // a published grandparent took its place in the control.
+        setParentId(family.parent?.id ?? '');
       })
       .catch(() => {
         if (active) setCandidates([]);

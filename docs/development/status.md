@@ -8,7 +8,7 @@ Passdown is an early, working application for public community guides and privat
 - A private workspace has no public catalog: an item labelled public inside one is refused on write and unreadable to nonmembers, matching the rule guides have always followed.
 - Roster changes are serialised per workspace, so two managers standing down at once cannot both succeed.
 - Two permissions per workspace, view and manage, enforced by row-level security rather than by the interface. Every policy asks one function, so the vocabulary lives in one place.
-- Invitations by link: single use, expiring, stored only as a hash, and needing no mail server. A people screen listing members and pending invitations, with permission changes and removal, and a workspace that cannot be left without a manager.
+- Invitations by link: single use, expiring, stored only as a hash, and needing no mail server. An address that already has an account joins by signing in as it; an expired invitation is replaced rather than blocking the address. A people screen listing members and pending invitations, with permission changes and removal, and a workspace that cannot be left without a manager.
 - Persistent guide creation, rich-text step editing, preview, manual saves and conflict recovery.
 - Headings, emphasis, links, lists, quotes, six panel types and editable tables with direct row/column insertion.
 - Immutable published releases with explicit content licenses.

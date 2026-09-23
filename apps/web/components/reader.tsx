@@ -26,7 +26,7 @@ export function Reader({
    * A guide had two places: the one people read and a separate copy inside the
    * studio, which you could only reach by knowing it was there. Offering the
    * edit from the page you are already on is what every comparable product
-   * does — iFixit puts an Edit tab on the reading page itself.
+   * does: the affordance belongs beside the thing it acts on.
    */
   editHref?: string;
   /**
