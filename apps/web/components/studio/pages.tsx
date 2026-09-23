@@ -12,7 +12,7 @@ import {
 import { Button, buttonVariants, cn } from '@guide/ui';
 import type { Category, DraftGuide, DraftSummary, StudioWorkspace } from '@guide/contracts';
 import { composeGuideTitle, type GuideDocument, type GuideType } from '@guide/content';
-import { Frame, ErrorNotice, SessionGate } from './frame';
+import { Frame, ErrorNotice, SessionGate, StudioTrail } from './frame';
 import { studioFetch, StudioError } from './transport';
 import { newDocument, safeReturnTo } from './model';
 import { CategoryPicker } from '../structured';
@@ -193,9 +193,7 @@ function GuideList({ workspace }: { workspace: StudioWorkspace }) {
     <main id="main" tabIndex={-1} className="studio-container">
       <div className="studio-heading-row">
         <div className="studio-page-heading">
-          <a className="studio-eyebrow" href="/studio">
-            Studio / {workspace.name}
-          </a>
+          <StudioTrail workspace={workspace} section="Guides" current />
           <h1>Your guides</h1>
           <p>Good instructions start with a first draft.</p>
         </div>
@@ -517,9 +515,7 @@ function CreateGuide({ workspace }: { workspace: StudioWorkspace }) {
   return (
     <main id="main" tabIndex={-1} className="studio-container studio-narrow">
       <div className="studio-page-heading">
-        <a className="studio-eyebrow" href={`/studio/${workspace.id}`}>
-          {workspace.name} / New guide
-        </a>
+        <StudioTrail workspace={workspace} section="Guides" />
         <h1>Start with the essentials.</h1>
         <p>You can refine everything as you write. Nothing is published yet.</p>
       </div>

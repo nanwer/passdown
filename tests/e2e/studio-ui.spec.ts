@@ -88,9 +88,10 @@ test('a nested dialog shields its parent and restores the unfinished form', asyn
   );
   await page.goto(`/studio/${workspace.id}/categories`);
   await page.getByRole('button', { name: 'Testing', exact: true }).click();
+  // The thing opens in a sheet, and editing it opens a dialog over that.
   await page.getByRole('button', { name: 'Edit or move', exact: true }).click();
 
-  const parent = page.getByRole('dialog').first();
+  const parent = page.getByRole('dialog', { name: 'Edit thing', exact: true });
   await expect(parent).toBeVisible();
   const parentBounds = (await parent.boundingBox())!;
   const name = parent.getByRole('textbox', { name: 'Name', exact: true });

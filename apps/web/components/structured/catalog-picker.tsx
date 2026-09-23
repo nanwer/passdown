@@ -42,7 +42,7 @@ export function CatalogPicker({
           {label}
         </Button>
       }
-      title={creating ? 'Create catalog item' : 'Choose tools and materials'}
+      title={creating ? 'Create catalog item' : 'Choose from the catalog'}
       description={
         creating
           ? 'Create a reusable item, then add it to this guide.'
@@ -154,7 +154,7 @@ export function CatalogPicker({
     </Dialog>
   );
 }
-const unitLabels = {
+export const unitLabels = {
   each: 'Each',
   pair: 'Pair',
   g: 'Grams (g)',

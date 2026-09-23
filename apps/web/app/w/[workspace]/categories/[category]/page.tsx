@@ -19,7 +19,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   );
   return category
     ? { title: category.name, description: category.description || `Guides in ${category.name}.` }
-    : { title: 'Category unavailable' };
+    : { title: 'Not available' };
 }
 export default async function Page({ params, searchParams }: Props) {
   const { workspace, category: id } = await params;

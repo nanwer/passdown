@@ -91,8 +91,7 @@ export function CategoryBrowse({
                 {category.description && <p>{category.description}</p>}
                 <span className="category-browse-count">
                   {count} {count === 1 ? 'guide' : 'guides'}
-                  {branches > 0 &&
-                    ` · ${branches} ${branches === 1 ? 'subcategory' : 'subcategories'}`}
+                  {branches > 0 && ` · ${branches} inside`}
                 </span>
               </div>
               <ArrowUpRight size={19} aria-hidden="true" />

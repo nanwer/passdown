@@ -35,7 +35,7 @@ import type {
   GuidePublicBlocker,
   StudioWorkspace,
 } from '@guide/contracts';
-import { SessionGate, ErrorNotice } from './frame';
+import { SessionGate, ErrorNotice, StudioTrail } from './frame';
 import { MetadataFields } from './pages';
 import { moveBy, newStep, reorder } from './model';
 import { RichTextEditor } from './rich-text-editor';
@@ -826,7 +826,7 @@ function GuideSectionPicker({
     blocker.kind === 'workspace'
       ? `${blocker.name} is a private workspace, so it has no public section.`
       : blocker.kind === 'category'
-        ? `It is published under ${blocker.name}, a members-only category.`
+        ? `It is published under ${blocker.name}, which only members can see.`
         : `The published version uses ${blocker.name}, a members-only catalog item.`;
 
   return (
@@ -1053,7 +1053,7 @@ function Editor({ workspace, guideId }: { workspace: StudioWorkspace; guideId: s
       return;
     }
     if (!guide.categoryId) {
-      setError('Choose a category before saving.');
+      setError('Choose what this guide is about before saving.');
       return;
     }
     saving.current = true;
@@ -1199,9 +1199,7 @@ function Editor({ workspace, guideId }: { workspace: StudioWorkspace; guideId: s
       <form onSubmit={save}>
         <header className="studio-editor-header">
           <div>
-            <a className="studio-eyebrow" href={`/studio/${workspace.id}`}>
-              {workspace.name} / Guides
-            </a>
+            <StudioTrail workspace={workspace} section="Guides" />
             <h1>{guide.document.title || 'Untitled guide'}</h1>
             <div className="studio-inline">
               <span className="studio-badge">

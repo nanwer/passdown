@@ -145,13 +145,14 @@ for (const workspace of ['repair-collective', 'workshop']) {
       const dialog = page.getByRole('dialog').last();
       await dialog.getByRole('textbox', { name: 'Name', exact: true }).fill(names[level]!);
       await dialog.getByRole('button', { name: 'Add thing', exact: true }).click();
-      await expect(
-        page
-          .getByRole('region', { name: 'Details' })
-          .getByRole('heading', { name: names[level], exact: true }),
-      ).toBeVisible();
+      // Each new thing appears in the table, opened up to and focused, and its
+      // row offers the next level down.
+      await expect(page.getByRole('dialog')).toHaveCount(0);
+      await expect(page.getByRole('button', { name: names[level], exact: true })).toBeFocused();
       if (level < names.length - 1)
-        await page.getByRole('button', { name: 'Add one inside', exact: true }).click();
+        await page
+          .getByRole('button', { name: `Add a thing inside ${names[level]}`, exact: true })
+          .click();
     }
     const tree = await api<{ categories: Category[] }>(
       page.request,
@@ -161,7 +162,14 @@ for (const workspace of ['repair-collective', 'workshop']) {
     const root = tree.categories.find((item) => item.name === names[0])!;
     expect(leaf.path.map((part) => part.name)).toEqual(names);
     await page.reload();
+    // Four levels down is collapsed on arrival; a search opens the way to it and
+    // shows what it passes through as context.
+    await expect(page.getByRole('button', { name: names[4], exact: true })).toHaveCount(0);
+    await page.getByRole('searchbox', { name: 'Search things' }).fill(names[4]!);
     await expect(page.getByRole('button', { name: names[4], exact: true })).toBeVisible();
+    await expect(
+      page.getByRole('row').filter({ hasText: 'Laptops' }).getByText('contains matches'),
+    ).toBeVisible();
     const library = workspace === 'workshop' ? '/w/workshop' : '';
     const reader = await page.context().newPage();
     await reader.goto(`${library}/categories/${root.id}`);
@@ -214,44 +222,51 @@ for (const workspace of ['repair-collective', 'workshop']) {
       'true',
     );
     await reader.goto(`${library}/guides/${guideId}`);
-    await expect(reader.getByRole('navigation', { name: 'Category path' })).toContainText(
-      names[0]!,
-    );
+    await expect(
+      reader.getByRole('navigation', { name: 'Where this guide is filed' }),
+    ).toContainText(names[0]!);
     // Category assignments stay drafts until publication.
     await page.getByRole('button', { name: 'Guide details', exact: false }).click();
     await chooseCategory(page, root.name);
     await page.getByRole('button', { name: 'Save draft', exact: true }).click();
     await expect(page.getByText('All changes saved', { exact: true })).toBeVisible();
     await reader.reload();
-    await expect(reader.getByRole('navigation', { name: 'Category path' })).toContainText(
-      `Procedures ${suffix}`,
-    );
+    await expect(
+      reader.getByRole('navigation', { name: 'Where this guide is filed' }),
+    ).toContainText(`Procedures ${suffix}`);
     await page.goto(`/studio/${workspace}/categories`);
     await page.getByRole('button', { name: root.name, exact: true }).click();
-    await page.getByRole('button', { name: 'Archive', exact: true }).click();
-    // What blocks retirement is now explained before the attempt and the
-    // confirm stays disabled, rather than a refusal arriving after a click.
-    await expect(page.getByRole('dialog').locator('.structured-blockers')).toContainText(
-      /Move|guide|categor/i,
-    );
-    await expect(
-      page.getByRole('dialog').getByRole('button', { name: 'Archive category', exact: true }),
-    ).toBeDisabled();
-    await page.getByRole('dialog').getByRole('button', { name: 'Cancel', exact: true }).click();
+    await page.getByRole('button', { name: 'Deactivate', exact: true }).click();
+    // What blocks retirement is explained before the attempt and the confirm
+    // stays disabled, rather than a refusal arriving after a click.
+    const confirm = page.getByRole('dialog', { name: 'Deactivate this thing' });
+    await expect(confirm.locator('.structured-blockers')).toContainText(/Move|guide|inside/i);
+    await expect(confirm.getByRole('button', { name: 'Deactivate', exact: true })).toBeDisabled();
+    await confirm.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await page.getByRole('searchbox', { name: 'Search things' }).fill(leaf.name);
     await page.getByRole('button', { name: leaf.name, exact: true }).click();
     await page.getByRole('button', { name: 'Edit or move', exact: true }).click();
     await page
       .getByRole('dialog')
+      .last()
       .getByRole('textbox', { name: 'Name', exact: true })
       .fill(`Renamed ${suffix}`);
     await chooseCategory(page, root.name, 'Sits inside');
-    await page.getByRole('dialog').getByRole('button', { name: 'Save', exact: true }).click();
-    await expect(page.getByRole('dialog')).toHaveCount(0);
-    await expect(page.getByRole('region', { name: 'Details' })).toContainText(`Renamed ${suffix}`);
+    await page
+      .getByRole('dialog')
+      .last()
+      .getByRole('button', { name: 'Save', exact: true })
+      .click();
+    // The edit closes; the thing's own sheet stays open, under its new name.
+    await expect(page.getByRole('dialog')).toHaveCount(1);
+    await expect(page.getByRole('dialog', { name: `Renamed ${suffix}` })).toBeVisible();
+    await page.keyboard.press('Escape');
     await reader.reload();
-    await expect(reader.getByRole('navigation', { name: 'Category path' })).toContainText(
-      `Renamed ${suffix}`,
-    );
+    await expect(
+      reader.getByRole('navigation', { name: 'Where this guide is filed' }),
+    ).toContainText(`Renamed ${suffix}`);
     await expect(reader.getByRole('heading', { name: title, exact: true })).toBeVisible();
     if (workspace === 'workshop') {
       const anonymous = await browser.newContext();
@@ -300,9 +315,7 @@ test('catalog selection, step allocations, prerequisites and reviewed updates pr
     .getByRole('textbox', { name: 'Specification / size', exact: true })
     .fill('Phillips #00');
   await page.getByRole('dialog').getByRole('button', { name: 'Create item', exact: true }).click();
-  await expect(page.getByRole('region', { name: 'Catalog item details' })).toContainText(
-    'Phillips #00',
-  );
+  await expect(page.getByRole('dialog', { name: toolName })).toContainText('Phillips #00');
   const tool = (
     await api<{ items: CatalogItem[] }>(page.request, `/api/studio/${workspace}/catalog`)
   ).items.find((item) => item.name === toolName)!;
@@ -542,12 +555,13 @@ test('deactivation explains what still uses a category and only unblocks once th
   await expect(page.getByText(target.code, { exact: true })).toHaveCount(0);
   expect(target.code).toMatch(/^GC-\d+$/);
 
-  await page.getByRole('button', { name: 'Archive', exact: true }).click();
-  const blockers = page.locator('.structured-blockers');
+  await page.getByRole('button', { name: 'Deactivate', exact: true }).click();
+  const confirm = page.getByRole('dialog', { name: 'Deactivate this thing' });
+  const blockers = confirm.locator('.structured-blockers');
   await expect(blockers).toBeVisible();
-  await expect(blockers).toContainText('guide assigned here');
-  await expect(page.getByRole('button', { name: 'Archive category', exact: true })).toBeDisabled();
-  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await expect(blockers).toContainText('guide filed here');
+  await expect(confirm.getByRole('button', { name: 'Deactivate', exact: true })).toBeDisabled();
+  await confirm.getByRole('button', { name: 'Cancel', exact: true }).click();
 
   // Move the guide elsewhere, and the same category becomes retirable.
   const current = (
@@ -561,10 +575,11 @@ test('deactivation explains what still uses a category and only unblocks once th
 
   await page.reload();
   await page.getByRole('button', { name: target.name, exact: true }).click();
-  await page.getByRole('button', { name: 'Archive', exact: true }).click();
-  await expect(page.locator('.structured-blockers')).toHaveCount(0);
-  await page.getByRole('button', { name: 'Archive category', exact: true }).click();
-  await expect(page.getByText('Category archived', { exact: false })).toBeVisible();
+  await page.getByRole('button', { name: 'Deactivate', exact: true }).click();
+  await expect(confirm.getByRole('status')).toHaveCount(0);
+  await expect(confirm.locator('.structured-blockers')).toHaveCount(0);
+  await confirm.getByRole('button', { name: 'Deactivate', exact: true }).click();
+  await expect(page.getByText(`${target.name} is inactive`, { exact: false })).toBeVisible();
 });
 
 test('catalog listing reports how many guides use each item and filters by status', async ({
@@ -586,7 +601,7 @@ test('catalog listing reports how many guides use each item and filters by statu
   ).item;
 
   await page.goto(`/studio/${workspace}/catalog`);
-  const tabs = page.getByRole('group', { name: 'Item status' });
+  const tabs = page.getByRole('group', { name: 'Status' });
   await expect(tabs).toBeVisible();
 
   // All equals Active plus Inactive, and the counts respond to the filters.
@@ -604,10 +619,18 @@ test('catalog listing reports how many guides use each item and filters by statu
   ];
   expect(all).toBe(active + inactive);
 
-  // An item nothing references carries no usage badge.
-  const row = page.getByRole('button', { name: new RegExp(unused.name) });
-  await expect(row).toBeVisible();
-  await expect(row.locator('.catalog-usage')).toHaveCount(0);
+  // An item nothing references shows no usage. Searched for, because the table
+  // pages and earlier scenarios leave plenty of other items behind.
+  await page.getByRole('searchbox', { name: 'Search catalog' }).fill(unused.name);
+  const row = page.getByRole('row').filter({ hasText: unused.name });
+  await expect(row).toHaveCount(1);
+  const guides = await page
+    .getByRole('columnheader')
+    .evaluateAll((headers) =>
+      headers.findIndex((header) => header.textContent?.includes('Guides')),
+    );
+  expect(guides).toBeGreaterThan(0);
+  await expect(row.locator('th, td').nth(guides)).toHaveText('—');
 });
 
 test('libraries are tabs: a member switches between them, a visitor gets only the public one', async ({
@@ -1062,7 +1085,7 @@ test('a guide moves between the public and internal sections, and says what it c
   await page.getByRole('button', { name: 'Guide details' }).click();
   await expect(page.getByText('This guide cannot move to the public section yet:')).toBeVisible();
   await expect(
-    page.getByText(`It is published under Closed shelf ${suffix}, a members-only category.`),
+    page.getByText(`It is published under Closed shelf ${suffix}, which only members can see.`),
   ).toBeVisible();
   await expect(page.getByRole('button', { name: 'Move to the public section' })).toHaveCount(0);
 
@@ -1521,7 +1544,7 @@ test('a thing is added inside another from the row itself, and shows up there', 
   const parent = await category(page.request, workspace, `Home ${suffix}`);
 
   await page.goto(`/studio/${workspace}/categories`);
-  const row = page.locator('.category-tree-row').filter({ hasText: `Home ${suffix}` });
+  const row = page.getByRole('row').filter({ hasText: `Home ${suffix}` });
   await expect(row).toBeVisible();
 
   // Added from the row, so nothing asks where it should go.
@@ -1534,9 +1557,7 @@ test('a thing is added inside another from the row itself, and shows up there', 
   await expect(page.getByRole('dialog')).toHaveCount(0);
 
   // It is filed underneath, and visible without hunting for it.
-  await expect(
-    page.getByRole('region', { name: 'Details' }).getByRole('heading', { name: 'Kitchen' }),
-  ).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Kitchen', exact: true })).toBeFocused();
   const tree = await api<{ categories: Category[] }>(
     page.request,
     `/api/studio/${workspace}/categories`,
@@ -1547,7 +1568,7 @@ test('a thing is added inside another from the row itself, and shows up there', 
   expect(child, 'the new thing should be filed inside the one it was added from').toBeTruthy();
 
   // Go deeper, from the child's own row.
-  const childRow = page.locator('.category-tree-row').filter({ hasText: 'Kitchen' });
+  const childRow = page.getByRole('row').filter({ hasText: 'Kitchen' });
   await childRow.getByRole('button', { name: 'Add a thing inside Kitchen' }).click();
   await page
     .getByRole('dialog')
@@ -1555,14 +1576,14 @@ test('a thing is added inside another from the row itself, and shows up there', 
     .fill('Fridges');
   await page.getByRole('dialog').getByRole('button', { name: 'Add thing', exact: true }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
-  await expect(page.locator('.category-tree-row').filter({ hasText: 'Fridges' })).toBeVisible();
+  await expect(page.getByRole('row').filter({ hasText: 'Fridges' })).toBeVisible();
 
   // Fold the branch away, then add into it. A new thing created inside
   // something currently folded used to stay hidden, which reads as the
   // creation having silently failed.
-  await page.getByRole('button', { name: `Collapse Home ${suffix}` }).click();
-  await expect(page.locator('.category-tree-row').filter({ hasText: 'Kitchen' })).toHaveCount(0);
-  const topRow = page.locator('.category-tree-row').filter({ hasText: `Home ${suffix}` });
+  await page.getByRole('button', { name: `Hide what is inside Home ${suffix}` }).click();
+  await expect(page.getByRole('row').filter({ hasText: 'Kitchen' })).toHaveCount(0);
+  const topRow = page.getByRole('row').filter({ hasText: `Home ${suffix}` });
   await topRow.getByRole('button', { name: `Add a thing inside Home ${suffix}` }).click();
   await page
     .getByRole('dialog')
@@ -1570,10 +1591,11 @@ test('a thing is added inside another from the row itself, and shows up there', 
     .fill('Bathroom');
   await page.getByRole('dialog').getByRole('button', { name: 'Add thing', exact: true }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
-  await expect(page.locator('.category-tree-row').filter({ hasText: 'Bathroom' })).toBeVisible();
+  await expect(page.getByRole('row').filter({ hasText: 'Bathroom' })).toBeVisible();
 
-  // And the support code is no longer shown to an author.
-  await expect(page.locator('.category-code')).toHaveCount(0);
+  // And the support code is not shown unless somebody asks for its column.
+  await expect(page.getByRole('columnheader', { name: /Code/ })).toHaveCount(0);
+  await expect(page.getByText(parent.code, { exact: true })).toHaveCount(0);
 });
 
 test('a thing gets a picture, and it reaches exactly the readers the thing does', async ({
@@ -1588,7 +1610,7 @@ test('a thing gets a picture, and it reaches exactly the readers the thing does'
 
   await page.goto(`/studio/${workspace}/categories`);
   await page.getByRole('button', { name: `Bicycles ${suffix}`, exact: true }).click();
-  const details = page.getByRole('region', { name: 'Details' });
+  const details = page.getByRole('dialog', { name: `Bicycles ${suffix}`, exact: true });
   await expect(details.locator('.structured-thing-image')).toHaveCount(0);
 
   const bytes = await sharp({
@@ -1674,13 +1696,8 @@ test('a thing gets a picture, and it reaches exactly the readers the thing does'
   // Removing it puts the folder mark back and stops serving the bytes.
   await page.reload();
   await page.getByRole('button', { name: `Bicycles ${suffix}`, exact: true }).click();
-  await page
-    .getByRole('region', { name: 'Details' })
-    .getByRole('button', { name: 'Remove' })
-    .click();
-  await expect(
-    page.getByRole('region', { name: 'Details' }).locator('.structured-thing-image'),
-  ).toHaveCount(0);
+  await details.getByRole('button', { name: 'Remove' }).click();
+  await expect(details.locator('.structured-thing-image')).toHaveCount(0);
   expect((await visitor.request.get(src!)).status()).toBe(404);
   await visitor.goto('/');
   await expect(chips.getByRole('link', { name: `Bicycles ${suffix}` }).locator('img')).toHaveCount(
@@ -2281,4 +2298,114 @@ test('nobody is asked to choose from a list of one workspace', async ({ page }) 
     await db.query('DELETE FROM public.auth_user WHERE id=$1', [standIn]);
     await db.end();
   }
+});
+
+test('management tables sort every column, remember their columns, and survive opening a record', async ({
+  page,
+}) => {
+  test.setTimeout(120000);
+  await login(page.request);
+  const workspace = 'repair-collective';
+  const suffix = randomUUID().slice(0, 6);
+  // Enough items with this suffix to need a second page on their own.
+  const names = Array.from(
+    { length: 27 },
+    (_, n) => `Sorter ${suffix} ${String(n).padStart(2, '0')}`,
+  );
+  for (const [n, name] of names.entries())
+    await api(page.request, `/api/studio/${workspace}/catalog`, 'POST', {
+      name,
+      specification: `${27 - n} mm`,
+      description: '',
+      manufacturer: n % 2 ? 'Even' : 'Odd',
+      model: '',
+      partNumber: `P-${String(n).padStart(3, '0')}`,
+      defaultUnit: 'each',
+      visibility: 'public',
+    });
+
+  await page.goto(`/studio/${workspace}/catalog`);
+  const table = page.getByRole('table', { name: 'Catalog items' });
+  const firstNames = () =>
+    table.getByRole('rowheader').evaluateAll((cells) => cells.map((cell) => cell.textContent));
+  await page.getByRole('searchbox', { name: 'Search catalog' }).fill(`Sorter ${suffix}`);
+  await expect(page.getByText('27 items', { exact: true })).toBeVisible();
+  await expect(page.getByRole('navigation', { name: 'Items pages' })).toContainText(
+    'Showing 1–25 of 27 items',
+  );
+
+  // Sorted by name on arrival, and a header reverses it.
+  const name = table.getByRole('columnheader', { name: /Name/ });
+  await expect(name).toHaveAttribute('aria-sort', 'ascending');
+  expect((await firstNames())[0]).toBe(names[0]);
+  await name.getByRole('button').click();
+  await expect(name).toHaveAttribute('aria-sort', 'descending');
+  expect((await firstNames())[0]).toBe(names[26]);
+
+  // Every other column sorts too. Specification counts down as names count up.
+  const specification = table.getByRole('columnheader', { name: /Specification/ });
+  await specification.getByRole('button').click();
+  await expect(specification).toHaveAttribute('aria-sort', 'ascending');
+  await expect(name).toHaveAttribute('aria-sort', 'none');
+  expect((await firstNames())[0]).toBe(names[26]);
+
+  // The sort holds through a status change and a narrower search.
+  await page.getByRole('group', { name: 'Status' }).getByRole('button', { name: /^All/ }).click();
+  await page.getByRole('searchbox', { name: 'Search catalog' }).fill(`Sorter ${suffix} 0`);
+  await expect(specification).toHaveAttribute('aria-sort', 'ascending');
+  expect(await firstNames()).toEqual(names.slice(0, 10).reverse());
+
+  // A hidden column can be shown, and the choice outlives a reload. The name
+  // column cannot be hidden, so a row can always be opened.
+  await page.getByRole('button', { name: 'Columns', exact: true }).click();
+  await expect(page.getByRole('menuitemcheckbox', { name: /Name/ })).toBeDisabled();
+  await page.getByRole('menuitemcheckbox', { name: 'Manufacturer' }).click();
+  await page.getByRole('menuitemcheckbox', { name: 'Specification' }).click();
+  await page.keyboard.press('Escape');
+  await expect(table.getByRole('columnheader', { name: /Manufacturer/ })).toBeVisible();
+  await expect(table.getByRole('columnheader', { name: /Specification/ })).toHaveCount(0);
+  await page.reload();
+  await page.getByRole('searchbox', { name: 'Search catalog' }).fill(`Sorter ${suffix}`);
+  await expect(table.getByRole('columnheader', { name: /Manufacturer/ })).toBeVisible();
+  await expect(table.getByRole('columnheader', { name: /Specification/ })).toHaveCount(0);
+
+  // Page two, then open a record and close it: the same page, search and sort
+  // come back, and focus returns to the row it was opened from.
+  await page.getByRole('button', { name: 'Next', exact: true }).click();
+  await expect(page.getByRole('navigation', { name: 'Items pages' })).toContainText(
+    'Showing 26–27 of 27 items',
+  );
+  await page.getByRole('button', { name: names[26], exact: true }).click();
+  await expect(page.getByRole('dialog', { name: names[26] })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: names[26], exact: true })).toBeFocused();
+  await expect(page.getByRole('navigation', { name: 'Items pages' })).toContainText(
+    'Showing 26–27 of 27 items',
+  );
+  await expect(page.getByRole('searchbox', { name: 'Search catalog' })).toHaveValue(
+    `Sorter ${suffix}`,
+  );
+
+  // Things: an opened branch stays open across a record's sheet, and the
+  // guide total says where its guides are.
+  const root = await category(page.request, workspace, `Outer ${suffix}`);
+  const inner = await category(page.request, workspace, `Inner ${suffix}`, 'guide', root.id);
+  await draft(page.request, workspace, root.id, `Filed outside ${suffix}`);
+  await draft(page.request, workspace, inner.id, `Filed inside ${suffix}`);
+  await page.goto(`/studio/${workspace}/categories`);
+  await page.getByRole('button', { name: `Show what is inside Outer ${suffix}` }).click();
+  await expect(page.getByRole('button', { name: `Inner ${suffix}`, exact: true })).toBeVisible();
+  const outerRow = page.getByRole('row').filter({ hasText: `Outer ${suffix}` });
+  await expect(outerRow.getByTitle('1 here + 1 inside')).toHaveText('2');
+  await page.getByRole('button', { name: `Inner ${suffix}`, exact: true }).click();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('button', { name: `Inner ${suffix}`, exact: true })).toBeFocused();
+  await expect(
+    page.getByRole('button', { name: `Hide what is inside Outer ${suffix}` }),
+  ).toHaveAttribute('aria-expanded', 'true');
+
+  // Opening a branch is not opening the record.
+  await page.getByRole('button', { name: `Hide what is inside Outer ${suffix}` }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
 });

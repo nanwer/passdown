@@ -100,7 +100,7 @@ describe('structured authoring pickers', () => {
               ? {
                   error: {
                     code: 'DUPLICATE',
-                    message: 'A category with this name already exists.',
+                    message: 'Something with this name is already inside the one you chose.',
                   },
                 }
               : {

@@ -1,0 +1,296 @@
+'use client';
+import { useEffect, useState, type ReactNode } from 'react';
+import * as Menu from '@radix-ui/react-dropdown-menu';
+import { ArrowDown, ArrowUp, ArrowUpDown, Check, Columns3, Search } from 'lucide-react';
+import { buttonVariants, cn } from '@guide/ui';
+
+/**
+ * The pieces every management table is built from.
+ *
+ * Things and the catalog were a list beside a detail panel, sortable by
+ * nothing and showing whatever fitted in a line. They share one table now:
+ * every column that has an order sorts, the viewer chooses which columns to
+ * see, and the choice survives a reload. The screens own their state — search,
+ * status, sort, page, expanded rows — so opening a record and closing it again
+ * returns to exactly the table that was there.
+ */
+
+export type Column<Row> = {
+  key: string;
+  header: string;
+  /** What the column sorts by. Text compares as people read it; numbers numerically. */
+  sortValue: (row: Row) => string | number;
+  cell: (row: Row) => ReactNode;
+  /** Hidden until the viewer asks for it. */
+  hiddenByDefault?: boolean;
+  /** The column that names the row, which opens it. It cannot be hidden. */
+  primary?: boolean;
+  align?: 'start' | 'end';
+};
+
+export type Sort = { key: string; direction: 'ascending' | 'descending' } | null;
+
+export function compareBy<Row>(columns: Column<Row>[], sort: Sort) {
+  const column = sort && columns.find((candidate) => candidate.key === sort.key);
+  if (!column) return null;
+  const sign = sort.direction === 'ascending' ? 1 : -1;
+  return (a: Row, b: Row) => {
+    const [x, y] = [column.sortValue(a), column.sortValue(b)];
+    const order =
+      typeof x === 'number' && typeof y === 'number'
+        ? x - y
+        : String(x).localeCompare(String(y), undefined, { numeric: true, sensitivity: 'base' });
+    return order * sign;
+  };
+}
+
+/** Choosing a column sorts by it; choosing it again reverses it. */
+export function nextSort(current: Sort, key: string): Sort {
+  if (current?.key !== key) return { key, direction: 'ascending' };
+  return { key, direction: current.direction === 'ascending' ? 'descending' : 'ascending' };
+}
+
+/**
+ * Which columns this viewer has chosen, remembered in this browser.
+ *
+ * A convenience, so it lives in local storage and every read and write is
+ * allowed to fail: a private window simply starts from the defaults.
+ */
+export function useColumnChoice<Row>(table: string, columns: Column<Row>[]) {
+  const defaults = columns.filter((column) => !column.hiddenByDefault).map((column) => column.key);
+  const [visible, setVisible] = useState<string[]>(defaults);
+  const storageKey = `passdown.table.${table}.columns`;
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(storageKey) ?? 'null');
+      if (Array.isArray(saved)) {
+        const known = saved.filter((key) => columns.some((column) => column.key === key));
+        const primary = columns.filter((column) => column.primary).map((column) => column.key);
+        if (known.length) setVisible([...new Set([...primary, ...known])]);
+      }
+    } catch {
+      // Defaults stand.
+    }
+    // Columns are declared once per screen, so the storage key identifies them.
+  }, [storageKey]);
+  const toggle = (key: string) =>
+    setVisible((current) => {
+      const next = current.includes(key)
+        ? current.filter((candidate) => candidate !== key)
+        : columns
+            .filter((column) => column.key === key || current.includes(column.key))
+            .map((column) => column.key);
+      // At least one column always remains: the one that names the row.
+      if (!next.length) return current;
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(next));
+      } catch {
+        // Remembered for this visit only.
+      }
+      return next;
+    });
+  return { shown: columns.filter((column) => visible.includes(column.key)), visible, toggle };
+}
+
+export function ColumnMenu<Row>({
+  columns,
+  visible,
+  onToggle,
+}: {
+  columns: Column<Row>[];
+  visible: string[];
+  onToggle: (key: string) => void;
+}) {
+  return (
+    <Menu.Root>
+      <Menu.Trigger className={buttonVariants({ variant: 'secondary' })}>
+        <Columns3 size={16} aria-hidden="true" />
+        Columns
+      </Menu.Trigger>
+      <Menu.Portal>
+        <Menu.Content
+          align="end"
+          sideOffset={6}
+          className="z-50 min-w-52 rounded-[var(--gp-semantic-radius-control)] border border-[var(--gp-semantic-border-subtle)] bg-[var(--gp-semantic-surface-raised)] p-1.5 text-sm text-[var(--gp-semantic-text-primary)] shadow-[var(--gp-component-dialog-shadow)]"
+        >
+          <Menu.Label className="px-2.5 py-1.5 text-xs text-[var(--gp-semantic-text-secondary)]">
+            Show columns
+          </Menu.Label>
+          {columns.map((column) => (
+            <Menu.CheckboxItem
+              key={column.key}
+              checked={visible.includes(column.key)}
+              disabled={column.primary}
+              onCheckedChange={() => onToggle(column.key)}
+              onSelect={(event) => event.preventDefault()}
+              className="flex cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-2 outline-none select-none data-[disabled]:cursor-default data-[disabled]:text-[var(--gp-semantic-text-secondary)] data-[highlighted]:bg-[var(--gp-semantic-surface-sunken)]"
+            >
+              <span className="grid size-4 place-items-center rounded border border-[var(--gp-semantic-border-control)]">
+                <Menu.ItemIndicator>
+                  <Check size={12} strokeWidth={3} />
+                </Menu.ItemIndicator>
+              </span>
+              {column.header}
+              {column.primary && <span className="ms-auto text-xs">Always</span>}
+            </Menu.CheckboxItem>
+          ))}
+        </Menu.Content>
+      </Menu.Portal>
+    </Menu.Root>
+  );
+}
+
+export function SortableHeader<Row>({
+  column,
+  sort,
+  onSort,
+}: {
+  column: Column<Row>;
+  sort: Sort;
+  onSort: (key: string) => void;
+}) {
+  const active = sort?.key === column.key ? sort.direction : undefined;
+  const Icon = active === 'ascending' ? ArrowUp : active === 'descending' ? ArrowDown : ArrowUpDown;
+  return (
+    <th
+      scope="col"
+      aria-sort={active ?? 'none'}
+      className={cn(
+        'border-b border-[var(--gp-semantic-border-subtle)] px-3 py-2.5 text-xs font-semibold whitespace-nowrap text-[var(--gp-semantic-text-secondary)]',
+        column.align === 'end' ? 'text-end' : 'text-start',
+      )}
+    >
+      <button
+        type="button"
+        onClick={() => onSort(column.key)}
+        className={cn(
+          'inline-flex items-center gap-1.5 rounded-sm hover:text-[var(--gp-semantic-text-primary)]',
+          active && 'text-[var(--gp-semantic-text-primary)]',
+        )}
+      >
+        {column.header}
+        <Icon size={13} aria-hidden="true" className={active ? '' : 'opacity-50'} />
+      </button>
+    </th>
+  );
+}
+
+export type Status = 'all' | 'active' | 'inactive';
+
+/**
+ * All, Active and Inactive, each counting what the search matches before the
+ * status narrows it — so All is always Active plus Inactive.
+ */
+export function StatusTabs({
+  label,
+  value,
+  counts,
+  onChange,
+}: {
+  label: string;
+  value: Status;
+  counts: Record<Status, number>;
+  onChange: (status: Status) => void;
+}) {
+  return (
+    <div
+      role="group"
+      aria-label={label}
+      className="inline-flex gap-1 rounded-[var(--gp-semantic-radius-control)] bg-[var(--gp-semantic-surface-sunken)] p-1"
+    >
+      {(['all', 'active', 'inactive'] as const).map((option) => (
+        <button
+          key={option}
+          type="button"
+          aria-pressed={value === option}
+          onClick={() => onChange(option)}
+          className="inline-flex min-h-9 items-center gap-2 rounded-[calc(var(--gp-semantic-radius-control)-4px)] px-3 text-[13px] text-[var(--gp-semantic-text-secondary)] aria-pressed:bg-[var(--gp-semantic-surface-raised)] aria-pressed:font-semibold aria-pressed:text-[var(--gp-semantic-text-primary)] aria-pressed:shadow-sm"
+        >
+          {option === 'all' ? 'All' : option === 'active' ? 'Active' : 'Inactive'}
+          <span className="font-mono text-xs tabular-nums">{counts[option]}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+export function TableSearch({
+  label,
+  placeholder,
+  value,
+  onChange,
+}: {
+  label: string;
+  placeholder: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="relative flex min-w-0 flex-1 basis-72 items-center">
+      <Search
+        size={17}
+        aria-hidden="true"
+        className="pointer-events-none absolute start-3.5 top-1/2 -translate-y-1/2 text-[var(--gp-semantic-text-secondary)]"
+      />
+      <input
+        type="search"
+        aria-label={label}
+        placeholder={placeholder}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="min-h-[42px] w-full rounded-[var(--gp-semantic-radius-control)] border border-[var(--gp-semantic-border-control)] bg-[var(--gp-semantic-surface-raised)] ps-10 pe-3 text-sm"
+      />
+    </label>
+  );
+}
+
+export function Pager({
+  page,
+  pageSize,
+  total,
+  noun,
+  onPage,
+}: {
+  page: number;
+  pageSize: number;
+  total: number;
+  noun: [string, string];
+  onPage: (page: number) => void;
+}) {
+  const pages = Math.max(1, Math.ceil(total / pageSize));
+  if (pages === 1) return null;
+  const first = (page - 1) * pageSize + 1;
+  const last = Math.min(total, page * pageSize);
+  return (
+    <nav
+      aria-label={`${noun[1][0]!.toUpperCase()}${noun[1].slice(1)} pages`}
+      className="flex flex-wrap items-center justify-between gap-3 pt-4 text-[13px] text-[var(--gp-semantic-text-secondary)]"
+    >
+      <span>
+        Showing {first}–{last} of {total} {total === 1 ? noun[0] : noun[1]}
+      </span>
+      <span className="flex gap-2">
+        <button
+          type="button"
+          className={buttonVariants({ variant: 'secondary', size: 'sm' })}
+          disabled={page <= 1}
+          onClick={() => onPage(page - 1)}
+        >
+          Previous
+        </button>
+        <button
+          type="button"
+          className={buttonVariants({ variant: 'secondary', size: 'sm' })}
+          disabled={page >= pages}
+          onClick={() => onPage(page + 1)}
+        >
+          Next
+        </button>
+      </span>
+    </nav>
+  );
+}
+
+export const tableClass = 'w-full border-collapse text-sm';
+export const cellClass =
+  'border-b border-[var(--gp-semantic-border-subtle)] px-3 py-2.5 align-middle';

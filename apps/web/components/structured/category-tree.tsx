@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { ChevronDown, ChevronRight, Folder, FolderOpen, Check, Plus } from 'lucide-react';
 import type { Category, CategoryCounts } from '@guide/contracts';
 import { categoryPath, searchCategories } from './tree-model';
+import { words } from '../../lib/vocabulary';
 import './structured.css';
 export interface CategoryTreeProps {
   categories: Category[];
@@ -49,7 +50,7 @@ export function CategoryTree({
   value,
   onSelect,
   query = '',
-  label = 'Category tree',
+  label = words.Things,
   counts,
   onAddChild,
   addChildLabel = (category) => `Add something inside ${category.name}`,

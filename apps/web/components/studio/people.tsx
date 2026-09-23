@@ -13,7 +13,8 @@ import {
   cn,
 } from '@guide/ui';
 import type { StudioWorkspace, WorkspacePeople } from '@guide/contracts';
-import { ErrorNotice, SessionGate } from './frame';
+import { ErrorNotice, SessionGate, StudioTrail } from './frame';
+import { ManageTabs } from './manage';
 import { studioFetch } from './transport';
 import './studio.css';
 
@@ -96,15 +97,14 @@ function PeopleList({ workspace }: { workspace: StudioWorkspace }) {
   return (
     <main id="main" tabIndex={-1} className="studio-container studio-narrow">
       <div className="studio-page-heading">
-        <a className="studio-eyebrow" href={`/studio/${workspace.id}`}>
-          {workspace.name} / People
-        </a>
+        <StudioTrail workspace={workspace} section="Manage" />
         <h1>Who can reach this workspace.</h1>
         <p>
           Someone who can <strong>view</strong> reads what has been published here. Someone who can{' '}
           <strong>manage</strong> writes, publishes, and invites others.
         </p>
       </div>
+      <ManageTabs workspace={workspace} active="people" />
 
       <div className="people-page">
         {error && <ErrorNotice error={error} />}

@@ -1,6 +1,6 @@
 import { EditorPage } from '../../../../components/studio/editor';
 export const metadata = {
-  title: 'Edit guide | Guide studio',
+  title: 'Edit guide · Studio',
   robots: { index: false, follow: false },
 };
 export default async function Page({

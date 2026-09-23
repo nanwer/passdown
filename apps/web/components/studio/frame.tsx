@@ -79,6 +79,48 @@ export function Frame({
     </div>
   );
 }
+/**
+ * Where a studio page sits: the workspace, then the section it belongs to.
+ *
+ * Every page used to write its own, and they disagreed — "Studio / Repair
+ * collective" on the guides page, "Repair collective / People" on People, a
+ * back arrow to Guides on pages reached from Manage. One rule now: each part
+ * links to its page unless it is the page you are on.
+ */
+export function StudioTrail({
+  workspace,
+  section,
+  current = false,
+}: {
+  workspace: Pick<StudioWorkspace, 'id' | 'name'>;
+  section: 'Guides' | 'Manage';
+  /** Whether the section is itself the page being shown. */
+  current?: boolean;
+}) {
+  const sectionHref =
+    section === 'Guides' ? `/studio/${workspace.id}` : `/studio/${workspace.id}/manage`;
+  const workspaceIsCurrent = current && section === 'Guides';
+  return (
+    <nav aria-label="Breadcrumb" className="studio-eyebrow studio-trail">
+      <ol>
+        <li>
+          {workspaceIsCurrent ? (
+            <span>{workspace.name}</span>
+          ) : (
+            <a href={`/studio/${workspace.id}`}>{workspace.name}</a>
+          )}
+        </li>
+        <li>
+          {current ? (
+            <span aria-current="page">{section}</span>
+          ) : (
+            <a href={sectionHref}>{section}</a>
+          )}
+        </li>
+      </ol>
+    </nav>
+  );
+}
 export function ErrorNotice({ error }: { error: string }) {
   return (
     <div className="studio-notice studio-notice--error" role="alert">

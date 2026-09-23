@@ -3,7 +3,7 @@ import { Workspaces } from '../../components/studio/pages';
 import { currentActor, getApplication, isConfigured } from '../../lib/application';
 export const dynamic = 'force-dynamic';
 export const metadata = {
-  title: 'Your workspaces | Guide studio',
+  title: 'Workspaces · Studio',
   robots: { index: false, follow: false },
 };
 

@@ -106,7 +106,10 @@ export function Reader({
         )}
         <header className="reader-header">
           {'categoryPath' in guide && guide.categoryPath.length > 0 ? (
-            <nav className="eyebrow reader-category-breadcrumb" aria-label="Category path">
+            <nav
+              className="eyebrow reader-category-breadcrumb"
+              aria-label="Where this guide is filed"
+            >
               {guide.categoryPath.map((category, index) => (
                 <span key={category.id}>
                   {index > 0 && ' / '}

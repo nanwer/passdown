@@ -14,13 +14,11 @@ import './structured.css';
 /**
  * What to call a node of this tree.
  *
- * The guide tree holds the things guides are about, and takes the product's
- * word for them. The tool and material trees are scheduled for removal and
- * keep the old word until they go, rather than being renamed on the way out.
+ * One tree remains, and it holds the things guides are about. The domain
+ * argument outlives the tool and material trees it once told apart.
  */
-function nounFor(domain: Category['domain']) {
-  if (domain === 'guide') return words;
-  return { thing: 'category', things: 'categories', Thing: 'Category', Things: 'Categories' };
+function nounFor(_domain: Category['domain']) {
+  return words;
 }
 
 export interface CategoryPickerProps {
@@ -78,9 +76,9 @@ export function CategoryPicker({
               {display
                 ? categoryPath(display)
                 : value
-                  ? 'Selected category unavailable'
+                  ? `Selected ${words.thing} unavailable`
                   : required
-                    ? 'Choose a category'
+                    ? `Choose a ${words.thing}`
                     : 'Not inside anything'}
             </span>
             <ChevronDown size={16} aria-hidden="true" />
@@ -89,8 +87,8 @@ export function CategoryPicker({
         title={creating ? `Add a ${nounFor(domain).thing}` : `Choose ${label.toLowerCase()}`}
         description={
           creating
-            ? 'Create a reusable category without leaving your guide.'
-            : 'Browse the hierarchy or search a full category path.'
+            ? `Add a ${words.thing} without leaving your guide.`
+            : 'Browse the tree, or search by name or path.'
         }
         open={open}
         onOpenChange={(next) => {
@@ -128,7 +126,7 @@ export function CategoryPicker({
               <div className="structured-search">
                 <Search size={17} aria-hidden="true" />
                 <input
-                  aria-label="Search categories"
+                  aria-label={`Search ${words.things}`}
                   placeholder="Search names or full paths…"
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
@@ -155,7 +153,7 @@ export function CategoryPicker({
                   </Button>
                 </>
               ) : loading ? (
-                <p role="status">Loading categories…</p>
+                <p role="status">Loading {words.things}…</p>
               ) : (
                 <div className="structured-tree-scroll">
                   <CategoryTree
@@ -179,7 +177,7 @@ export function CategoryPicker({
                       ? `Add one inside this ${nounFor(domain).thing}`
                       : `Add a ${nounFor(domain).thing}`}
                   </Button>
-                  <small>A shared category is saved immediately.</small>
+                  <small>A new {words.thing} is saved immediately.</small>
                 </div>
               )}
             </>
@@ -229,7 +227,7 @@ export function CategoryForm({
   async function save() {
     if (pending) return;
     if (!name.trim()) {
-      setError('Give this category a name.');
+      setError(`Give this ${words.thing} a name.`);
       return;
     }
     setPending(true);
@@ -258,7 +256,7 @@ export function CategoryForm({
       setError(
         error instanceof Error
           ? error.message
-          : 'Unable to save this category. Your changes are still here.',
+          : `Unable to save this ${words.thing}. Your changes are still here.`,
       );
     } finally {
       if (isCurrent()) setPending(false);

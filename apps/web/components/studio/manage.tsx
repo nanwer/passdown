@@ -2,7 +2,7 @@
 import { FolderTree, Users, Wrench, ArrowRight } from 'lucide-react';
 import { cardStyles, cn } from '@guide/ui';
 import type { StudioWorkspace } from '@guide/contracts';
-import { ErrorNotice, SessionGate } from './frame';
+import { ErrorNotice, SessionGate, StudioTrail } from './frame';
 import { words } from '../../lib/vocabulary';
 import './studio.css';
 
@@ -61,9 +61,7 @@ function ManageIndex({ workspace }: { workspace: StudioWorkspace }) {
   return (
     <main id="main" tabIndex={-1} className="studio-container studio-narrow">
       <div className="studio-page-heading">
-        <a className="studio-eyebrow" href={`/studio/${workspace.id}`}>
-          {workspace.name} / Manage
-        </a>
+        <StudioTrail workspace={workspace} section="Manage" current />
         <h1>Set up this workspace.</h1>
         <p>
           What the guides here are about, what they call for, and who can reach them. Writing a
@@ -83,5 +81,53 @@ function ManageIndex({ workspace }: { workspace: StudioWorkspace }) {
         ))}
       </div>
     </main>
+  );
+}
+
+/**
+ * The three things Manage holds, as tabs on each of them.
+ *
+ * Things and the catalog had tabs naming them "Categories" and "Tools &
+ * materials" while Manage called them Things and Catalog, and People had no
+ * tabs at all. One set of names, and every section reachable from the others.
+ */
+export function ManageTabs({
+  workspace,
+  active,
+}: {
+  workspace: Pick<StudioWorkspace, 'id'>;
+  active: 'things' | 'catalog' | 'people';
+}) {
+  const tabs = [
+    {
+      key: 'things',
+      href: `/studio/${workspace.id}/categories`,
+      label: words.Things,
+      icon: FolderTree,
+    },
+    { key: 'catalog', href: `/studio/${workspace.id}/catalog`, label: 'Catalog', icon: Wrench },
+    { key: 'people', href: `/studio/${workspace.id}/people`, label: 'People', icon: Users },
+  ] as const;
+  return (
+    <nav
+      aria-label="Manage this workspace"
+      className="mt-8 mb-6 flex flex-wrap gap-6 border-b border-[var(--gp-semantic-border-subtle)]"
+    >
+      {tabs.map(({ key, href, label, icon: Icon }) => (
+        <a
+          key={key}
+          href={href}
+          aria-current={active === key ? 'page' : undefined}
+          className={cn(
+            'inline-flex items-center gap-2 border-b-2 border-transparent pb-[15px] text-sm text-[var(--gp-semantic-text-secondary)] no-underline',
+            'hover:text-[var(--gp-semantic-text-primary)]',
+            'aria-[current=page]:border-[var(--gp-semantic-focus-ring)] aria-[current=page]:font-bold aria-[current=page]:text-[var(--gp-semantic-text-primary)]',
+          )}
+        >
+          <Icon size={17} aria-hidden="true" />
+          {label}
+        </a>
+      ))}
+    </nav>
   );
 }

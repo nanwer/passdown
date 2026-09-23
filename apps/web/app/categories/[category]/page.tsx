@@ -17,7 +17,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const category = (await (await getPublicScope())?.categories())?.find((item) => item.id === id);
   return category
     ? { title: category.name, description: category.description || `Guides in ${category.name}.` }
-    : { title: 'Category unavailable' };
+    : { title: 'Not available' };
 }
 export default async function Page({ params, searchParams }: Props) {
   const { category: id } = await params;

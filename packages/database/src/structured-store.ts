@@ -28,7 +28,8 @@ type Transaction = <T>(
   workspaceId: string | undefined,
   run: (client: Client) => Promise<T>,
 ) => Promise<T>;
-const missing = () => new ApplicationError('NOT_FOUND', 'Category or catalog item not found.', 404);
+const missing = () =>
+  new ApplicationError('NOT_FOUND', 'That thing or catalog item was not found.', 404);
 export const validation = (message: string, path?: string) =>
   new ApplicationError('VALIDATION_ERROR', message, 422, path ? [{ path, message }] : undefined);
 function parse<T>(
@@ -102,12 +103,12 @@ export async function selectedCategory(
   ).rows[0];
   if (!row || row.archived || row.domain !== domain)
     throw validation(
-      'Choose an active category in this workspace and category tree.',
+      'Choose something active in this workspace for this guide to be about.',
       'categoryId',
     );
   if (publicOnly && row.visibility !== 'public')
     throw validation(
-      'Public guides require a public category. Make the category public or choose another branch.',
+      'A public guide has to be about something public. Make it public, or choose something else.',
       'categoryId',
     );
   return categoryDTO(row);
@@ -378,7 +379,7 @@ export function structuredStore(
         if (current.version !== data.expectedVersion)
           throw new ApplicationError(
             'CONFLICT',
-            'This category changed. Reload it before saving.',
+            'This changed since you opened it. Reload it before saving.',
             409,
           );
         await c.query(

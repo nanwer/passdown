@@ -1,76 +1,73 @@
 'use client';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   Archive,
-  ArrowLeft,
   FolderPlus,
   FolderTree,
+  Minus,
   Pencil,
   Plus,
-  Search,
   Package,
-  Wrench,
   RotateCcw,
   ShieldCheck,
   Globe,
 } from 'lucide-react';
-import { Button, Dialog } from '@guide/ui';
+import { Button, Dialog, cn } from '@guide/ui';
 import type {
   Category,
   CategoryBlockers,
+  CategoryCounts,
   CatalogItem,
   CatalogUsageCounts,
   StudioWorkspace,
 } from '@guide/contracts';
-import { SessionGate, ErrorNotice } from '../studio/frame';
+import { SessionGate, ErrorNotice, StudioTrail } from '../studio/frame';
+import { ManageTabs } from '../studio/manage';
 import { studioFetch, studioUpload } from '../studio/transport';
 import { useCategories, useCatalog, announceStructuredChange } from './data';
-import { CategoryTree } from './category-tree';
 import { CategoryDialog } from './category-picker';
-import { CatalogDialog } from './catalog-picker';
-import { categoryPath, filterCatalog, searchCategories } from './tree-model';
+import { CatalogDialog, unitLabels } from './catalog-picker';
+import { categoryPath, filterCatalog, searchCategories, thingRows } from './tree-model';
+import {
+  ColumnMenu,
+  Pager,
+  SortableHeader,
+  StatusTabs,
+  TableSearch,
+  cellClass,
+  compareBy,
+  nextSort,
+  tableClass,
+  useColumnChoice,
+  type Column,
+  type Sort,
+  type Status,
+} from './data-table';
 import './structured.css';
 import { words } from '../../lib/vocabulary';
+
 /**
- * Turns the raw blocker counts into things an owner can act on. Only non-zero
+ * Turns the raw blocker counts into things a manager can act on. Only non-zero
  * reasons appear, each with somewhere to go and fix it where one exists.
  * Superseded releases are deliberately not a reason: they keep their own frozen
- * category reference and never become selectable again.
+ * reference and never become selectable again.
  */
-/**
- * Distinct guides using an item, drafts and current releases kept apart: moving
- * an item out of a draft does not change what a release already froze. Returns
- * null when nothing uses it, so unused rows stay quiet.
- */
-function describeUsage(usage?: CatalogUsageCounts) {
-  if (!usage || (usage.draftGuides === 0 && usage.publishedGuides === 0)) return null;
-  const parts = [
-    usage.draftGuides > 0 ? `${usage.draftGuides} in drafts` : null,
-    usage.publishedGuides > 0 ? `${usage.publishedGuides} published` : null,
-  ].filter(Boolean);
-  // Counted in the database, because the union of two sets is not the larger
-  // of their sizes: one guide's published release and another's draft is two
-  // guides, and `max` called that one.
-  const total = usage.distinctGuides;
-  return (
-    <small className="catalog-usage" aria-hidden="true" title={parts.join(' · ')}>
-      {total} {total === 1 ? 'guide' : 'guides'}
-    </small>
-  );
-}
 function blockingReasons(blockers: CategoryBlockers, workspaceId: string) {
   return [
     {
       key: 'children',
       count: blockers.activeChildren,
-      label: blockers.activeChildren === 1 ? 'active subcategory' : 'active subcategories',
+      label:
+        blockers.activeChildren === 1
+          ? `active ${words.thing} inside it`
+          : `active ${words.things} inside it`,
       action: null,
       href: null,
     },
     {
       key: 'guides',
       count: blockers.assignedGuides,
-      label: blockers.assignedGuides === 1 ? 'guide assigned here' : 'guides assigned here',
+      label: blockers.assignedGuides === 1 ? 'guide filed here' : 'guides filed here',
       action: 'Open guides',
       href: `/studio/${workspaceId}`,
     },
@@ -93,49 +90,108 @@ function blockingReasons(blockers: CategoryBlockers, workspaceId: string) {
     },
   ].filter((reason) => reason.count > 0);
 }
-function ManagementHeader({
+
+/**
+ * Distinct guides using an item, with drafts and current releases kept apart
+ * on hover: moving an item out of a draft does not change what a release
+ * already froze. Counted in the database, because the union of two sets is not
+ * the larger of their sizes.
+ */
+function Usage({ usage }: { usage?: CatalogUsageCounts }) {
+  if (!usage || usage.distinctGuides === 0)
+    return <span className="text-[var(--gp-semantic-text-secondary)]">—</span>;
+  const parts = [
+    usage.draftGuides > 0 ? `${usage.draftGuides} in drafts` : null,
+    usage.publishedGuides > 0 ? `${usage.publishedGuides} published` : null,
+  ].filter(Boolean);
+  return (
+    <span title={parts.join(' · ')} className="tabular-nums">
+      {usage.distinctGuides}
+    </span>
+  );
+}
+
+/** Guides filed under a thing, counted once each, with where they sit. */
+function guideTotal(entry?: CategoryCounts) {
+  if (!entry || entry.subtree === 0) return null;
+  const inside = entry.subtree - entry.direct;
+  return inside === 0 ? `${entry.direct} here` : `${entry.direct} here + ${inside} inside`;
+}
+
+function StatusLabel({ inactive }: { inactive: boolean }) {
+  return (
+    <span
+      className={cn(
+        'inline-flex rounded-full px-2 py-0.5 text-xs font-medium',
+        inactive
+          ? 'bg-[var(--gp-semantic-surface-sunken)] text-[var(--gp-semantic-text-secondary)]'
+          : 'bg-[var(--gp-semantic-status-success-background)] text-[var(--gp-semantic-status-success-foreground)]',
+      )}
+    >
+      {inactive ? 'Inactive' : 'Active'}
+    </span>
+  );
+}
+
+function Visibility({ value }: { value: 'public' | 'members' }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+      {value === 'public' ? (
+        <Globe size={14} aria-hidden="true" />
+      ) : (
+        <ShieldCheck size={14} aria-hidden="true" />
+      )}
+      {value === 'public' ? 'Public' : 'Members'}
+    </span>
+  );
+}
+
+function Facts({ items }: { items: [string, ReactNode][] }) {
+  return (
+    <dl className="my-6 grid gap-x-6 gap-y-4 sm:grid-cols-2">
+      {items.map(([term, detail]) => (
+        <div key={term}>
+          <dt className="text-xs font-semibold tracking-wide text-[var(--gp-semantic-text-secondary)] uppercase">
+            {term}
+          </dt>
+          <dd className="m-0 mt-1">{detail}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+function ManagementHeading({
   workspace,
   active,
+  title,
+  lede,
 }: {
   workspace: StudioWorkspace;
-  active: 'categories' | 'catalog';
+  active: 'things' | 'catalog';
+  title: string;
+  lede: string;
 }) {
   return (
     <>
-      <a className="structured-back" href={`/studio/${workspace.id}`}>
-        <ArrowLeft size={15} />
-        {workspace.name} / Guides
-      </a>
-      <div className="structured-page-heading">
-        <span className="studio-eyebrow">Workspace library</span>
-        <h1>
-          {active === 'categories' ? `Everything you write about.` : 'Your tools & materials.'}
-        </h1>
-        <p>
-          {active === 'categories'
-            ? `The ${words.things} your guides are about — a bicycle, a fridge, a production line.`
-            : 'Keep exact tools, materials and replacement parts in one reusable catalog.'}
-        </p>
+      <div className="studio-page-heading">
+        <StudioTrail workspace={workspace} section="Manage" />
+        <h1>{title}</h1>
+        <p>{lede}</p>
       </div>
-      <nav className="structured-tabs" aria-label="Workspace management">
-        <a
-          href={`/studio/${workspace.id}/categories`}
-          aria-current={active === 'categories' ? 'page' : undefined}
-        >
-          <FolderTree size={17} />
-          Categories
-        </a>
-        <a
-          href={`/studio/${workspace.id}/catalog`}
-          aria-current={active === 'catalog' ? 'page' : undefined}
-        >
-          <Wrench size={17} />
-          Tools & materials
-        </a>
-      </nav>
+      <ManageTabs workspace={workspace} active={active} />
     </>
   );
 }
+
+const toolbarClass = 'mb-5 flex flex-wrap items-center gap-3';
+const noticeClass =
+  'mb-5 rounded-[var(--gp-semantic-radius-control)] bg-[var(--gp-semantic-status-success-background)] px-4 py-3 text-sm text-[var(--gp-semantic-status-success-foreground)]';
+const panelClass =
+  'overflow-x-auto rounded-[var(--gp-semantic-radius-panel)] border border-[var(--gp-semantic-border-subtle)] bg-[var(--gp-semantic-surface-raised)]';
+const openRowClass =
+  'text-start font-semibold text-[var(--gp-semantic-text-primary)] underline-offset-4 hover:underline';
+
 /**
  * The picture shown for a thing.
  *
@@ -247,41 +303,410 @@ function ThingPicture({
 export function CategoryManagementPage({ workspaceId }: { workspaceId: string }) {
   return (
     <SessionGate workspaceId={workspaceId}>
-      {(_, workspace) => <CategoryManagement workspace={workspace!} />}
+      {(_, workspace) => <ThingsManagement workspace={workspace!} />}
     </SessionGate>
   );
 }
-function CategoryManagement({ workspace }: { workspace: StudioWorkspace }) {
+
+const thingColumns = (counts: Map<string, CategoryCounts>): Column<Category>[] => [
+  { key: 'name', header: 'Name', primary: true, sortValue: (c) => c.name, cell: () => null },
+  {
+    // The support code: stable and never recycled, and of no use to somebody
+    // filing a guide, so it is there for whoever asks for the column.
+    key: 'code',
+    header: 'Code',
+    hiddenByDefault: true,
+    sortValue: (c) => c.code,
+    cell: (c) => <code>{c.code}</code>,
+  },
+  {
+    key: 'guides',
+    header: 'Guides',
+    align: 'end',
+    sortValue: (c) => counts.get(c.id)?.subtree ?? 0,
+    cell: (c) => {
+      const entry = counts.get(c.id);
+      return entry?.subtree ? (
+        <span title={guideTotal(entry) ?? undefined} className="tabular-nums">
+          {entry.subtree}
+        </span>
+      ) : (
+        <span className="text-[var(--gp-semantic-text-secondary)]">—</span>
+      );
+    },
+  },
+  {
+    key: 'published',
+    header: 'Published',
+    align: 'end',
+    sortValue: (c) => counts.get(c.id)?.publishedSubtree ?? 0,
+    cell: (c) => {
+      const published = counts.get(c.id)?.publishedSubtree ?? 0;
+      return published ? (
+        <span className="tabular-nums">{published}</span>
+      ) : (
+        <span className="text-[var(--gp-semantic-text-secondary)]">—</span>
+      );
+    },
+  },
+  {
+    key: 'visibility',
+    header: 'Visible to',
+    sortValue: (c) => c.visibility,
+    cell: (c) => <Visibility value={c.visibility} />,
+  },
+  {
+    key: 'status',
+    header: 'Status',
+    sortValue: (c) => (c.archived ? 1 : 0),
+    cell: (c) => <StatusLabel inactive={c.archived} />,
+  },
+];
+
+function ThingsManagement({ workspace }: { workspace: StudioWorkspace }) {
   const { categories, counts, error, loading, refresh } = useCategories(workspace.id, undefined, {
     withCounts: true,
   });
-  // One tree remains. The variable stays so the picker and the counts keep
-  // their shape until the column itself is retired.
+  // One tree remains. The domain stays so the picker and the counts keep their
+  // shape until the column itself is retired.
   const domain: Category['domain'] = 'guide';
-  const [addingInside, setAddingInside] = useState<Category | null>(null);
-  const [query, setQuery] = useState('');
-  const [selectedId, setSelected] = useState<string | null>(null);
-  const [status, setStatus] = useState<'all' | 'active' | 'inactive'>('active');
-  const [notice, setNotice] = useState('');
-  const [actionError, setActionError] = useState('');
-  const [pending, setPending] = useState(false);
-  const [archiveOpen, setArchiveOpen] = useState(false);
-  const [blockers, setBlockers] = useState<CategoryBlockers | null>(null);
-  const [blockersLoading, setBlockersLoading] = useState(false);
   const countsById = useMemo(
     () => new Map(counts.map((entry) => [entry.categoryId, entry])),
     [counts],
   );
-  const archiveTargetId = archiveOpen && selectedId ? selectedId : null;
+  const columns = useMemo(() => thingColumns(countsById), [countsById]);
+  const { shown, visible, toggle } = useColumnChoice('things', columns);
+  const [query, setQuery] = useState('');
+  const [status, setStatus] = useState<Status>('active');
+  const [sort, setSort] = useState<Sort>(null);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [selectedId, setSelected] = useState<string | null>(null);
+  const [addingInside, setAddingInside] = useState<Category | null>(null);
+  const [focusId, setFocusId] = useState<string | null>(null);
+  const [notice, setNotice] = useState('');
+  const openers = useRef(new Map<string, HTMLButtonElement>());
+  const lastOpened = useRef<string | null>(null);
+  const owner = workspace.role === 'manage';
+  // A new row takes focus once it exists, unless a sheet is open over it.
   useEffect(() => {
-    if (!archiveTargetId) {
+    if (!focusId || selectedId) return;
+    const opener = openers.current.get(focusId);
+    if (opener) {
+      opener.focus();
+      setFocusId(null);
+    }
+  }, [focusId, selectedId, categories, expanded]);
+
+  const inTree = categories.filter((category) => category.domain === domain);
+  // Status counts describe what the search matches before the status narrows
+  // it, so All is always Active plus Inactive.
+  const found = new Set(searchCategories(inTree, query).map((category) => category.id));
+  const statusCounts = {
+    all: found.size,
+    active: inTree.filter((c) => found.has(c.id) && !c.archived).length,
+    inactive: inTree.filter((c) => found.has(c.id) && c.archived).length,
+  };
+  const rows = thingRows(inTree, {
+    matches: (c) => found.has(c.id) && (status === 'all' || (status === 'active') === !c.archived),
+    expanded,
+    compare: compareBy(columns, sort),
+  });
+  const selected = categories.find((category) => category.id === selectedId);
+
+  function open(category: Category) {
+    lastOpened.current = category.id;
+    setSelected(category.id);
+  }
+  /**
+   * Show a thing that was just added, and move to it.
+   *
+   * Adding stays in the table rather than opening the new record, so adding
+   * several in a row is several presses rather than a sheet to close each
+   * time. A thing added inside a closed branch opens the branch, because one
+   * that does not appear reads as a creation that failed.
+   */
+  function reveal(category: Category) {
+    setExpanded(
+      (current) => new Set([...current, ...category.path.slice(0, -1).map((node) => node.id)]),
+    );
+    setFocusId(category.id);
+  }
+
+  return (
+    <main className="studio-container structured-management" id="main" tabIndex={-1}>
+      <ManagementHeading
+        workspace={workspace}
+        active="things"
+        title="Everything you write about."
+        lede={`The ${words.things} your guides are about — a bicycle, a fridge, a production line.`}
+      />
+      <div className={toolbarClass}>
+        <TableSearch
+          label={`Search ${words.things}`}
+          placeholder={`Find a ${words.thing} or path…`}
+          value={query}
+          onChange={setQuery}
+        />
+        <StatusTabs label="Status" value={status} counts={statusCounts} onChange={setStatus} />
+        <ColumnMenu columns={columns} visible={visible} onToggle={toggle} />
+        {owner && (
+          <CategoryDialog
+            key={`new-${domain}`}
+            workspace={workspace}
+            domain={domain}
+            categories={categories}
+            trigger={
+              <Button type="button">
+                <FolderPlus size={17} />
+                Add a {words.thing}
+              </Button>
+            }
+            onSaved={(category) => {
+              reveal(category);
+              setNotice(`${category.name} added.`);
+            }}
+          />
+        )}
+      </div>
+      {notice && (
+        <p className={noticeClass} role="status">
+          {notice}
+        </p>
+      )}
+      {!owner && (
+        <p className="structured-notice">
+          You can look through these. Someone who manages this workspace can change them.
+        </p>
+      )}
+      {error ? (
+        <>
+          <ErrorNotice error={error} />
+          <Button type="button" variant="secondary" onClick={refresh}>
+            Try again
+          </Button>
+        </>
+      ) : loading && !categories.length ? (
+        <p role="status">Loading…</p>
+      ) : !rows.length ? (
+        <div className="structured-empty">
+          <FolderTree size={36} />
+          {inTree.length === 0 ? (
+            <>
+              <h2>Nothing here yet</h2>
+              <p>Add the first {words.thing} your guides are about.</p>
+            </>
+          ) : (
+            <>
+              <h2>Nothing matches</h2>
+              <p>Try a different search, or choose All.</p>
+            </>
+          )}
+        </div>
+      ) : (
+        <div className={panelClass}>
+          <table className={tableClass} aria-label={words.Things}>
+            <thead>
+              <tr>
+                {shown.map((column) => (
+                  <SortableHeader
+                    key={column.key}
+                    column={column}
+                    sort={sort}
+                    onSort={(key) => setSort(nextSort(sort, key))}
+                  />
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map(({ category, depth, context, hasChildren, expanded: isOpen }) => (
+                <tr
+                  key={category.id}
+                  className={cn(
+                    'group cursor-pointer hover:bg-[var(--gp-semantic-surface-sunken)]',
+                    context && 'text-[var(--gp-semantic-text-secondary)]',
+                  )}
+                  onClick={() => open(category)}
+                >
+                  {shown.map((column) =>
+                    column.primary ? (
+                      <th key={column.key} scope="row" className={cn(cellClass, 'font-normal')}>
+                        <div
+                          className="flex items-center gap-2"
+                          style={{ paddingInlineStart: depth * 24 }}
+                        >
+                          {hasChildren && !context ? (
+                            <button
+                              type="button"
+                              aria-expanded={isOpen}
+                              aria-label={`${isOpen ? 'Hide' : 'Show'} what is inside ${category.name}`}
+                              className="grid size-7 shrink-0 place-items-center rounded-md border border-[var(--gp-semantic-border-control)] hover:bg-[var(--gp-semantic-surface-raised)]"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setExpanded((current) => {
+                                  const next = new Set(current);
+                                  if (next.has(category.id)) next.delete(category.id);
+                                  else next.add(category.id);
+                                  return next;
+                                });
+                              }}
+                            >
+                              {isOpen ? <Minus size={14} /> : <Plus size={14} />}
+                            </button>
+                          ) : (
+                            <span className="size-7 shrink-0" aria-hidden="true" />
+                          )}
+                          {category.imageAssetId ? (
+                            <img
+                              src={`/api/media/${workspace.id}/${category.imageAssetId}?w=400`}
+                              alt=""
+                              className="size-8 shrink-0 rounded-md object-cover"
+                            />
+                          ) : (
+                            <FolderTree
+                              size={18}
+                              aria-hidden="true"
+                              className="mx-[7px] shrink-0 text-[var(--gp-semantic-text-secondary)]"
+                            />
+                          )}
+                          <button
+                            type="button"
+                            ref={(node) => {
+                              if (node) openers.current.set(category.id, node);
+                              else openers.current.delete(category.id);
+                            }}
+                            className={cn(openRowClass, context && 'font-normal')}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              open(category);
+                            }}
+                          >
+                            {category.name}
+                          </button>
+                          {context && (
+                            <span className="text-xs whitespace-nowrap">contains matches</span>
+                          )}
+                          {owner && !category.archived && (
+                            <button
+                              type="button"
+                              aria-label={`Add a ${words.thing} inside ${category.name}`}
+                              title={`Add a ${words.thing} inside ${category.name}`}
+                              className="ms-auto grid size-7 shrink-0 place-items-center rounded-md text-[var(--gp-semantic-text-secondary)] opacity-0 group-hover:opacity-100 hover:bg-[var(--gp-semantic-surface-raised)] hover:text-[var(--gp-semantic-text-primary)] focus-visible:opacity-100"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setAddingInside(category);
+                              }}
+                            >
+                              <Plus size={15} />
+                            </button>
+                          )}
+                        </div>
+                      </th>
+                    ) : (
+                      <td
+                        key={column.key}
+                        className={cn(cellClass, column.align === 'end' && 'text-end')}
+                      >
+                        {column.cell(category)}
+                      </td>
+                    ),
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {/* Driven by the row that was pressed, so nothing asks where the new one
+          should go. */}
+      {addingInside && (
+        <CategoryDialog
+          key={`inside-${addingInside.id}`}
+          workspace={workspace}
+          domain={domain}
+          categories={categories}
+          initialParent={addingInside.id}
+          open
+          onOpenChange={(next) => {
+            if (!next) setAddingInside(null);
+          }}
+          onSaved={(category) => {
+            setNotice(`${category.name} added inside ${addingInside.name}.`);
+            setAddingInside(null);
+            reveal(category);
+          }}
+        />
+      )}
+      {selected && (
+        <Dialog
+          size="sheet"
+          open
+          onOpenChange={(next) => {
+            if (!next) setSelected(null);
+          }}
+          onCloseAutoFocus={(event) => {
+            const opener = lastOpened.current && openers.current.get(lastOpened.current);
+            if (opener) {
+              event.preventDefault();
+              opener.focus();
+            }
+          }}
+          title={selected.name}
+          description={categoryPath(selected)}
+        >
+          <ThingDetail
+            key={`${selected.id}-${selected.version}`}
+            workspace={workspace}
+            category={selected}
+            categories={categories}
+            counts={countsById.get(selected.id)}
+            onRefresh={refresh}
+            onAdded={(category) => {
+              setNotice(`${category.name} added inside ${selected.name}.`);
+              reveal(category);
+            }}
+            onChanged={(message, close) => {
+              setNotice(message);
+              if (close) setSelected(null);
+            }}
+          />
+        </Dialog>
+      )}
+    </main>
+  );
+}
+
+function ThingDetail({
+  workspace,
+  category,
+  categories,
+  counts,
+  onRefresh,
+  onAdded,
+  onChanged,
+}: {
+  workspace: StudioWorkspace;
+  category: Category;
+  categories: Category[];
+  counts?: CategoryCounts;
+  onRefresh: () => void;
+  onAdded: (category: Category) => void;
+  onChanged: (message: string, close: boolean) => void;
+}) {
+  const [confirming, setConfirming] = useState(false);
+  const [pending, setPending] = useState(false);
+  const [actionError, setActionError] = useState('');
+  const [blockers, setBlockers] = useState<CategoryBlockers | null>(null);
+  const [blockersLoading, setBlockersLoading] = useState(false);
+  const owner = workspace.role === 'manage';
+  useEffect(() => {
+    if (!confirming || category.archived) {
       setBlockers(null);
       return;
     }
     let active = true;
     setBlockersLoading(true);
     studioFetch<{ blockers: CategoryBlockers }>(
-      `/api/studio/${workspace.id}/categories/${archiveTargetId}?blockers=true`,
+      `/api/studio/${workspace.id}/categories/${category.id}?blockers=true`,
     )
       .then((result) => {
         if (active) setBlockers(result.blockers);
@@ -296,343 +721,174 @@ function CategoryManagement({ workspace }: { workspace: StudioWorkspace }) {
     return () => {
       active = false;
     };
-  }, [archiveTargetId, workspace.id]);
-  const inDomain = categories.filter((category) => category.domain === domain);
-  // Status counts describe what the current search matches, before the selected
-  // status narrows it, so All always equals Active plus Inactive.
-  const matching = searchCategories(inDomain, query);
-  const statusCounts = {
-    active: matching.filter((category) => !category.archived).length,
-    inactive: matching.filter((category) => category.archived).length,
-    all: matching.length,
-  };
-  const visible = inDomain.filter((category) =>
-    status === 'all' ? true : status === 'active' ? !category.archived : category.archived,
-  );
-  const selected = categories.find((category) => category.id === selectedId);
-  const owner = workspace.role === 'manage';
-  async function archive() {
-    if (!selected) return;
+  }, [confirming, category.archived, category.id, workspace.id]);
+  const reasons = blockers ? blockingReasons(blockers, workspace.id) : [];
+
+  async function changeStatus() {
     setPending(true);
     setActionError('');
     try {
-      await studioFetch(`/api/studio/${workspace.id}/categories/${selected.id}`, {
+      await studioFetch(`/api/studio/${workspace.id}/categories/${category.id}`, {
         method: 'PATCH',
         body: JSON.stringify({
-          domain: selected.domain,
-          parentId: selected.parentId,
-          name: selected.name,
-          description: selected.description,
-          visibility: selected.visibility,
-          sortOrder: selected.sortOrder,
-          expectedVersion: selected.version,
-          archived: !selected.archived,
+          domain: category.domain,
+          parentId: category.parentId,
+          name: category.name,
+          description: category.description,
+          visibility: category.visibility,
+          sortOrder: category.sortOrder,
+          expectedVersion: category.version,
+          archived: !category.archived,
         }),
       });
-      setNotice(
-        selected.archived
-          ? 'Category restored.'
-          : 'Category archived. No guides or items were deleted.',
-      );
-      setArchiveOpen(false);
-      setSelected(null);
+      setConfirming(false);
       announceStructuredChange(workspace.id);
+      onChanged(
+        category.archived
+          ? `${category.name} is active again.`
+          : `${category.name} is inactive. Nothing was deleted.`,
+        true,
+      );
     } catch (error) {
-      setActionError(error instanceof Error ? error.message : 'Unable to change this category.');
+      setActionError(
+        error instanceof Error ? error.message : `Unable to change this ${words.thing}.`,
+      );
     } finally {
       setPending(false);
     }
   }
+
+  const inside = categories.filter((c) => c.parentId === category.id && !c.archived).length;
   return (
-    <main className="studio-container structured-management" id="main" tabIndex={-1}>
-      <ManagementHeader workspace={workspace} active="categories" />
-      <div className="structured-management-toolbar">
-        {owner && (
+    <>
+      <ThingPicture workspaceId={workspace.id} category={category} onChanged={onRefresh} />
+      <p className="mt-4">{category.description || 'No description yet.'}</p>
+      <Facts
+        items={[
+          ['Status', <StatusLabel key="status" inactive={category.archived} />],
+          ['Visible to', <Visibility key="visibility" value={category.visibility} />],
+          ['Version', category.version],
+          [
+            'Guides',
+            counts?.subtree ? `${counts.subtree} — ${guideTotal(counts)}` : 'None filed here yet',
+          ],
+          [
+            'Published',
+            counts?.publishedSubtree ? `${counts.publishedSubtree} current` : 'None published yet',
+          ],
+          [`Directly inside`, inside ? `${inside} active` : 'Nothing yet'],
+        ]}
+      />
+      {owner && (
+        <div className="flex flex-wrap gap-2.5">
+          {!category.archived && (
+            <CategoryDialog
+              key={`child-${category.id}`}
+              workspace={workspace}
+              domain={category.domain}
+              categories={categories}
+              initialParent={category.id}
+              trigger={
+                <Button type="button">
+                  <Plus size={16} />
+                  Add one inside
+                </Button>
+              }
+              onSaved={onAdded}
+            />
+          )}
           <CategoryDialog
-            key={`new-${domain}`}
+            key={`edit-${category.id}-${category.version}`}
             workspace={workspace}
-            domain={domain}
+            domain={category.domain}
             categories={categories}
+            initial={category}
             trigger={
-              <Button type="button">
-                <FolderPlus size={17} />
-                Add a {words.thing}
+              <Button type="button" variant="secondary">
+                <Pencil size={15} />
+                Edit or move
               </Button>
             }
-            onSaved={(category) => {
-              setSelected(category.id);
-              setNotice('Category created.');
-            }}
+            onSaved={() => onChanged(`${category.name} saved. Its identity is unchanged.`, false)}
           />
-        )}
-      </div>
-      {notice && (
-        <p className="structured-success" role="status">
-          {notice}
-        </p>
-      )}
-      {!owner && (
-        <p className="structured-notice">
-          You can browse this workspace’s structure. An owner manages categories.
-        </p>
-      )}
-      <div className="structured-management-grid">
-        <section className="structured-tree-panel" aria-label={words.Things}>
-          <div className="structured-search">
-            <Search size={17} />
-            <input
-              aria-label="Search categories"
-              placeholder="Find a category or path…"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-            />
-          </div>
-          <div className="structured-status-tabs" role="group" aria-label="Category status">
-            {(['all', 'active', 'inactive'] as const).map((option) => (
-              <button
-                key={option}
-                type="button"
-                aria-pressed={status === option}
-                onClick={() => setStatus(option)}
-              >
-                {option === 'all' ? 'All' : option === 'active' ? 'Active' : 'Inactive'}
-                <span className="structured-status-count">{statusCounts[option]}</span>
-              </button>
-            ))}
-          </div>
-          {error ? (
-            <>
-              <ErrorNotice error={error} />
-              <Button type="button" variant="secondary" onClick={refresh}>
-                Try again
+          <Dialog
+            trigger={
+              <Button type="button" variant="secondary">
+                {category.archived ? <RotateCcw size={15} /> : <Archive size={15} />}{' '}
+                {category.archived ? 'Reactivate' : 'Deactivate'}
               </Button>
-            </>
-          ) : loading && !categories.length ? (
-            <p role="status">Loading…</p>
-          ) : (
-            <CategoryTree
-              pictures
-              categories={visible}
-              query={query}
-              value={selectedId}
-              counts={countsById}
-              onSelect={(category) => {
-                setSelected(category.id);
+            }
+            title={
+              category.archived
+                ? `Reactivate this ${words.thing}`
+                : `Deactivate this ${words.thing}`
+            }
+            description={
+              category.archived
+                ? 'It becomes available to choose again.'
+                : `Deactivating keeps every record. Active ${words.things} inside it, guides filed here, current releases and active catalog items must move first; superseded releases keep their own reference and do not block this.`
+            }
+            open={confirming}
+            onOpenChange={(next) => {
+              if (!pending) {
+                setConfirming(next);
                 setActionError('');
-              }}
-              onAddChild={(category) => setAddingInside(category)}
-              addChildLabel={(category) => `Add a ${words.thing} inside ${category.name}`}
-            />
-          )}
-          {/* Driven by the row that was pressed, so there is no field asking
-              where the new one should go. */}
-          {addingInside && (
-            <CategoryDialog
-              key={`inside-${addingInside.id}`}
-              workspace={workspace}
-              domain={domain}
-              categories={categories}
-              initialParent={addingInside.id}
-              open
-              onOpenChange={(next) => {
-                if (!next) setAddingInside(null);
-              }}
-              onSaved={(category) => {
-                setSelected(category.id);
-                setNotice(`Added inside ${addingInside.name}.`);
-                setAddingInside(null);
-              }}
-            />
-          )}
-        </section>
-        <section className="structured-detail-panel" aria-label="Details">
-          {selected ? (
-            <>
-              <ThingPicture
-                workspaceId={workspace.id}
-                category={selected}
-                onChanged={() => refresh()}
-              />
-              <p className="structured-breadcrumb">{categoryPath(selected)}</p>
-              <h2>{selected.name}</h2>
-              <div className="structured-inline-meta">
-                <span>
-                  {selected.visibility === 'public' ? (
-                    <Globe size={14} />
-                  ) : (
-                    <ShieldCheck size={14} />
-                  )}{' '}
-                  {selected.visibility === 'public' ? 'Public' : 'Workspace members'}
-                </span>
-                <span>{selected.archived ? 'Inactive' : 'Active'}</span>
-                <span>Version {selected.version}</span>
-              </div>
-              <p>{selected.description || 'No description yet.'}</p>
-              <dl className="structured-facts">
-                <div>
-                  <dt>Guides</dt>
-                  <dd>
-                    {(() => {
-                      const entry = countsById.get(selected.id);
-                      if (!entry || entry.subtree === 0) return 'None assigned yet';
-                      const nested = entry.subtree - entry.direct;
-                      return nested === 0
-                        ? `${entry.subtree} here`
-                        : `${entry.subtree} total — ${entry.direct} here + ${nested} in subcategories`;
-                    })()}
-                  </dd>
-                </div>
-                <div>
-                  <dt>Published releases</dt>
-                  <dd>
-                    {countsById.get(selected.id)?.publishedSubtree
-                      ? `${countsById.get(selected.id)!.publishedSubtree} current`
-                      : 'None published yet'}
-                  </dd>
-                </div>
-                <div>
-                  <dt>Direct subcategories</dt>
-                  <dd>
-                    {
-                      categories.filter(
-                        (category) => category.parentId === selected.id && !category.archived,
-                      ).length
-                    }
-                  </dd>
-                </div>
-              </dl>
-              {owner && (
-                <div className="structured-detail-actions">
-                  {!selected.archived && (
-                    <CategoryDialog
-                      key={`child-${selected.id}`}
-                      workspace={workspace}
-                      domain={domain}
-                      categories={categories}
-                      initialParent={selected.id}
-                      trigger={
-                        <Button type="button">
-                          <Plus size={16} />
-                          Add one inside
-                        </Button>
-                      }
-                      onSaved={(category) => {
-                        setSelected(category.id);
-                        setNotice(`Added inside ${selected.name}.`);
-                      }}
-                    />
-                  )}
-                  <CategoryDialog
-                    key={`edit-${selected.id}-${selected.version}`}
-                    workspace={workspace}
-                    domain={domain}
-                    categories={categories}
-                    initial={selected}
-                    trigger={
-                      <Button type="button" variant="secondary">
-                        <Pencil size={15} />
-                        Edit or move
-                      </Button>
-                    }
-                    onSaved={() => setNotice('Category updated. Its identity is unchanged.')}
-                  />
-                  <Dialog
-                    trigger={
-                      <Button type="button" variant="secondary">
-                        {selected.archived ? <RotateCcw size={15} /> : <Archive size={15} />}{' '}
-                        {selected.archived ? 'Restore' : 'Archive'}
-                      </Button>
-                    }
-                    title={selected.archived ? 'Restore category' : 'Archive category'}
-                    description={
-                      selected.archived
-                        ? 'Make this category available for selection again.'
-                        : 'Archiving keeps every record. Active subcategories, assigned guides, current releases and active catalog items must move first; superseded releases keep their own reference and do not block this.'
-                    }
-                    open={archiveOpen}
-                    onOpenChange={(next) => {
-                      if (!pending) {
-                        setArchiveOpen(next);
-                        setActionError('');
-                      }
-                    }}
-                    closeDisabled={pending}
-                  >
-                    <div className="structured-form">
-                      <p>
-                        <strong>{categoryPath(selected)}</strong>
-                      </p>
-                      {!selected.archived && blockersLoading && (
-                        <p role="status">Checking what still uses this category…</p>
-                      )}
-                      {!selected.archived &&
-                        blockers &&
-                        blockingReasons(blockers, workspace.id).length > 0 && (
-                          <div className="structured-blockers">
-                            <p>
-                              <strong>Move these first.</strong> Nothing is deleted; each of these
-                              still points at this category.
-                            </p>
-                            <ul>
-                              {blockingReasons(blockers, workspace.id).map((reason) => (
-                                <li key={reason.key}>
-                                  <span className="structured-blocker-count">{reason.count}</span>
-                                  {reason.label}
-                                  {reason.href && <a href={reason.href}>{reason.action}</a>}
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                      {actionError && <ErrorNotice error={actionError} />}
-                      <div className="structured-form-actions">
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          onClick={() => setArchiveOpen(false)}
-                          disabled={pending}
-                        >
-                          Cancel
-                        </Button>
-                        <Button
-                          type="button"
-                          disabled={
-                            pending ||
-                            (!selected.archived &&
-                              (blockersLoading ||
-                                (blockers !== null &&
-                                  blockingReasons(blockers, workspace.id).length > 0)))
-                          }
-                          onClick={() => void archive()}
-                        >
-                          {pending
-                            ? 'Saving…'
-                            : selected.archived
-                              ? 'Restore category'
-                              : 'Archive category'}
-                        </Button>
-                      </div>
-                    </div>
-                  </Dialog>
+              }
+            }}
+            closeDisabled={pending}
+          >
+            <div className="structured-form">
+              <p>
+                <strong>{categoryPath(category)}</strong>
+              </p>
+              {!category.archived && blockersLoading && (
+                <p role="status">Checking what still uses it…</p>
+              )}
+              {!category.archived && reasons.length > 0 && (
+                <div className="structured-blockers">
+                  <p>
+                    <strong>Move these first.</strong> Nothing is deleted; each of these still
+                    points here.
+                  </p>
+                  <ul>
+                    {reasons.map((reason) => (
+                      <li key={reason.key}>
+                        <span className="structured-blocker-count">{reason.count}</span>
+                        {reason.label}
+                        {reason.href && <a href={reason.href}>{reason.action}</a>}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               )}
-            </>
-          ) : (
-            <div className="structured-detail-empty">
-              <FolderTree size={40} />
-              <h2>Pick one to see what is inside it</h2>
-              <p>
-                {domain === 'guide'
-                  ? `Choose a ${words.thing} on the left to rename it, move it, or see what is filed under it.`
-                  : 'Choose a category on the left to rename it or move it.'}
-              </p>
+              {actionError && <ErrorNotice error={actionError} />}
+              <div className="structured-form-actions">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setConfirming(false)}
+                  disabled={pending}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  disabled={
+                    pending || (!category.archived && (blockersLoading || reasons.length > 0))
+                  }
+                  onClick={() => void changeStatus()}
+                >
+                  {pending ? 'Saving…' : category.archived ? 'Reactivate' : 'Deactivate'}
+                </Button>
+              </div>
             </div>
-          )}
-        </section>
-      </div>
-    </main>
+          </Dialog>
+        </div>
+      )}
+    </>
   );
 }
+
 export function CatalogManagementPage({ workspaceId }: { workspaceId: string }) {
   return (
     <SessionGate workspaceId={workspaceId}>
@@ -640,42 +896,127 @@ export function CatalogManagementPage({ workspaceId }: { workspaceId: string }) 
     </SessionGate>
   );
 }
+
+const catalogColumns = (usage: Map<string, CatalogUsageCounts>): Column<CatalogItem>[] => {
+  const optional = (value: string) =>
+    value || <span className="text-[var(--gp-semantic-text-secondary)]">—</span>;
+  return [
+    { key: 'name', header: 'Name', primary: true, sortValue: (i) => i.name, cell: () => null },
+    {
+      key: 'specification',
+      header: 'Specification',
+      sortValue: (i) => i.specification,
+      cell: (i) => optional(i.specification),
+    },
+    {
+      key: 'partNumber',
+      header: 'Part number',
+      sortValue: (i) => i.partNumber,
+      cell: (i) => (i.partNumber ? <code>{i.partNumber}</code> : optional('')),
+    },
+    {
+      key: 'manufacturer',
+      header: 'Manufacturer',
+      hiddenByDefault: true,
+      sortValue: (i) => i.manufacturer,
+      cell: (i) => optional(i.manufacturer),
+    },
+    {
+      key: 'model',
+      header: 'Model',
+      hiddenByDefault: true,
+      sortValue: (i) => i.model,
+      cell: (i) => optional(i.model),
+    },
+    {
+      key: 'unit',
+      header: 'Unit',
+      hiddenByDefault: true,
+      sortValue: (i) => unitLabels[i.defaultUnit],
+      cell: (i) => unitLabels[i.defaultUnit],
+    },
+    {
+      key: 'visibility',
+      header: 'Visible to',
+      hiddenByDefault: true,
+      sortValue: (i) => i.visibility,
+      cell: (i) => <Visibility value={i.visibility} />,
+    },
+    {
+      key: 'guides',
+      header: 'Guides',
+      align: 'end',
+      sortValue: (i) => usage.get(i.id)?.distinctGuides ?? 0,
+      cell: (i) => <Usage usage={usage.get(i.id)} />,
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      sortValue: (i) => (i.archived ? 1 : 0),
+      cell: (i) => <StatusLabel inactive={i.archived} />,
+    },
+  ];
+};
+
+const catalogPageSize = 25;
+
 function CatalogManagement({ workspace }: { workspace: StudioWorkspace }) {
   const { items, usage, error, loading, refresh } = useCatalog(workspace.id, { withUsage: true });
-  const [search, setSearch] = useState('');
-  const [selectedId, setSelected] = useState<string | null>(null);
-  const [status, setStatus] = useState<'all' | 'active' | 'inactive'>('active');
-  const [notice, setNotice] = useState('');
   const usageById = useMemo(() => new Map(usage.map((entry) => [entry.itemId, entry])), [usage]);
-  const selected = items.find((item) => item.id === selectedId);
-  // Status counts describe what the other filters match, before the selected
-  // status narrows it, so All always equals Active plus Inactive.
-  const matching = filterCatalog(items, {
-    search,
-    includeArchived: true,
-  });
+  const columns = useMemo(() => catalogColumns(usageById), [usageById]);
+  const { shown, visible, toggle } = useColumnChoice('catalog', columns);
+  const [search, setSearch] = useState('');
+  const [status, setStatus] = useState<Status>('active');
+  const [sort, setSort] = useState<Sort>({ key: 'name', direction: 'ascending' });
+  const [page, setPage] = useState(1);
+  const [selectedId, setSelected] = useState<string | null>(null);
+  const [notice, setNotice] = useState('');
+  const openers = useRef(new Map<string, HTMLButtonElement>());
+  const lastOpened = useRef<string | null>(null);
+  const owner = workspace.role === 'manage';
+
+  // Status counts describe what the search matches, before the selected status
+  // narrows it, so All always equals Active plus Inactive.
+  const matching = filterCatalog(items, { search, includeArchived: true });
   const statusCounts = {
+    all: matching.length,
     active: matching.filter((item) => !item.archived).length,
     inactive: matching.filter((item) => item.archived).length,
-    all: matching.length,
   };
-  const visible = matching.filter((item) =>
+  const compare = compareBy(columns, sort);
+  const filtered = matching.filter((item) =>
     status === 'all' ? true : status === 'active' ? !item.archived : item.archived,
   );
-  const owner = workspace.role === 'manage';
+  const ordered = compare ? [...filtered].sort(compare) : filtered;
+  const pages = Math.max(1, Math.ceil(ordered.length / catalogPageSize));
+  const current = Math.min(page, pages);
+  const shownRows = ordered.slice((current - 1) * catalogPageSize, current * catalogPageSize);
+  const selected = items.find((item) => item.id === selectedId);
+  // A different question starts from its first page; opening a record does not.
+  useEffect(() => setPage(1), [search, status, sort]);
+
+  function open(item: CatalogItem) {
+    lastOpened.current = item.id;
+    setSelected(item.id);
+  }
+
   return (
     <main className="studio-container structured-management" id="main" tabIndex={-1}>
-      <ManagementHeader workspace={workspace} active="catalog" />
-      <div className="structured-management-toolbar">
-        <div className="structured-search">
-          <Search size={17} />
-          <input
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            aria-label="Search catalog"
-            placeholder="Find names, sizes or models…"
-          />
-        </div>
+      <ManagementHeading
+        workspace={workspace}
+        active="catalog"
+        title="What your guides call for."
+        lede="Tools, materials and parts, each recorded once and reused by every guide that needs it."
+      />
+      <div className={toolbarClass}>
+        <TableSearch
+          label="Search catalog"
+          placeholder="Find names, sizes, models or part numbers…"
+          value={search}
+          onChange={setSearch}
+        />
+        <StatusTabs label="Status" value={status} counts={statusCounts} onChange={setStatus} />
+        <ColumnMenu columns={columns} visible={visible} onToggle={toggle} />
         {owner && (
           <CatalogDialog
             workspace={workspace}
@@ -687,127 +1028,166 @@ function CatalogManagement({ workspace }: { workspace: StudioWorkspace }) {
               </Button>
             }
             onSaved={(item) => {
-              setSelected(item.id);
-              setNotice('Catalog item created and ready to reuse.');
+              open(item);
+              setNotice(`${item.name} added to the catalog.`);
             }}
           />
         )}
       </div>
       {notice && (
-        <p className="structured-success" role="status">
+        <p className={noticeClass} role="status">
           {notice}
         </p>
       )}
-      <div className="catalog-management-grid">
-        <aside className="structured-tree-panel">
-          <div className="structured-status-tabs" role="group" aria-label="Item status">
-            {(['all', 'active', 'inactive'] as const).map((option) => (
-              <button
-                key={option}
-                type="button"
-                aria-pressed={status === option}
-                onClick={() => setStatus(option)}
-              >
-                {option === 'all' ? 'All' : option === 'active' ? 'Active' : 'Inactive'}
-                <span className="structured-status-count">{statusCounts[option]}</span>
-              </button>
-            ))}
-          </div>
-          <a className="structured-manage-link" href={`/studio/${workspace.id}/categories`}>
-            Manage {words.things}
-          </a>
-        </aside>
-        <section className="catalog-list-panel" aria-label="Catalog items">
-          <p className="structured-count" role="status">
-            {loading
-              ? 'Loading catalog…'
-              : `${visible.length} ${visible.length === 1 ? 'item' : 'items'}`}
-          </p>
-          {error ? (
+      <p className="structured-count" role="status">
+        {loading
+          ? 'Loading catalog…'
+          : `${filtered.length} ${filtered.length === 1 ? 'item' : 'items'}`}
+      </p>
+      {error ? (
+        <>
+          <ErrorNotice error={error} />
+          <Button type="button" variant="secondary" onClick={refresh}>
+            Try again
+          </Button>
+        </>
+      ) : loading && !items.length ? null : !filtered.length ? (
+        <div className="structured-empty">
+          <Package size={36} />
+          {/* An empty catalog and an over-narrow search are different situations,
+              and suggesting a different search to somebody with nothing yet reads
+              as a failure rather than a beginning. */}
+          {items.length === 0 ? (
             <>
-              <ErrorNotice error={error} />
-              <Button type="button" variant="secondary" onClick={refresh}>
-                Try again
-              </Button>
+              <h2>Nothing here yet</h2>
+              <p>
+                This is where the tools, materials and parts your guides call for will live, once
+                you add one.
+              </p>
             </>
-          ) : !loading && !visible.length ? (
-            <div className="structured-empty">
-              <Package size={36} />
-              {/* An empty workspace and an over-narrow filter are different
-                  situations, and offering to clear a filter nobody set reads
-                  as a failure rather than a beginning. */}
-              {items.length === 0 ? (
-                <>
-                  <h2>Nothing here yet</h2>
-                  <p>
-                    This is where the tools, materials and parts your guides call for will live,
-                    once you add one.
-                  </p>
-                </>
-              ) : (
-                <>
-                  <h2>Nothing matches those filters</h2>
-                  <p>Clear a filter, or search for something else.</p>
-                </>
-              )}
-            </div>
           ) : (
-            <ul className="catalog-management-list">
-              {visible.map((item) => (
-                <li key={item.id}>
-                  <button
-                    type="button"
-                    className={selectedId === item.id ? 'selected' : ''}
-                    onClick={() => setSelected(item.id)}
-                  >
-                    <span className="catalog-kind-icon">
-                      <Package size={20} />
-                    </span>
-                    <span className="catalog-item-copy">
-                      <strong>{item.name}</strong>
-                      <span>{item.specification || 'General specification'}</span>
-                    </span>
-                    {describeUsage(usageById.get(item.id))}
-                    {item.archived && <span className="structured-kind-label">Inactive</span>}
-                  </button>
-                </li>
-              ))}
-            </ul>
+            <>
+              <h2>Nothing matches</h2>
+              <p>Try a different search, or choose All.</p>
+            </>
           )}
-        </section>
-      </div>
+        </div>
+      ) : (
+        <>
+          <div className={panelClass}>
+            <table className={tableClass} aria-label="Catalog items">
+              <thead>
+                <tr>
+                  {shown.map((column) => (
+                    <SortableHeader
+                      key={column.key}
+                      column={column}
+                      sort={sort}
+                      onSort={(key) => setSort(nextSort(sort, key))}
+                    />
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {shownRows.map((item) => (
+                  <tr
+                    key={item.id}
+                    className="cursor-pointer hover:bg-[var(--gp-semantic-surface-sunken)]"
+                    onClick={() => open(item)}
+                  >
+                    {shown.map((column) =>
+                      column.primary ? (
+                        <th key={column.key} scope="row" className={cn(cellClass, 'font-normal')}>
+                          <span className="flex items-center gap-3">
+                            <Package
+                              size={18}
+                              aria-hidden="true"
+                              className="shrink-0 text-[var(--gp-semantic-text-secondary)]"
+                            />
+                            <button
+                              type="button"
+                              ref={(node) => {
+                                if (node) openers.current.set(item.id, node);
+                                else openers.current.delete(item.id);
+                              }}
+                              className={openRowClass}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                open(item);
+                              }}
+                            >
+                              {item.name}
+                            </button>
+                          </span>
+                        </th>
+                      ) : (
+                        <td
+                          key={column.key}
+                          className={cn(cellClass, column.align === 'end' && 'text-end')}
+                        >
+                          {column.cell(item)}
+                        </td>
+                      ),
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <Pager
+            page={current}
+            pageSize={catalogPageSize}
+            total={ordered.length}
+            noun={['item', 'items']}
+            onPage={setPage}
+          />
+        </>
+      )}
       {selected && (
-        <CatalogDetail
-          key={`${selected.id}-${selected.version}`}
-          workspace={workspace}
-          item={selected}
-          onChanged={(message) => setNotice(message)}
-          onClose={() => setSelected(null)}
-        />
+        <Dialog
+          size="sheet"
+          open
+          onOpenChange={(next) => {
+            if (!next) setSelected(null);
+          }}
+          onCloseAutoFocus={(event) => {
+            const opener = lastOpened.current && openers.current.get(lastOpened.current);
+            if (opener) {
+              event.preventDefault();
+              opener.focus();
+            }
+          }}
+          title={selected.name}
+          description={selected.specification || 'No specification recorded.'}
+        >
+          <CatalogDetail
+            key={`${selected.id}-${selected.version}`}
+            workspace={workspace}
+            item={selected}
+            onChanged={(message, close) => {
+              setNotice(message);
+              if (close) setSelected(null);
+            }}
+          />
+        </Dialog>
       )}
     </main>
   );
 }
+
 function CatalogDetail({
   workspace,
   item,
   onChanged,
-  onClose,
 }: {
   workspace: StudioWorkspace;
   item: CatalogItem;
-  onChanged: (message: string) => void;
-  onClose: () => void;
+  onChanged: (message: string, close: boolean) => void;
 }) {
-  const detail = useRef<HTMLElement>(null);
-  useEffect(() => {
-    detail.current?.focus({ preventScroll: true });
-    detail.current?.scrollIntoView?.({ block: 'nearest' });
-  }, [item.id]);
   const [usage, setUsage] =
     useState<{ id: string; title: string; audience: string; currentRelease: number | null }[]>();
   const [usageError, setUsageError] = useState('');
-  const [open, setOpen] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
   useEffect(() => {
@@ -825,7 +1205,7 @@ function CatalogDetail({
       active = false;
     };
   }, [workspace.id, item.id]);
-  async function archive() {
+  async function changeStatus() {
     setPending(true);
     setError('');
     try {
@@ -845,11 +1225,12 @@ function CatalogDetail({
         }),
       });
       announceStructuredChange(workspace.id);
-      setOpen(false);
+      setConfirming(false);
       onChanged(
         item.archived
-          ? 'Item restored.'
-          : 'Item archived. Existing guide requirements remain readable.',
+          ? `${item.name} is active again.`
+          : `${item.name} is inactive. Existing guide requirements remain readable.`,
+        true,
       );
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Unable to change this item.');
@@ -858,51 +1239,19 @@ function CatalogDetail({
     }
   }
   return (
-    <section
-      ref={detail}
-      tabIndex={-1}
-      className="structured-detail-panel catalog-detail"
-      aria-label="Catalog item details"
-    >
-      <div className="structured-detail-heading">
-        <div>
-          <h2>{item.name}</h2>
-          <p>{item.specification}</p>
-        </div>
-        <Button type="button" variant="secondary" onClick={onClose}>
-          Close details
-        </Button>
-      </div>
+    <>
       <p>{item.description || 'No description yet.'}</p>
-      <dl className="structured-facts">
-        <div>
-          <dt>Default unit</dt>
-          <dd>{item.defaultUnit}</dd>
-        </div>
-        <div>
-          <dt>Visibility</dt>
-          <dd>{item.visibility === 'public' ? 'Public' : 'Workspace members'}</dd>
-        </div>
-        {item.manufacturer && (
-          <div>
-            <dt>Manufacturer</dt>
-            <dd>{item.manufacturer}</dd>
-          </div>
-        )}
-        {item.model && (
-          <div>
-            <dt>Model</dt>
-            <dd>{item.model}</dd>
-          </div>
-        )}
-        {item.partNumber && (
-          <div>
-            <dt>Part number</dt>
-            <dd>{item.partNumber}</dd>
-          </div>
-        )}
-      </dl>
-      <div className="structured-usage">
+      <Facts
+        items={[
+          ['Status', <StatusLabel key="status" inactive={item.archived} />],
+          ['Visible to', <Visibility key="visibility" value={item.visibility} />],
+          ['Default unit', unitLabels[item.defaultUnit]],
+          ['Part number', item.partNumber || '—'],
+          ['Manufacturer', item.manufacturer || '—'],
+          ['Model', item.model || '—'],
+        ]}
+      />
+      <section className="structured-usage" aria-label="Used in guides">
         <h3>Used in guides</h3>
         {usageError ? (
           <ErrorNotice error={usageError} />
@@ -920,9 +1269,9 @@ function CatalogDetail({
         ) : (
           <p>This item is ready for its first guide.</p>
         )}
-      </div>
+      </section>
       {workspace.role === 'manage' && (
-        <div className="structured-detail-actions">
+        <div className="mt-6 flex flex-wrap gap-2.5">
           <CatalogDialog
             workspace={workspace}
             initial={item}
@@ -933,25 +1282,28 @@ function CatalogDetail({
               </Button>
             }
             onSaved={() =>
-              onChanged('Item updated. Published requirements keep their previous details.')
+              onChanged(
+                `${item.name} saved. Published requirements keep their previous details.`,
+                false,
+              )
             }
           />
           <Dialog
             trigger={
               <Button type="button" variant="secondary">
                 {item.archived ? <RotateCcw size={15} /> : <Archive size={15} />}{' '}
-                {item.archived ? 'Restore item' : 'Archive item'}
+                {item.archived ? 'Reactivate' : 'Deactivate'}
               </Button>
             }
-            title={item.archived ? 'Restore catalog item' : 'Archive catalog item'}
+            title={item.archived ? 'Reactivate this item' : 'Deactivate this item'}
             description={
               item.archived
-                ? 'Make the item available for new requirements again.'
-                : 'Archived items leave new-item selectors. Existing draft and published requirements keep their saved details.'
+                ? 'It can be chosen for new requirements again.'
+                : 'Inactive items are no longer offered for new requirements. Existing draft and published requirements keep their saved details.'
             }
-            open={open}
+            open={confirming}
             onOpenChange={(next) => {
-              if (!pending) setOpen(next);
+              if (!pending) setConfirming(next);
             }}
             closeDisabled={pending}
           >
@@ -965,18 +1317,18 @@ function CatalogDetail({
                   type="button"
                   variant="secondary"
                   disabled={pending}
-                  onClick={() => setOpen(false)}
+                  onClick={() => setConfirming(false)}
                 >
                   Cancel
                 </Button>
-                <Button type="button" disabled={pending} onClick={() => void archive()}>
-                  {pending ? 'Saving…' : item.archived ? 'Restore item' : 'Archive item'}
+                <Button type="button" disabled={pending} onClick={() => void changeStatus()}>
+                  {pending ? 'Saving…' : item.archived ? 'Reactivate' : 'Deactivate'}
                 </Button>
               </div>
             </div>
           </Dialog>
         </div>
       )}
-    </section>
+    </>
   );
 }

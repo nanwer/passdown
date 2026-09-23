@@ -33,7 +33,8 @@ export function Dialog({
   onOpenChange?: (open: boolean) => void;
   onCloseAutoFocus?: ComponentPropsWithoutRef<typeof Primitive.Content>['onCloseAutoFocus'];
   closeDisabled?: boolean;
-  size?: 'standard' | 'wide';
+  /** A sheet slides in from the side and leaves what it was opened from in place. */
+  size?: 'standard' | 'wide' | 'sheet';
 }) {
   const depth = useContext(DialogDepth);
   const layer = { '--dialog-depth': depth } as CSSProperties;

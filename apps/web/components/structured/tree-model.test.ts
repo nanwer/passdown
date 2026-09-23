@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Category, CatalogItem } from '@guide/contracts';
-import { eligibleCategories, filterCatalog, searchCategories } from './tree-model';
+import { eligibleCategories, filterCatalog, searchCategories, thingRows } from './tree-model';
 const root: Category = {
   id: 'root',
   workspaceId: 'public',
@@ -72,5 +72,53 @@ describe('structured selection rules', () => {
       }).map((entry) => entry.id),
     ).toEqual(['screwdriver']);
     expect(filterCatalog([item], { search: 'torx' })).toEqual([]);
+  });
+});
+
+describe('thingRows', () => {
+  const node = (id: string, name: string, parent: Category | null, sortOrder = 0): Category => ({
+    ...root,
+    id,
+    name,
+    code: id.toUpperCase(),
+    parentId: parent?.id ?? null,
+    sortOrder,
+    path: [...(parent?.path ?? []), { id, name }],
+  });
+  const bikes = node('bikes', 'Bicycles', null, 1);
+  const brakes = node('brakes', 'Brakes', bikes, 2);
+  const chains = node('chains', 'Chains', bikes, 1);
+  const lamps = node('lamps', 'Lamps', null, 0);
+  const all = [bikes, brakes, chains, lamps];
+  const names = (rows: ReturnType<typeof thingRows>) =>
+    rows.map(
+      (row) => `${'  '.repeat(row.depth)}${row.category.name}${row.context ? ' (context)' : ''}`,
+    );
+
+  it('shows the top level in tree order until a row is opened', () => {
+    const rows = thingRows(all, { matches: () => true, expanded: new Set(), compare: null });
+    expect(names(rows)).toEqual(['Lamps', 'Bicycles']);
+    expect(rows[1]).toMatchObject({ hasChildren: true, expanded: false });
+    expect(
+      names(thingRows(all, { matches: () => true, expanded: new Set(['bikes']), compare: null })),
+    ).toEqual(['Lamps', 'Bicycles', '  Chains', '  Brakes']);
+  });
+
+  it('opens the way to a match and marks what it passes through as context', () => {
+    const rows = thingRows(all, {
+      matches: (category) => category.name === 'Brakes',
+      expanded: new Set(),
+      compare: null,
+    });
+    expect(names(rows)).toEqual(['Bicycles (context)', '  Brakes']);
+  });
+
+  it('sorts siblings without flattening the tree', () => {
+    // Alphabetical is the opposite of the tree's own order at both levels here,
+    // so a result that ignored the sort could not pass.
+    const byName = (a: Category, b: Category) => a.name.localeCompare(b.name);
+    expect(
+      names(thingRows(all, { matches: () => true, expanded: new Set(['bikes']), compare: byName })),
+    ).toEqual(['Bicycles', '  Brakes', '  Chains', 'Lamps']);
   });
 });

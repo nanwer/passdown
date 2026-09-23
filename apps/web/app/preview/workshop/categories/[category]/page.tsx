@@ -10,7 +10,7 @@ type Props = {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { category: id } = await params;
   const category = (await getTeamPreviewScope()?.categories())?.find((item) => item.id === id);
-  return category ? { title: category.name } : { title: 'Category unavailable' };
+  return category ? { title: category.name } : { title: 'Not available' };
 }
 /**
  * The sample library's categories have pages too.

@@ -46,3 +46,64 @@ export function filterCatalog(
         .includes(query),
   );
 }
+
+export type ThingRow = {
+  category: Category;
+  depth: number;
+  /** Shown only because something inside it matches; it does not match itself. */
+  context: boolean;
+  /** Whether anything is shown beneath it when expanded. */
+  hasChildren: boolean;
+  expanded: boolean;
+};
+
+/**
+ * The rows of the things table, in order.
+ *
+ * A row appears when it matches, or when something inside it does — then it is
+ * context, marked as such, and always open along the way to that match, so a
+ * search never hides its results inside a collapsed branch. A matching row
+ * opens and closes as the viewer chooses. Siblings are ordered by the chosen
+ * sort, or by the tree's own order; the hierarchy itself is never flattened.
+ */
+export function thingRows(
+  categories: Category[],
+  {
+    matches,
+    expanded,
+    compare,
+  }: {
+    matches: (category: Category) => boolean;
+    expanded: ReadonlySet<string>;
+    compare: ((a: Category, b: Category) => number) | null;
+  },
+): ThingRow[] {
+  const ids = new Set(categories.map((category) => category.id));
+  const matched = new Set(categories.filter(matches).map((category) => category.id));
+  const relevant = new Set(matched);
+  for (const category of categories)
+    if (matched.has(category.id))
+      for (const ancestor of category.path.slice(0, -1))
+        if (ids.has(ancestor.id)) relevant.add(ancestor.id);
+  const children = new Map<string | null, Category[]>();
+  for (const category of categories) {
+    if (!relevant.has(category.id)) continue;
+    const parent = category.parentId && ids.has(category.parentId) ? category.parentId : null;
+    children.set(parent, [...(children.get(parent) ?? []), category]);
+  }
+  const order =
+    compare ??
+    ((a: Category, b: Category) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
+  const rows: ThingRow[] = [];
+  const visit = (parent: string | null, depth: number) => {
+    for (const category of [...(children.get(parent) ?? [])].sort(order)) {
+      const context = !matched.has(category.id);
+      const hasChildren = (children.get(category.id)?.length ?? 0) > 0;
+      const open = hasChildren && (context || expanded.has(category.id));
+      rows.push({ category, depth, context, hasChildren, expanded: open });
+      if (open) visit(category.id, depth + 1);
+    }
+  };
+  visit(null, 0);
+  return rows;
+}

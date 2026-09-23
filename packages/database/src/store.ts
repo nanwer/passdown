@@ -306,14 +306,11 @@ export function createApplicationStore(options: { connectionString: string }) {
       if (code === '42501') throw missing();
       if (code === '23514') throw validation((error as Error).message);
       if (code === '23503')
-        throw validation('Choose a related record in this workspace and category tree.');
+        throw validation('Choose something in this workspace to place it inside.');
       if (code === '23505') {
         const constraint = (error as { constraint?: string }).constraint;
         if (constraint === 'category_sibling_name')
-          throw validation(
-            'A category with this name already exists under the selected parent.',
-            'name',
-          );
+          throw validation('Something with this name is already inside the one you chose.', 'name');
         if (constraint === 'catalog_identifier')
           throw validation(
             'An item with this manufacturer and part number already exists. Reuse the existing item.',

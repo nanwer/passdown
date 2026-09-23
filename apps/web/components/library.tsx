@@ -306,7 +306,7 @@ export function Library({
                 <h3>{selectedCategory && !query ? 'No published guides here yet' : t.noResults}</h3>
                 <p>
                   {selectedCategory && !query
-                    ? 'This category is ready for new knowledge. Its published guides and subcategory guides will appear here.'
+                    ? `Nothing has been published about this ${words.thing} yet. Guides filed here, or under anything inside it, will appear here.`
                     : t.noResultsHelp}
                 </p>
                 {/* Both filters, because the label says filters and because

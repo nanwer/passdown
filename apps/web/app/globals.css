@@ -889,6 +889,18 @@
   .dialog-content[data-size='wide'] {
     --dialog-width: var(--gp-component-dialog-width-wide);
   }
+  .dialog-content[data-size='sheet'] {
+    inset: 0 0 0 auto;
+    transform: none;
+    width: min(600px, 100%);
+    height: 100dvh;
+    max-height: none;
+    border-start-end-radius: 0;
+    border-end-end-radius: 0;
+  }
+  [dir='rtl'] .dialog-content[data-size='sheet'] {
+    inset: 0 auto 0 0;
+  }
   .dialog-title {
     font-size: 22px;
     font-weight: 600;

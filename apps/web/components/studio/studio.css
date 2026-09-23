@@ -78,6 +78,24 @@
     font-weight: 700;
     color: var(--gp-semantic-text-secondary);
   }
+  .studio-trail ol {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .studio-trail li + li::before {
+    content: '/';
+    margin-inline-end: 6px;
+  }
+  .studio-trail a {
+    color: inherit;
+  }
+  .studio-trail a:hover {
+    color: var(--gp-semantic-text-primary);
+  }
   .studio-heading-row {
     display: flex;
     justify-content: space-between;
