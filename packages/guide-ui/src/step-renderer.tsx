@@ -4,6 +4,24 @@ import type { GuideDocument, GuideStep, TextRun, RichNode, RichMark } from '@gui
 import { Info, TriangleAlert, CircleAlert, CircleCheck, GitBranch, StickyNote } from 'lucide-react';
 import { Fragment, createElement, type ReactNode } from 'react';
 import './step-body.css';
+
+/**
+ * The tones a panel can take, as the colours each one uses. Kept beside the
+ * panel's label and icon so a new tone cannot be added without all three.
+ */
+const panelTone = {
+  info: 'border-info-line bg-info-surface text-info',
+  note: 'border-note-line bg-note-surface text-note',
+  warning: 'border-warning-line bg-warning-surface text-warning',
+  danger: 'border-error-line bg-error-surface text-error',
+  success: 'border-success-line bg-success-surface text-success',
+  decision: 'border-[var(--gp-semantic-accent-border)] bg-accent-surface text-accent-ink',
+};
+const panelClass =
+  'mx-0 my-5 rounded-[8px] border border-solid px-4.5 py-4 [border-inline-start-width:4px] first:mt-0 last:mb-0 [&>:last-child]:mb-0';
+const panelLabelClass = 'mb-2 flex items-center gap-2 text-[0.875em]';
+const tableScrollClass =
+  'instruction-table-scroll mx-0 my-5 max-w-full overflow-x-auto rounded-[8px] border border-solid border-line first:mt-0 last:mb-0';
 export function StepRenderer({
   step,
   index,
@@ -24,22 +42,40 @@ export function StepRenderer({
   mediaSrc?: (assetId: string, width?: number) => string;
 }) {
   return (
-    <section className="reader-step" id={`step-${step.id}`} aria-labelledby={`heading-${step.id}`}>
-      <div className="step-heading">
-        <span className="step-number">{String(index + 1).padStart(2, '0')}</span>
-        <h2 id={`heading-${step.id}`}>{step.title}</h2>
+    <section
+      className="reader-step mb-9 scroll-mt-[30px] border-b border-solid border-b-line pb-9"
+      id={`step-${step.id}`}
+      aria-labelledby={`heading-${step.id}`}
+    >
+      <div className="mb-6 flex items-center gap-4">
+        <span className="inline-flex size-8.75 shrink-0 items-center justify-center rounded-[7px] bg-action font-mono text-[12px] text-action-ink">
+          {String(index + 1).padStart(2, '0')}
+        </span>
+        <h2
+          id={`heading-${step.id}`}
+          className="text-[24px] leading-[1.3] font-medium tracking-[-0.6px] max-[760px]:text-[22px]"
+        >
+          {step.title}
+        </h2>
       </div>
       <div className="step-layout">
-        {illustration && <div className="step-illustration">{illustration}</div>}
-        <div className="step-content">
+        {illustration && (
+          <div className="mb-[26px] overflow-hidden rounded-panel border border-solid border-line [&_.artwork--detail]:aspect-[2.2] max-[760px]:[&_.artwork--detail]:aspect-[1.7]">
+            {illustration}
+          </div>
+        )}
+        <div className="step-content max-w-reading text-[17px] leading-[1.8]">
           <StepRequirementsSummary document={document} step={step} />
           <StepBody body={step.body} />
           {step.callouts.map((callout, i) => (
-            <aside className={`callout callout--${callout.tone}`} key={i}>
+            <aside
+              className={`mt-5 flex items-start gap-[13px] rounded-control border border-solid p-[18px] [&>svg]:mt-0.5 [&>svg]:shrink-0 ${callout.tone === 'warning' ? panelTone.warning : panelTone.info}`}
+              key={i}
+            >
               {callout.tone === 'warning' ? <TriangleAlert size={19} /> : <Info size={19} />}
               <div>
-                <h3>{callout.title}</h3>
-                <p>{callout.body}</p>
+                <h3 className="mb-1.5 text-[12px] font-bold">{callout.title}</h3>
+                <p className="text-[12px] leading-[1.8]">{callout.body}</p>
               </div>
             </aside>
           ))}
@@ -54,7 +90,7 @@ export function StepRenderer({
                 />
               ))
             ) : (
-              <p className="media-unavailable">Pictures appear once this guide is saved.</p>
+              <p className="mb-5">Pictures appear once this guide is saved.</p>
             ))}
         </div>
       </div>
@@ -85,9 +121,10 @@ function StepMedia({
   // images on a page cannot borrow each other's marker.
   const head = `step-media-arrowhead-${media.assetId}`;
   return (
-    <figure className="step-media">
-      <div className="step-media-frame">
+    <figure className="step-media mx-0 mt-5 mb-0">
+      <div className="relative block overflow-hidden rounded-[12px] border border-solid border-line bg-sunken">
         <img
+          className="block h-auto w-full"
           src={src}
           // The browser knows the screen and the connection; it picks. sizes
           // says the picture is the column width, so a phone takes the 400.
@@ -100,7 +137,10 @@ function StepMedia({
           decoding="async"
         />
         {arrows.length > 0 && (
-          <svg className="step-media-arrows" aria-hidden="true">
+          <svg
+            className="step-media-arrows pointer-events-none absolute inset-0 size-full"
+            aria-hidden="true"
+          >
             <defs>
               {/* markerUnits scales the head with the stroke rather than with
                   the viewport, so it keeps its shape at any image size. */}
@@ -113,11 +153,12 @@ function StepMedia({
                 orient="auto"
                 markerUnits="strokeWidth"
               >
-                <path d="M0,0 L6,3 L0,6 Z" />
+                <path className="fill-action" d="M0,0 L6,3 L0,6 Z" />
               </marker>
             </defs>
             {arrows.map((arrow, index) => (
               <line
+                className="stroke-action [stroke-linecap:round] [stroke-width:3]"
                 key={index}
                 x1={percent(arrow.x)}
                 y1={percent(arrow.y)}
@@ -131,7 +172,7 @@ function StepMedia({
         {media.annotations.map((annotation, index) => (
           <span
             key={index}
-            className={`step-media-mark step-media-mark--${annotation.type}`}
+            className="step-media-mark absolute inline-flex h-6.5 min-w-[26px] [transform:translate(-50%,-50%)] items-center justify-center rounded-[999px] border-2 border-solid border-raised bg-action text-[12px] font-bold text-action-ink [box-shadow:0_1px_4px_rgb(0_0_0_/_0.3)]"
             style={{ left: percent(annotation.x), top: percent(annotation.y) }}
             aria-hidden="true"
           >
@@ -146,9 +187,13 @@ function StepMedia({
           {/* The caption is for everyone; alt text stands in for the picture
               when it cannot be seen. They are different jobs, so a caption is
               never used as a substitute for the description. */}
-          {media.caption && <p className="step-media-caption">{media.caption}</p>}
+          {media.caption && (
+            <p className="step-media-caption mx-0 mt-2.5 mb-0 text-[14px] text-muted">
+              {media.caption}
+            </p>
+          )}
           {media.annotations.length > 0 && (
-            <ol className="step-media-legend">
+            <ol className="step-media-legend mx-0 mt-2.5 mb-0 grid gap-1 pl-5.5 text-[14px] text-muted">
               {media.annotations.map((annotation, index) => (
                 <li key={index}>{annotation.label}</li>
               ))}
@@ -234,10 +279,10 @@ export function StepBody({ body }: { body: GuideStep['body'] }) {
             <aside
               role="note"
               aria-label={label}
-              className={`instruction-panel instruction-panel--${block.tone}`}
+              className={`instruction-panel instruction-panel--${block.tone} ${panelClass} ${panelTone[block.tone]}`}
               key={index}
             >
-              <div className="instruction-panel-label">
+              <div className={panelLabelClass}>
                 <Icon size={18} aria-hidden="true" />
                 <strong>{label}</strong>
               </div>
@@ -247,7 +292,7 @@ export function StepBody({ body }: { body: GuideStep['body'] }) {
         }
         return (
           <div
-            className="instruction-table-scroll"
+            className={tableScrollClass}
             role="region"
             aria-label="Instruction table"
             tabIndex={0}
@@ -324,9 +369,9 @@ function RichContent({ node }: { node: RichNode }): ReactNode {
       <aside
         role="note"
         aria-label={label}
-        className={`instruction-panel instruction-panel--${node.attrs.tone}`}
+        className={`instruction-panel instruction-panel--${node.attrs.tone} ${panelClass} ${panelTone[node.attrs.tone]}`}
       >
-        <div className="instruction-panel-label">
+        <div className={panelLabelClass}>
           <Icon size={18} aria-hidden="true" />
           <strong>{label}</strong>
         </div>
@@ -337,12 +382,7 @@ function RichContent({ node }: { node: RichNode }): ReactNode {
   if (node.type === 'table') {
     const hasHeader = node.content[0]?.content.every((cell) => cell.type === 'tableHeader');
     return (
-      <div
-        className="instruction-table-scroll"
-        role="region"
-        aria-label="Instruction table"
-        tabIndex={0}
-      >
+      <div className={tableScrollClass} role="region" aria-label="Instruction table" tabIndex={0}>
         <table>
           {hasHeader && (
             <thead>

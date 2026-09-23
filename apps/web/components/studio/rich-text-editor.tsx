@@ -15,6 +15,12 @@ import {
 import { StepBody } from '@guide/guide-ui';
 import { createInstructionExtensions, inspectInstructionPaste } from './rich-text-extensions';
 import './rich-text-editor.css';
+import { cn } from '@guide/ui';
+
+const editorFrame =
+  'rich-text-editor relative min-w-0 rounded-[12px] border border-solid border-editor-line bg-editor-canvas text-editor-ink [box-shadow:0_2px_6px_color-mix(in_srgb,var(--gp-component-editor-text)_3%,transparent)] focus-within:border-action focus-within:[box-shadow:0_0_0_2px_color-mix(in_srgb,var(--gp-semantic-action-primary-background)_12%,transparent)] motion-reduce:[&_*]:[scroll-behavior:auto]';
+const linkFormButton =
+  'inline-flex min-h-9 cursor-pointer items-center justify-center gap-1.5 rounded-[6px] border-0 bg-editor-hover px-2.5 py-1.5 text-editor-ink [font:500_12px_var(--gp-semantic-font-body)]';
 
 export interface RichTextEditorProps {
   value: GuideStep['body'];
@@ -42,15 +48,15 @@ function RetainedInstructions({ value, onValidityChange }: RichTextEditorProps) 
     onValidityChange?.(null);
   }, [onValidityChange]);
   return (
-    <div className="rich-text-field">
-      <div className="rte-field-heading">
+    <div className="mx-0 mt-6 mb-0 min-w-0">
+      <div className="mb-3 flex items-baseline justify-between gap-3">
         <span>Instructions</span>
         <span>Read only</span>
       </div>
-      <p className="rte-error" role="alert">
+      <p className="mx-0 my-2.5 text-[13px] text-error" role="alert">
         {message}
       </p>
-      <div className="rich-text-editor rte-canvas" role="region" aria-label="Retained instructions">
+      <div className={`${editorFrame} rte-canvas`} role="region" aria-label="Retained instructions">
         <StepBody body={value} />
       </div>
     </div>
@@ -207,14 +213,20 @@ function EditableInstructions({
   }
 
   return (
-    <div className="rich-text-field">
-      <div className="rte-field-heading">
-        <label htmlFor={fieldId} onClick={() => editor?.commands.focus()}>
+    <div className="mx-0 mt-6 mb-0 min-w-0">
+      <div className="mb-3 flex items-baseline justify-between gap-3">
+        <label
+          className="cursor-text text-[13px] font-[650]"
+          htmlFor={fieldId}
+          onClick={() => editor?.commands.focus()}
+        >
           Instructions
         </label>
-        <span className="rte-field-detail">Text, panels & tables</span>
+        <span className="text-[12px] font-normal text-editor-muted max-[600px]:hidden">
+          Text, panels & tables
+        </span>
       </div>
-      <div className={`rich-text-editor${disabled ? ' rich-text-editor--disabled' : ''}`}>
+      <div className={`${editorFrame}${disabled ? ' opacity-[0.7]' : ''}`}>
         <RichTextToolbar
           editor={editor}
           disabled={unavailable}
@@ -227,7 +239,7 @@ function EditableInstructions({
         />
         {linkOpen && (
           <div
-            className="rte-link-form"
+            className="absolute top-14.5 right-3 z-[40] flex w-[min(420px,calc(100%_-_24px))] flex-wrap items-center gap-2.5 rounded-[10px] border border-solid border-editor-line bg-editor-canvas p-4 [box-shadow:0_12px_36px_color-mix(in_srgb,var(--gp-component-editor-text)_16%,transparent)] max-[600px]:top-24.5"
             role="group"
             aria-label="Edit link"
             onKeyDown={(event) => {
@@ -242,8 +254,11 @@ function EditableInstructions({
               }
             }}
           >
-            <label htmlFor={`${fieldId}-url`}>Link address</label>
+            <label className="w-full text-[12px] font-[650]" htmlFor={`${fieldId}-url`}>
+              Link address
+            </label>
             <input
+              className="m-0 w-auto min-w-[140px] flex-1 border border-solid border-editor-line bg-editor-canvas px-3 py-[9px] text-[14px] text-editor-ink"
               ref={linkInput}
               id={`${fieldId}-url`}
               type="url"
@@ -253,12 +268,13 @@ function EditableInstructions({
               aria-invalid={!!linkError}
               aria-describedby={linkError ? `${fieldId}-link-error` : undefined}
             />
-            <button type="button" onClick={applyLink}>
+            <button type="button" className={linkFormButton} onClick={applyLink}>
               Apply link
             </button>
             {editor?.isActive('link') && (
               <button
                 type="button"
+                className={linkFormButton}
                 onClick={() => {
                   editor.chain().focus().extendMarkRange('link').unsetLink().run();
                   setLinkOpen(false);
@@ -269,7 +285,7 @@ function EditableInstructions({
             )}
             <button
               type="button"
-              className="rte-icon-button"
+              className={cn(linkFormButton, 'absolute top-2 right-2 min-h-7 bg-transparent p-1')}
               aria-label="Close link editor"
               onClick={() => {
                 setLinkOpen(false);
@@ -279,7 +295,11 @@ function EditableInstructions({
               <X size={16} />
             </button>
             {linkError && (
-              <p id={`${fieldId}-link-error`} role="alert">
+              <p
+                className="m-0 w-full text-[12px] text-error"
+                id={`${fieldId}-link-error`}
+                role="alert"
+              >
                 {linkError}
               </p>
             )}
@@ -288,28 +308,39 @@ function EditableInstructions({
         <EditorContent editor={editor} />
         <RichTextTableControls editor={editor} disabled={disabled} />
         {!editor && (
-          <div className="rte-loading" role="status">
+          <div className="p-9 text-editor-muted" role="status">
             Loading editor…
           </div>
         )}
       </div>
-      <div className="rte-footer" id={`${fieldId}-help`}>
-        <span>
+      <div
+        className="flex justify-between gap-2.5 px-0.5 py-3 text-[11px] text-editor-muted max-[600px]:text-[10px]"
+        id={`${fieldId}-help`}
+      >
+        <span className="inline-flex items-center gap-1.5">
           <Keyboard size={14} aria-hidden="true" /> ⌘/Ctrl + B to format · Insert to add blocks
         </span>
-        <span>
+        <span className="inline-flex items-center gap-1.5 max-[600px]:hidden">
           <Check size={13} aria-hidden="true" /> Rich text
         </span>
       </div>
       {error && (
-        <p id={`${fieldId}-error`} className="rte-error" role="alert">
+        <p id={`${fieldId}-error`} className="mx-0 my-2.5 text-[13px] text-error" role="alert">
           {error}
         </p>
       )}
       {notice && (
-        <div className="rte-notice" role="status">
-          <p>{notice}</p>
-          <button type="button" aria-label="Dismiss paste message" onClick={() => setNotice(null)}>
+        <div
+          className="mx-0 mt-2.5 mb-0 flex items-start gap-3 rounded-[8px] border border-solid border-info-line bg-info-surface px-3.5 py-3 text-info"
+          role="status"
+        >
+          <p className="m-0 flex-1 text-[13px] text-inherit">{notice}</p>
+          <button
+            type="button"
+            className="inline-flex min-h-6 cursor-pointer items-center justify-center gap-1.5 rounded-[6px] border-0 bg-transparent p-0.5 text-inherit [font:500_12px_var(--gp-semantic-font-body)]"
+            aria-label="Dismiss paste message"
+            onClick={() => setNotice(null)}
+          >
             <X size={15} />
           </button>
         </div>

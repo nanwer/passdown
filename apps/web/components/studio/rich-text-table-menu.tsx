@@ -5,6 +5,13 @@ import type { Editor } from '@tiptap/react';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { Table2, ChevronDown, Rows3, Columns3, Trash2, CornerDownRight } from 'lucide-react';
 import { exitContainingBlock } from './rich-text-extensions';
+import {
+  menuClass,
+  menuItemClass,
+  menuLabelClass,
+  menuSeparatorClass,
+  toolClass,
+} from './rich-text-styles';
 
 export function RichTextTableMenu({ editor, disabled }: { editor: Editor; disabled: boolean }) {
   const used = useRef(false);
@@ -31,20 +38,15 @@ export function RichTextTableMenu({ editor, disabled }: { editor: Editor; disabl
       }}
     >
       <DropdownMenu.Trigger asChild>
-        <button
-          type="button"
-          className="rte-tool rte-table-trigger"
-          aria-label="Table options"
-          disabled={disabled}
-        >
+        <button type="button" className={toolClass} aria-label="Table options" disabled={disabled}>
           <Table2 size={17} aria-hidden="true" />
-          <span>Table</span>
+          <span className="max-[600px]:hidden">Table</span>
           <ChevronDown size={12} aria-hidden="true" />
         </button>
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>
         <DropdownMenu.Content
-          className="rte-composer-menu"
+          className={menuClass}
           sideOffset={8}
           align="end"
           collisionPadding={12}
@@ -52,11 +54,11 @@ export function RichTextTableMenu({ editor, disabled }: { editor: Editor; disabl
             if (used.current) event.preventDefault();
           }}
         >
-          <DropdownMenu.Label className="rte-composer-menu-label">
+          <DropdownMenu.Label className={menuLabelClass}>
             Table · {rows} rows × {columns} columns
           </DropdownMenu.Label>
           <DropdownMenu.Item
-            className="rte-composer-menu-item"
+            className={menuItemClass}
             disabled={disabled || rows >= 51}
             onSelect={() =>
               run(() => {
@@ -68,7 +70,7 @@ export function RichTextTableMenu({ editor, disabled }: { editor: Editor; disabl
             Insert row above
           </DropdownMenu.Item>
           <DropdownMenu.Item
-            className="rte-composer-menu-item"
+            className={menuItemClass}
             disabled={disabled || rows >= 51}
             onSelect={() =>
               run(() => {
@@ -80,7 +82,7 @@ export function RichTextTableMenu({ editor, disabled }: { editor: Editor; disabl
             Insert row below
           </DropdownMenu.Item>
           <DropdownMenu.Item
-            className="rte-composer-menu-item"
+            className={menuItemClass}
             disabled={disabled || columns >= 10}
             onSelect={() =>
               run(() => {
@@ -92,7 +94,7 @@ export function RichTextTableMenu({ editor, disabled }: { editor: Editor; disabl
             Insert column left
           </DropdownMenu.Item>
           <DropdownMenu.Item
-            className="rte-composer-menu-item"
+            className={menuItemClass}
             disabled={disabled || columns >= 10}
             onSelect={() =>
               run(() => {
@@ -103,9 +105,9 @@ export function RichTextTableMenu({ editor, disabled }: { editor: Editor; disabl
             <Columns3 size={16} />
             Insert column right
           </DropdownMenu.Item>
-          <DropdownMenu.Separator className="rte-composer-menu-separator" />
+          <DropdownMenu.Separator className={menuSeparatorClass} />
           <DropdownMenu.Item
-            className="rte-composer-menu-item"
+            className={menuItemClass}
             onSelect={() =>
               run(() => {
                 editor.chain().focus().deleteRow().run();
@@ -116,7 +118,7 @@ export function RichTextTableMenu({ editor, disabled }: { editor: Editor; disabl
             Delete row
           </DropdownMenu.Item>
           <DropdownMenu.Item
-            className="rte-composer-menu-item"
+            className={menuItemClass}
             onSelect={() =>
               run(() => {
                 editor.chain().focus().deleteColumn().run();
@@ -127,7 +129,7 @@ export function RichTextTableMenu({ editor, disabled }: { editor: Editor; disabl
             Delete column
           </DropdownMenu.Item>
           <DropdownMenu.Item
-            className="rte-composer-menu-item"
+            className={menuItemClass}
             onSelect={() =>
               run(() => {
                 editor.chain().focus().deleteTable().run();
@@ -137,9 +139,9 @@ export function RichTextTableMenu({ editor, disabled }: { editor: Editor; disabl
             <Trash2 size={16} />
             Delete table
           </DropdownMenu.Item>
-          <DropdownMenu.Separator className="rte-composer-menu-separator" />
+          <DropdownMenu.Separator className={menuSeparatorClass} />
           <DropdownMenu.Item
-            className="rte-composer-menu-item"
+            className={menuItemClass}
             onSelect={() =>
               run(() => {
                 exitContainingBlock(editor, ['table']);

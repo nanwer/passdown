@@ -97,7 +97,13 @@ export function LibrarySearchField({
   };
 
   return (
-    <Form action={base} scroll={false} role="search" className="search-form" onSubmit={submit}>
+    <Form
+      action={base}
+      scroll={false}
+      role="search"
+      className="search-form relative"
+      onSubmit={submit}
+    >
       <Search size={18} aria-hidden="true" />
       <label className="sr-only" htmlFor="guide-search">
         {label}
@@ -127,7 +133,11 @@ export function LibrarySearchField({
       <button className="search-submit" type="submit" aria-label={buttonLabel}>
         <ArrowUpRight size={18} />
       </button>
-      <span id="guide-search-feedback" className="search-feedback" aria-live="polite">
+      <span
+        id="guide-search-feedback"
+        className="absolute start-4 top-[calc(100%+0.35rem)] text-[0.75rem] text-muted"
+        aria-live="polite"
+      >
         {isPending ? 'Updating results…' : ''}
       </span>
     </Form>

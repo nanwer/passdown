@@ -51,14 +51,57 @@
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
 
-  /* The names the pre-Tailwind components already use. They point at the same
-     tokens, so the two vocabularies cannot drift; they go as those components
-     are converted. */
+  /* The project's own tokens under short names, so a component reads
+     `bg-raised text-muted border-line` rather than repeating var(--gp-…).
+     Each points at a token, so the palette stays in tokens.json. */
   --color-canvas: var(--gp-semantic-surface-canvas);
   --color-panel: var(--gp-semantic-surface-panel);
+  --color-raised: var(--gp-semantic-surface-raised);
+  --color-sunken: var(--gp-semantic-surface-sunken);
+  --color-overlay: var(--gp-semantic-surface-overlay);
   --color-ink: var(--gp-semantic-text-primary);
   --color-muted: var(--gp-semantic-text-secondary);
+  --color-line: var(--gp-semantic-border-subtle);
+  --color-control: var(--gp-semantic-border-control);
+  --color-focus: var(--gp-semantic-focus-ring);
   --color-action: var(--gp-semantic-action-primary-background);
+  --color-action-ink: var(--gp-semantic-action-primary-foreground);
+  --color-action-hover: var(--gp-semantic-action-primary-hover);
+  --color-disabled: var(--gp-semantic-action-disabled-background);
+  --color-disabled-ink: var(--gp-semantic-action-disabled-foreground);
+  --color-accent-surface: var(--gp-semantic-accent-background);
+  --color-accent-ink: var(--gp-semantic-accent-foreground);
+  --color-info: var(--gp-semantic-status-info-foreground);
+  --color-info-surface: var(--gp-semantic-status-info-background);
+  --color-info-line: var(--gp-semantic-status-info-border);
+  --color-success: var(--gp-semantic-status-success-foreground);
+  --color-success-surface: var(--gp-semantic-status-success-background);
+  --color-success-line: var(--gp-semantic-status-success-border);
+  --color-warning: var(--gp-semantic-status-warning-foreground);
+  --color-warning-surface: var(--gp-semantic-status-warning-background);
+  --color-warning-line: var(--gp-semantic-status-warning-border);
+  --color-error: var(--gp-semantic-status-error-foreground);
+  --color-error-surface: var(--gp-semantic-status-error-background);
+  --color-error-line: var(--gp-semantic-status-error-border);
+  --color-note: var(--gp-semantic-status-note-foreground);
+  --color-note-surface: var(--gp-semantic-status-note-background);
+  --color-note-line: var(--gp-semantic-status-note-border);
+  --color-editor-canvas: var(--gp-component-editor-canvas);
+  --color-editor-toolbar: var(--gp-component-editor-toolbar);
+  --color-editor-ink: var(--gp-component-editor-text);
+  --color-editor-muted: var(--gp-component-editor-muted);
+  --color-editor-line: var(--gp-component-editor-border);
+  --color-editor-hover: var(--gp-component-editor-hover);
+  --color-editor-selection: var(--gp-component-editor-selection);
+  --color-editor-backdrop: var(--gp-component-editor-backdrop);
+
+  --radius-control: var(--gp-semantic-radius-control);
+  --radius-panel: var(--gp-semantic-radius-panel);
+  --radius-editorial: var(--gp-semantic-radius-editorial);
+  --radius-dialog: var(--gp-component-dialog-radius);
+  --shadow-dialog: var(--gp-component-dialog-shadow);
+  --container-reading: var(--gp-semantic-measure-reading);
+  --spacing-page: var(--gp-semantic-space-page);
   --font-sans: var(--gp-semantic-font-body);
   --font-mono: var(--gp-semantic-font-code);
 }
@@ -929,28 +972,6 @@
     font-size: 10px;
     color: var(--gp-semantic-text-secondary);
   }
-  .tool-list {
-    border-block: 1px solid var(--gp-semantic-border-subtle);
-    margin-top: 28px;
-    padding-block: 25px;
-  }
-  .tool-list h2 {
-    font-size: 13px;
-    font-weight: 600;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-  .tool-list ul {
-    padding-inline-start: 16px;
-    margin: 16px 0 0;
-    font-size: 12px;
-    color: var(--gp-semantic-text-secondary);
-    list-style: disc;
-  }
-  .tool-list li {
-    padding-block: 4px;
-  }
   .reader-credit {
     display: flex;
     align-items: center;
@@ -972,100 +993,6 @@
     background: var(--gp-semantic-status-success-background);
     color: var(--gp-semantic-status-success-foreground);
     font-weight: 600;
-  }
-  .reader-step {
-    padding-bottom: 36px;
-    margin-bottom: 36px;
-    border-bottom: 1px solid var(--gp-semantic-border-subtle);
-    scroll-margin-top: 30px;
-  }
-  .step-heading {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    margin-bottom: 24px;
-  }
-  .step-number {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 35px;
-    height: 35px;
-    border-radius: 7px;
-    font-family: var(--gp-semantic-font-code);
-    font-size: 12px;
-    color: var(--gp-semantic-action-primary-foreground);
-    background: var(--gp-semantic-action-primary-background);
-    flex-shrink: 0;
-  }
-  .step-heading h2 {
-    font-size: 24px;
-    font-weight: 500;
-    letter-spacing: -0.6px;
-    line-height: 1.3;
-  }
-  .step-illustration {
-    border: 1px solid var(--gp-semantic-border-subtle);
-    border-radius: var(--gp-semantic-radius-panel);
-    overflow: hidden;
-    margin-bottom: 26px;
-  }
-  .step-illustration .artwork--detail {
-    aspect-ratio: 2.2;
-  }
-  .step-content {
-    font-size: 17px;
-    line-height: 1.8;
-    max-width: var(--gp-component-reader-measure);
-  }
-  .step-content > p {
-    margin-bottom: 20px;
-  }
-  .step-content > ul {
-    list-style: disc;
-    padding-inline-start: 24px;
-    margin-block: 20px;
-  }
-  .step-content li {
-    margin-block: 8px;
-  }
-  .step-content code {
-    font-family: var(--gp-semantic-font-code);
-    background: var(--gp-semantic-surface-sunken);
-    padding: 2px 5px;
-    border-radius: 3px;
-  }
-  .callout {
-    display: flex;
-    align-items: flex-start;
-    gap: 13px;
-    padding: 18px;
-    border: 1px solid;
-    border-radius: var(--gp-semantic-radius-control);
-    margin-top: 20px;
-  }
-  .callout > svg {
-    flex-shrink: 0;
-    margin-top: 2px;
-  }
-  .callout h3 {
-    font-size: 12px;
-    font-weight: 700;
-    margin-bottom: 6px;
-  }
-  .callout p {
-    font-size: 12px;
-    line-height: 1.8;
-  }
-  .callout--info {
-    color: var(--gp-semantic-status-info-foreground);
-    background: var(--gp-semantic-status-info-background);
-    border-color: var(--gp-semantic-status-info-border);
-  }
-  .callout--warning {
-    color: var(--gp-semantic-status-warning-foreground);
-    background: var(--gp-semantic-status-warning-background);
-    border-color: var(--gp-semantic-status-warning-border);
   }
   .reader-end {
     display: flex;
@@ -1202,9 +1129,6 @@
       border-radius: var(--gp-semantic-radius-panel);
       border: 1px solid var(--gp-semantic-border-subtle);
     }
-    .tool-list {
-      margin-top: 22px;
-    }
     .reader-credit {
       display: none;
     }
@@ -1220,15 +1144,6 @@
     }
     .reader-metadata .release-tag {
       margin-inline-start: 0;
-    }
-    .step-heading h2 {
-      font-size: 22px;
-    }
-    .step-content {
-      font-size: 17px;
-    }
-    .step-illustration .artwork--detail {
-      aspect-ratio: 1.7;
     }
     .reader-end {
       flex-wrap: wrap;

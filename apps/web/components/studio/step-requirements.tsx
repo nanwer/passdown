@@ -9,9 +9,20 @@ import {
 } from '@guide/content';
 import { Dialog, buttonVariants } from '@guide/ui';
 import { CheckCircle2, Plus, Trash2, Wrench } from 'lucide-react';
+import {
+  addActions,
+  cardDetail,
+  cardHeader,
+  cardTitle,
+  checkbox,
+  checkboxLabel,
+  feedback,
+  fieldControl,
+  fieldLabel,
+  quiet,
+} from './requirement-styles';
 import { CatalogPicker } from '../structured';
 import { RequirementQuantity, requirementFromCatalog } from './guide-requirements';
-import './step-requirements.css';
 
 export function StepRequirements({
   document,
@@ -98,17 +109,19 @@ export function StepRequirements({
     (issue) => issue.path[0] === 'steps' && issue.path[1] === index,
   );
   return (
-    <div className="step-authoring-context">
+    <div className="my-7 grid gap-6">
       <section
-        className="step-requirements"
+        className="step-requirements rounded-[10px] border border-solid border-line bg-panel p-5 max-[600px]:p-[15px]"
         aria-labelledby={`step-requirements-heading-${step.id}`}
       >
-        <div className="step-context-heading">
+        <div className="flex items-center gap-2">
           <Wrench size={17} aria-hidden="true" />
-          <h2 id={`step-requirements-heading-${step.id}`}>Needed for this step</h2>
-          <span>{step.requirements.length}</span>
+          <h2 id={`step-requirements-heading-${step.id}`} className="m-0 text-[15px]">
+            Needed for this step
+          </h2>
+          <span className="ms-auto text-[12px] text-muted">{step.requirements.length}</span>
         </div>
-        <p>
+        <p className="mt-2 mb-4.5 text-[13px] leading-[1.6]">
           Assign items from preparation, or add one from the catalog. Quantities here allocate the
           guide’s confirmed total.
         </p>
@@ -118,7 +131,7 @@ export function StepRequirements({
           );
           if (!requirement)
             return (
-              <div className="requirements-feedback" key={usage.requirementId}>
+              <div className={feedback} key={usage.requirementId}>
                 This item was removed from preparation.
                 <button
                   type="button"
@@ -136,16 +149,21 @@ export function StepRequirements({
               candidate.requirements.some((entry) => entry.requirementId === requirement.id),
           );
           return (
-            <article className="step-requirement-card" key={requirement.id}>
-              <div className="requirement-card-header">
+            <article
+              className="my-5 border-t border-solid border-t-line pt-4.5"
+              key={requirement.id}
+            >
+              <div className={cardHeader}>
                 <div>
-                  <h3>{requirement.name}</h3>
-                  {requirement.specification && <p>{requirement.specification}</p>}
+                  <h3 className={cardTitle}>{requirement.name}</h3>
+                  {requirement.specification && (
+                    <p className={cardDetail}>{requirement.specification}</p>
+                  )}
                 </div>
                 {usedElsewhere ? (
                   <button
                     type="button"
-                    className="icon-button"
+                    className="icon-button shrink-0"
                     aria-label={`Remove ${requirement.name} from this step`}
                     onClick={() => removeUsage(requirement.id)}
                     disabled={disabled}
@@ -159,7 +177,7 @@ export function StepRequirements({
                     trigger={
                       <button
                         type="button"
-                        className="icon-button"
+                        className="icon-button shrink-0"
                         aria-label={`Remove ${requirement.name} from this step`}
                         disabled={disabled}
                       >
@@ -169,7 +187,7 @@ export function StepRequirements({
                     title="Keep this item in preparation?"
                     description={`${requirement.name} is not assigned to any other step. You can keep it for preparation before or after the procedure, or remove it from this guide.`}
                   >
-                    <div className="requirements-add-actions">
+                    <div className={addActions}>
                       <button
                         type="button"
                         className={buttonVariants()}
@@ -197,9 +215,10 @@ export function StepRequirements({
                 onChange={(changes) => patchUsage(requirement.id, changes)}
               />
               {requirement.role === 'use' ? (
-                <label className="step-usage-mode">
+                <label>
                   How it is used
                   <select
+                    className={fieldControl}
                     aria-label={`${requirement.name} usage`}
                     value={usage.mode}
                     disabled={disabled}
@@ -212,19 +231,20 @@ export function StepRequirements({
                     <option value="consume">Use new material / part</option>
                     <option value="reuse">Reuse the same material / part</option>
                   </select>
-                  <small>
+                  <small className={quiet}>
                     {usage.mode === 'consume'
                       ? 'Exact quantities add to the guide’s allocation. The preparation total stays yours to confirm.'
                       : 'Reusing an existing part does not add to the consumption total.'}
                   </small>
                 </label>
               ) : (
-                <p className="step-usage-explanation">
+                <p className={quiet}>
                   Reusable tool · using it again in another step does not increase the guide total.
                 </p>
               )}
-              <label className="requirement-checkbox">
+              <label className={checkboxLabel}>
                 <input
+                  className={checkbox}
                   type="checkbox"
                   checked={usage.optional}
                   disabled={disabled}
@@ -234,9 +254,10 @@ export function StepRequirements({
                 />
                 Optional in this step
               </label>
-              <label className="requirement-notes-label">
+              <label>
                 Step-specific notes
                 <textarea
+                  className={fieldControl}
                   rows={2}
                   maxLength={2000}
                   value={usage.notes}
@@ -249,10 +270,11 @@ export function StepRequirements({
           );
         })}
         {available.length > 0 && (
-          <div className="step-add-existing">
-            <label>
+          <div className="my-4 flex items-end gap-2.5 max-[600px]:flex-col max-[600px]:items-stretch">
+            <label className={`${fieldLabel} flex-1`}>
               From guide preparation
               <select
+                className={fieldControl}
                 aria-label="Choose preparation item for this step"
                 value={selectedRequirement}
                 disabled={disabled}
@@ -298,23 +320,26 @@ export function StepRequirements({
         />
       </section>
       <section
-        className="step-preconditions-editor"
+        className="rounded-[10px] border border-solid border-line bg-panel p-5 max-[600px]:p-[15px]"
         aria-labelledby={`step-preconditions-heading-${step.id}`}
       >
-        <div className="step-context-heading">
+        <div className="flex items-center gap-2">
           <CheckCircle2 size={17} aria-hidden="true" />
-          <h2 id={`step-preconditions-heading-${step.id}`}>Before this step</h2>
+          <h2 id={`step-preconditions-heading-${step.id}`} className="m-0 text-[15px]">
+            Before this step
+          </h2>
         </div>
-        <p>
+        <p className="mt-2 mb-4.5 text-[13px] leading-[1.6]">
           Tell the reader what must already be ready. These are instructions, not completion
           records.
         </p>
         {step.preconditions.map((condition) => (
-          <div className="precondition-edit-row" key={condition.id}>
-            <div>
-              <label>
+          <div className="my-4 flex items-start gap-2.5" key={condition.id}>
+            <div className="grid flex-1 grid-cols-[1fr_140px] gap-3 max-[600px]:grid-cols-[1fr]">
+              <label className={fieldLabel}>
                 Precondition
                 <textarea
+                  className={fieldControl}
                   aria-label="Precondition instruction"
                   rows={2}
                   maxLength={2000}
@@ -330,9 +355,10 @@ export function StepRequirements({
                   placeholder="For example, clear and dry the work surface."
                 />
               </label>
-              <label>
+              <label className={fieldLabel}>
                 Emphasis
                 <select
+                  className={fieldControl}
                   value={condition.tone}
                   disabled={disabled}
                   aria-label="Precondition emphasis"
@@ -353,7 +379,7 @@ export function StepRequirements({
             </div>
             <button
               type="button"
-              className="icon-button"
+              className="icon-button mt-5 shrink-0"
               aria-label="Remove precondition"
               disabled={disabled}
               onClick={() =>
@@ -382,15 +408,18 @@ export function StepRequirements({
           <Plus size={15} />
           Add precondition
         </button>
-        <div className="earlier-steps-picker">
-          <h3>Earlier steps to complete</h3>
+        <div className="mt-5.5 border-t border-solid border-t-line pt-4.5">
+          <h3 className="mt-0 mb-2.5 text-[13px]">Earlier steps to complete</h3>
           {index === 0 && step.earlierStepIds.length === 0 ? (
-            <p>This is the first step; there are no earlier steps to select.</p>
+            <p className="text-[12px]">
+              This is the first step; there are no earlier steps to select.
+            </p>
           ) : (
             <>
               {document.steps.slice(0, index).map((earlier, earlierIndex) => (
-                <label className="requirement-checkbox" key={earlier.id}>
+                <label className={checkboxLabel} key={earlier.id}>
                   <input
+                    className={checkbox}
                     type="checkbox"
                     checked={step.earlierStepIds.includes(earlier.id)}
                     disabled={disabled}
@@ -410,7 +439,7 @@ export function StepRequirements({
                 .map((id) => {
                   const moved = document.steps.find((entry) => entry.id === id);
                   return (
-                    <div className="requirements-feedback" key={id}>
+                    <div className={feedback} key={id}>
                       <p>
                         {moved
                           ? `“${moved.title}” is now after this step. Move it earlier or remove the dependency.`
@@ -436,7 +465,7 @@ export function StepRequirements({
         </div>
       </section>
       {issues.length > 0 && (
-        <div className="requirements-feedback" role="status">
+        <div className={feedback} role="status">
           <strong>Before publishing this step</strong>
           <ul>
             {issues.map((issue, issueIndex) => (

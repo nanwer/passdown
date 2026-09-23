@@ -2,6 +2,8 @@
 
 // Adapted from Tiptap UI Components (MIT). See THIRD_PARTY_NOTICES.md.
 import { useEffect, useRef, type HTMLAttributes } from 'react';
+import { cn } from '@guide/ui';
+import { toolbarClass, toolbarGroupClass } from '../rich-text-styles';
 
 /** Tiptap-style grouped toolbar with a single tab stop and arrow-key navigation. */
 export function Toolbar({ children, className = '', ...props }: HTMLAttributes<HTMLDivElement>) {
@@ -39,7 +41,7 @@ export function Toolbar({ children, className = '', ...props }: HTMLAttributes<H
       ref={ref}
       role="toolbar"
       aria-label="Format instructions"
-      className={`rte-composer-toolbar ${className}`}
+      className={cn(toolbarClass, className)}
       {...props}
       onKeyDown={(event) => {
         props.onKeyDown?.(event);
@@ -76,7 +78,7 @@ export function ToolbarGroup({
   ...props
 }: HTMLAttributes<HTMLDivElement>) {
   return (
-    <div role="group" className={`rte-composer-group ${className}`} {...props}>
+    <div role="group" className={cn(toolbarGroupClass, className)} {...props}>
       {children}
     </div>
   );

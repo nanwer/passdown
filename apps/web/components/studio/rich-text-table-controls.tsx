@@ -10,7 +10,6 @@ import {
   tablePositionFromElement,
   type TableInsertionAxis,
 } from './rich-text-table-insertion';
-import './rich-text-table-controls.css';
 
 type Point = { x: number; y: number };
 type Target = { table: HTMLTableElement; point: Point };
@@ -241,7 +240,7 @@ export function RichTextTableControls({
   return createPortal(
     <div
       ref={overlay}
-      className="rte-table-insertion"
+      className="pointer-events-none fixed inset-0 z-[42]"
       data-table-insertion-controls=""
       role="group"
       aria-label="Table insertion controls"
@@ -250,7 +249,7 @@ export function RichTextTableControls({
         <>
           <div
             aria-hidden="true"
-            className={`rte-table-insertion-line rte-table-insertion-line--row${emphasis === 'row' ? ' is-emphasized' : ''}`}
+            className={`rte-table-insertion-line--row absolute bg-focus pointer-events-none h-0.5 [transform:translateY(-1px)] ${emphasis === 'row' ? 'is-emphasized opacity-100' : 'opacity-[0.28]'}`}
             style={{
               left: geometry.left,
               top: Math.min(geometry.rowY, window.innerHeight - 1),
@@ -259,7 +258,7 @@ export function RichTextTableControls({
           />
           <button
             type="button"
-            className="rte-table-insertion-handle rte-table-insertion-handle--row"
+            className="absolute grid size-6 place-items-center rounded-[50%] border border-solid border-focus bg-editor-canvas p-0 text-focus [box-shadow:0_2px_7px_#1018281a] [transform:translate(-50%,-50%)] cursor-pointer pointer-events-auto hover:bg-action hover:text-action-ink hover:[outline:2px_solid_var(--gp-semantic-focus-ring)] hover:outline-offset-[2px] focus-visible:bg-action focus-visible:text-action-ink focus-visible:[outline:2px_solid_var(--gp-semantic-focus-ring)] focus-visible:outline-offset-[2px] disabled:cursor-default disabled:border-editor-line disabled:bg-editor-canvas disabled:text-editor-muted disabled:[box-shadow:none] pointer-coarse:size-7.5"
             aria-label={`Insert row at position ${geometry.row + 1}`}
             title={
               geometry.rows >= 51 ? 'Maximum 51 rows' : `Insert row at position ${geometry.row + 1}`
@@ -282,7 +281,7 @@ export function RichTextTableControls({
         <>
           <div
             aria-hidden="true"
-            className={`rte-table-insertion-line rte-table-insertion-line--column${emphasis === 'column' ? ' is-emphasized' : ''}`}
+            className={`rte-table-insertion-line--column absolute bg-focus pointer-events-none w-0.5 [transform:translateX(-1px)] ${emphasis === 'column' ? 'is-emphasized opacity-100' : 'opacity-[0.28]'}`}
             style={{
               left: geometry.columnX,
               top: geometry.top,
@@ -291,7 +290,7 @@ export function RichTextTableControls({
           />
           <button
             type="button"
-            className="rte-table-insertion-handle rte-table-insertion-handle--column"
+            className="absolute grid size-6 place-items-center rounded-[50%] border border-solid border-focus bg-editor-canvas p-0 text-focus [box-shadow:0_2px_7px_#1018281a] [transform:translate(-50%,-50%)] cursor-pointer pointer-events-auto hover:bg-action hover:text-action-ink hover:[outline:2px_solid_var(--gp-semantic-focus-ring)] hover:outline-offset-[2px] focus-visible:bg-action focus-visible:text-action-ink focus-visible:[outline:2px_solid_var(--gp-semantic-focus-ring)] focus-visible:outline-offset-[2px] disabled:cursor-default disabled:border-editor-line disabled:bg-editor-canvas disabled:text-editor-muted disabled:[box-shadow:none] pointer-coarse:size-7.5"
             aria-label={`Insert column at position ${geometry.column + 1}`}
             title={
               geometry.columns >= 10

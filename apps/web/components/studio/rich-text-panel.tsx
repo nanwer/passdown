@@ -22,7 +22,25 @@ import {
   CornerDownRight,
   PanelTopClose,
 } from 'lucide-react';
-import './rich-text-panel.css';
+import { cn } from '@guide/ui';
+
+/** The custom properties each tone sets, which the block, its type button and the menu read. */
+const toneVars = {
+  info: '[--editor-panel-background:var(--gp-semantic-status-info-background)] [--editor-panel-foreground:var(--gp-semantic-status-info-foreground)]',
+  note: '[--editor-panel-background:var(--gp-semantic-status-note-background)] [--editor-panel-foreground:var(--gp-semantic-status-note-foreground)]',
+  success:
+    '[--editor-panel-background:var(--gp-semantic-status-success-background)] [--editor-panel-foreground:var(--gp-semantic-status-success-foreground)]',
+  warning:
+    '[--editor-panel-background:var(--gp-semantic-status-warning-background)] [--editor-panel-foreground:var(--gp-semantic-status-warning-foreground)]',
+  danger:
+    '[--editor-panel-background:var(--gp-semantic-status-error-background)] [--editor-panel-foreground:var(--gp-semantic-status-error-foreground)]',
+  decision:
+    '[--editor-panel-background:var(--gp-semantic-accent-background)] [--editor-panel-foreground:var(--gp-semantic-accent-foreground)]',
+} as const;
+const editorSurface =
+  'border border-solid border-[var(--gp-component-editor-border,var(--gp-semantic-border-subtle))] rounded-[9px] text-[var(--gp-component-editor-text,var(--gp-semantic-text-primary))] [background:var(--gp-component-editor-canvas,var(--gp-semantic-surface-raised))] [box-shadow:0_4px_10px_rgb(0_0_0_/_8%),0_10px_24px_rgb(0_0_0_/_10%)]';
+const controlButton =
+  'inline-flex min-h-8.5 w-8.5 cursor-pointer items-center justify-center gap-[7px] rounded-[5px] border-0 bg-transparent p-[7px] text-inherit [font:inherit] hover:[background:var(--gp-component-editor-hover,var(--gp-semantic-surface-sunken))] data-[state=open]:[background:var(--gp-component-editor-hover,var(--gp-semantic-surface-sunken))] focus-visible:[outline:2px_solid_var(--gp-semantic-focus-ring)] focus-visible:outline-offset-[1px]';
 
 export const panelTypes = [
   { tone: 'info', label: 'Info', Icon: Info },
@@ -135,22 +153,26 @@ export function RichTextPanel({ node, editor, getPos, selected, onExit, onUnwrap
   return (
     <NodeViewWrapper
       ref={panelRef}
-      className={`editor-panel editor-panel-tone--${kind.tone}`}
+      className={`editor-panel my-4 mx-0 flex min-w-0 items-start gap-3 rounded-[7px] border border-solid border-transparent bg-[var(--editor-panel-background)] px-4 py-3.5 text-[var(--gp-component-editor-text,var(--gp-semantic-text-primary))] [transition:border-color_120ms_ease] data-[active]:border-[color-mix(in_srgb,var(--editor-panel-foreground)_38%,transparent)] motion-reduce:[transition:none] [td_&]:mx-0 [td_&]:my-[3px] [td_&]:gap-[9px] [td_&]:px-3 [td_&]:py-2.5 [th_&]:mx-0 [th_&]:my-[3px] [th_&]:gap-[9px] [th_&]:px-3 [th_&]:py-2.5 ${toneVars[kind.tone]}`}
       data-type="panel"
       data-tone={kind.tone}
       data-active={showControls || undefined}
       role="group"
       aria-label={`${kind.label} panel`}
     >
-      <span className="editor-panel-icon" contentEditable={false} title={`${kind.label} panel`}>
+      <span
+        className="mt-[3px] inline-flex flex-[0_0_21px] text-[var(--editor-panel-foreground)] select-none"
+        contentEditable={false}
+        title={`${kind.label} panel`}
+      >
         <kind.Icon size={21} strokeWidth={2.2} aria-hidden="true" />
       </span>
-      <NodeViewContent className="editor-panel-content" />
+      <NodeViewContent className="min-w-0 flex-[1_1_auto] [&>:first-child]:mt-0 [&>:last-child]:mb-0 [&>[data-node-view-content-react]>:first-child]:mt-0 [&>[data-node-view-content-react]>:last-child]:mb-0" />
       {showControls &&
         createPortal(
           <div
             ref={controlsRef}
-            className="editor-panel-controls"
+            className={`editor-panel-controls fixed z-[45] flex w-[max-content] items-center gap-[3px] p-1 [font:13px/1.4_var(--gp-semantic-font-body)] ${editorSurface}`}
             role="toolbar"
             aria-label="Panel controls"
             style={{
@@ -191,7 +213,11 @@ export function RichTextPanel({ node, editor, getPos, selected, onExit, onUnwrap
               <DropdownMenu.Trigger asChild>
                 <button
                   type="button"
-                  className={`editor-panel-type editor-panel-tone--${kind.tone}`}
+                  className={cn(
+                    controlButton,
+                    'w-auto min-w-[111px] justify-start bg-[var(--editor-panel-background)] px-[9px] font-[650] text-[var(--editor-panel-foreground)] [&>:last-child]:ms-auto',
+                    toneVars[kind.tone],
+                  )}
                   aria-label="Panel type"
                 >
                   <kind.Icon size={18} aria-hidden="true" />
@@ -201,7 +227,7 @@ export function RichTextPanel({ node, editor, getPos, selected, onExit, onUnwrap
               </DropdownMenu.Trigger>
               <DropdownMenu.Portal>
                 <DropdownMenu.Content
-                  className="editor-panel-menu"
+                  className={`z-[55] max-h-[var(--radix-dropdown-menu-content-available-height)] w-53.5 overflow-y-auto p-1.5 [font:14px/1.4_var(--gp-semantic-font-body)] ${editorSurface}`}
                   data-editor-panel-menu=""
                   sideOffset={7}
                   align="start"
@@ -212,29 +238,41 @@ export function RichTextPanel({ node, editor, getPos, selected, onExit, onUnwrap
                     if (editor.isFocused) event.preventDefault();
                   }}
                 >
-                  <DropdownMenu.Label className="editor-panel-menu-label">
+                  <DropdownMenu.Label className="px-2.5 py-[7px] text-[11px] font-[650] tracking-[0.035em] text-[var(--gp-component-editor-muted,var(--gp-semantic-text-secondary))]">
                     Panel type
                   </DropdownMenu.Label>
                   {panelTypes.map(({ tone, label, Icon }) => (
                     <DropdownMenu.Item
                       key={tone}
-                      className={`editor-panel-menu-item editor-panel-tone--${tone}`}
+                      className={`flex min-h-10 cursor-pointer items-center gap-[11px] rounded-[5px] px-2.5 py-[9px] [outline:none] select-none focus-visible:[outline:2px_solid_var(--gp-semantic-focus-ring)] focus-visible:outline-offset-[1px] data-[highlighted]:[background:var(--gp-component-editor-hover,var(--gp-semantic-surface-sunken))] ${toneVars[tone]}`}
                       onSelect={() => changeType(tone)}
                       aria-label={label}
                     >
-                      <Icon size={19} className="editor-panel-menu-icon" aria-hidden="true" />
+                      <Icon
+                        size={19}
+                        className="flex-[0_0_auto] text-[var(--editor-panel-foreground)]"
+                        aria-hidden="true"
+                      />
                       <span>{label}</span>
                       {kind.tone === tone && (
-                        <Check size={16} className="editor-panel-menu-check" aria-hidden="true" />
+                        <Check
+                          size={16}
+                          className="ms-auto text-[var(--gp-component-editor-muted,var(--gp-semantic-text-secondary))]"
+                          aria-hidden="true"
+                        />
                       )}
                     </DropdownMenu.Item>
                   ))}
                 </DropdownMenu.Content>
               </DropdownMenu.Portal>
             </DropdownMenu.Root>
-            <span className="editor-panel-controls-divider" aria-hidden="true" />
+            <span
+              className="mx-[3px] h-6 w-[1px] [background:var(--gp-component-editor-border,var(--gp-semantic-border-subtle))]"
+              aria-hidden="true"
+            />
             <button
               type="button"
+              className={controlButton}
               aria-label="Exit panel"
               title="Continue below panel (⌘/Ctrl+Enter)"
               onMouseDown={(event) => event.preventDefault()}
@@ -244,6 +282,7 @@ export function RichTextPanel({ node, editor, getPos, selected, onExit, onUnwrap
             </button>
             <button
               type="button"
+              className={controlButton}
               aria-label="Remove panel style"
               title="Remove panel styling, keep content"
               onMouseDown={(event) => event.preventDefault()}

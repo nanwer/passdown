@@ -24,7 +24,24 @@ import {
 } from 'lucide-react';
 import { insertPanel, panelTypes } from './rich-text-extensions';
 import { Toolbar, ToolbarGroup } from './tiptap-primitives/toolbar';
-import './rich-text-toolbar.css';
+import {
+  headingPreviewSize,
+  insertMenuClass,
+  insertToolClass,
+  menuCheckClass,
+  menuClass,
+  menuItemClass,
+  menuLabelClass,
+  menuMetaClass,
+  menuSeparatorClass,
+  panelIconClass,
+  panelIconTone,
+  panelMenuItemClass,
+  spacerClass,
+  textStyleToolClass,
+  toolClass,
+  tooltipClass,
+} from './rich-text-styles';
 
 interface RichTextToolbarProps {
   editor: Editor | null;
@@ -53,7 +70,7 @@ function Tool({
       <Tooltip.Trigger asChild>
         <button
           type="button"
-          className="rte-tool"
+          className={toolClass}
           aria-label={label}
           aria-pressed={active}
           disabled={disabled}
@@ -64,7 +81,7 @@ function Tool({
         </button>
       </Tooltip.Trigger>
       <Tooltip.Portal>
-        <Tooltip.Content className="rte-composer-tooltip" sideOffset={8} collisionPadding={8}>
+        <Tooltip.Content className={tooltipClass} sideOffset={8} collisionPadding={8}>
           <span>{label}</span>
           {shortcut && <kbd>{shortcut}</kbd>}
         </Tooltip.Content>
@@ -95,7 +112,7 @@ function TextStyleMenu({ editor, disabled }: Pick<RichTextToolbarProps, 'editor'
       <DropdownMenu.Trigger asChild>
         <button
           type="button"
-          className="rte-tool rte-tool--text-style"
+          className={textStyleToolClass}
           aria-label="Text style"
           disabled={disabled}
         >
@@ -105,7 +122,7 @@ function TextStyleMenu({ editor, disabled }: Pick<RichTextToolbarProps, 'editor'
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>
         <DropdownMenu.Content
-          className="rte-composer-menu rte-composer-menu--styles"
+          className={menuClass}
           align="start"
           sideOffset={8}
           collisionPadding={12}
@@ -114,9 +131,9 @@ function TextStyleMenu({ editor, disabled }: Pick<RichTextToolbarProps, 'editor'
             if (changed.current) event.preventDefault();
           }}
         >
-          <DropdownMenu.Label className="rte-composer-menu-label">Text style</DropdownMenu.Label>
+          <DropdownMenu.Label className={menuLabelClass}>Text style</DropdownMenu.Label>
           <DropdownMenu.Item
-            className="rte-composer-menu-item"
+            className={menuItemClass}
             onSelect={() => {
               changed.current = true;
               editor?.chain().focus().setParagraph().run();
@@ -124,12 +141,12 @@ function TextStyleMenu({ editor, disabled }: Pick<RichTextToolbarProps, 'editor'
           >
             <Pilcrow size={17} aria-hidden="true" />
             <span>Normal text</span>
-            {!level && <Check className="rte-menu-check" size={16} aria-hidden="true" />}
+            {!level && <Check className={menuCheckClass} size={16} aria-hidden="true" />}
           </DropdownMenu.Item>
           {[1, 2, 3, 4, 5, 6].map((heading) => (
             <DropdownMenu.Item
               key={heading}
-              className="rte-composer-menu-item"
+              className={menuItemClass}
               onSelect={() => {
                 changed.current = true;
                 editor
@@ -139,14 +156,17 @@ function TextStyleMenu({ editor, disabled }: Pick<RichTextToolbarProps, 'editor'
                   .run();
               }}
             >
-              <span className="rte-heading-symbol" aria-hidden="true">
-                H<small>{heading}</small>
+              <span
+                className="w-4.5 flex-[0_0_18px] text-[13px] font-semibold text-editor-muted"
+                aria-hidden="true"
+              >
+                H<small className="text-[9px]">{heading}</small>
               </span>
-              <span className={`rte-heading-preview rte-heading-preview--${heading}`}>
+              <span className={`font-semibold ${headingPreviewSize[heading] ?? ''}`}>
                 Heading {heading}
               </span>
               {level === heading && (
-                <Check className="rte-menu-check" size={16} aria-hidden="true" />
+                <Check className={menuCheckClass} size={16} aria-hidden="true" />
               )}
             </DropdownMenu.Item>
           ))}
@@ -172,7 +192,7 @@ function InsertMenu({ editor, disabled }: Pick<RichTextToolbarProps, 'editor' | 
       <DropdownMenu.Trigger asChild>
         <button
           type="button"
-          className="rte-tool rte-tool--insert"
+          className={insertToolClass}
           aria-label="Insert elements"
           disabled={disabled}
         >
@@ -183,7 +203,7 @@ function InsertMenu({ editor, disabled }: Pick<RichTextToolbarProps, 'editor' | 
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>
         <DropdownMenu.Content
-          className="rte-composer-menu rte-composer-menu--insert"
+          className={insertMenuClass}
           align="start"
           sideOffset={8}
           collisionPadding={12}
@@ -192,10 +212,10 @@ function InsertMenu({ editor, disabled }: Pick<RichTextToolbarProps, 'editor' | 
             if (changed.current) event.preventDefault();
           }}
         >
-          <DropdownMenu.Label className="rte-composer-menu-label">Panels</DropdownMenu.Label>
+          <DropdownMenu.Label className={menuLabelClass}>Panels</DropdownMenu.Label>
           {panelTypes.map(({ tone, label, Icon }) => (
             <DropdownMenu.Item
-              className="rte-composer-menu-item rte-composer-menu-item--panel"
+              className={panelMenuItemClass}
               key={tone}
               aria-label={`${label} panel`}
               onSelect={() =>
@@ -204,18 +224,20 @@ function InsertMenu({ editor, disabled }: Pick<RichTextToolbarProps, 'editor' | 
                 })
               }
             >
-              <span className={`rte-menu-panel-icon rte-menu-panel-icon--${tone}`}>
+              <span className={`${panelIconClass} ${panelIconTone[tone]}`}>
                 <Icon size={18} aria-hidden="true" />
               </span>
-              <span className="rte-menu-item-copy">
+              <span className="flex flex-col gap-0.5">
                 <span>{label} panel</span>
-                <small>{panelDescriptions[tone]}</small>
+                <small className="text-[11px] font-normal text-editor-muted">
+                  {panelDescriptions[tone]}
+                </small>
               </span>
             </DropdownMenu.Item>
           ))}
-          <DropdownMenu.Separator className="rte-composer-menu-separator" />
+          <DropdownMenu.Separator className={menuSeparatorClass} />
           <DropdownMenu.Item
-            className="rte-composer-menu-item"
+            className={menuItemClass}
             aria-label="Table"
             disabled={editor?.isActive('table')}
             onSelect={() =>
@@ -230,10 +252,10 @@ function InsertMenu({ editor, disabled }: Pick<RichTextToolbarProps, 'editor' | 
           >
             <Table2 size={18} aria-hidden="true" />
             <span>Table</span>
-            <small className="rte-menu-meta">3 × 3</small>
+            <small className={menuMetaClass}>3 × 3</small>
           </DropdownMenu.Item>
           <DropdownMenu.Item
-            className="rte-composer-menu-item"
+            className={menuItemClass}
             onSelect={() =>
               insert(() => {
                 editor?.chain().focus().toggleBlockquote().run();
@@ -243,7 +265,7 @@ function InsertMenu({ editor, disabled }: Pick<RichTextToolbarProps, 'editor' | 
             <Quote size={18} aria-hidden="true" />
             <span>Quote</span>
             {editor?.isActive('blockquote') && (
-              <Check className="rte-menu-check" size={16} aria-hidden="true" />
+              <Check className={menuCheckClass} size={16} aria-hidden="true" />
             )}
           </DropdownMenu.Item>
         </DropdownMenu.Content>
@@ -344,9 +366,9 @@ export function RichTextToolbar({
         <ToolbarGroup aria-label="Insert content">
           <InsertMenu editor={editor} disabled={unavailable} />
         </ToolbarGroup>
-        <span className="rte-composer-spacer" aria-hidden="true" />
+        <span className={spacerClass} aria-hidden="true" />
         {context}
-        <ToolbarGroup aria-label="Edit history" className="rte-composer-group--history">
+        <ToolbarGroup aria-label="Edit history">
           <Tool
             label="Undo"
             shortcut="⌘/Ctrl Z"

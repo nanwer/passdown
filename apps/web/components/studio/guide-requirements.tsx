@@ -11,10 +11,20 @@ import {
   type RequirementUnit,
 } from '@guide/content';
 import { Dialog, buttonVariants } from '@guide/ui';
+import {
+  addActions,
+  cardDetail,
+  cardHeader,
+  cardTitle,
+  checkbox,
+  checkboxLabel,
+  feedback,
+  fieldControl,
+  fieldLabel,
+} from './requirement-styles';
 import { Package, RefreshCw, Trash2, Wrench } from 'lucide-react';
 import { CatalogPicker } from '../structured';
 import { studioFetch } from './transport';
-import './guide-requirements.css';
 
 /**
  * Which list you added it to is the answer. That is the whole model: an item
@@ -58,10 +68,11 @@ export function RequirementQuantity({
   disabled?: boolean;
 }) {
   return (
-    <div className="requirement-quantity">
-      <label>
+    <div className="my-4 grid grid-cols-[minmax(140px,1.5fr)_minmax(75px,1fr)_minmax(70px,1fr)] gap-3 max-[600px]:grid-cols-[1fr_1fr]">
+      <label className={`${fieldLabel} max-[600px]:col-[1/-1]`}>
         Amount
         <select
+          className={`${fieldControl} min-h-10`}
           aria-label={`${label} amount type`}
           value={quantity === null ? 'as-needed' : 'fixed'}
           disabled={disabled}
@@ -74,9 +85,10 @@ export function RequirementQuantity({
         </select>
       </label>
       {quantity !== null && (
-        <label>
+        <label className={fieldLabel}>
           Quantity
           <input
+            className={`${fieldControl} min-h-10`}
             aria-label={`${label} quantity`}
             type="number"
             min={role === 'keep' ? 1 : 0.00000001}
@@ -88,9 +100,10 @@ export function RequirementQuantity({
           />
         </label>
       )}
-      <label>
+      <label className={fieldLabel}>
         Unit
         <select
+          className={`${fieldControl} min-h-10`}
           aria-label={`${label} unit`}
           value={unit}
           disabled={disabled}
@@ -204,22 +217,27 @@ export function GuideRequirements({
   }
   const issues = getRequirementIssues(document).filter((issue) => issue.path[0] === 'requirements');
   return (
-    <section className="authoring-requirements" aria-labelledby="guide-requirements-title">
-      <div className="requirements-section-heading">
+    <section
+      className="mt-7 border-t border-solid border-t-line pt-7"
+      aria-labelledby="guide-requirements-title"
+    >
+      <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 id="guide-requirements-title">Tools, materials & parts</h2>
-          <p>
+          <h2 id="guide-requirements-title" className="m-0 text-[21px]">
+            Tools, materials & parts
+          </h2>
+          <p className="mx-0 mt-[7px] mb-4 text-[13px] leading-[1.6]">
             Select exact items from your workspace catalog. Set the total to prepare for the whole
             guide.
           </p>
         </div>
-        <Wrench size={22} aria-hidden="true" />
+        <Wrench size={22} aria-hidden="true" className="mt-[5px] shrink-0 text-muted" />
       </div>
-      <p className="requirements-notice" role="status">
+      <p className="text-[13px] empty:hidden" role="status">
         {notice}
       </p>
       {catalogState === 'error' && (
-        <div className="requirements-feedback" role="status">
+        <div className={feedback} role="status">
           <p>{catalogError} Your selected details are preserved.</p>
           <button
             className={buttonVariants({ variant: 'secondary' })}
@@ -232,16 +250,19 @@ export function GuideRequirements({
         </div>
       )}
       {document.unresolvedTools.length > 0 && (
-        <div className="legacy-requirements">
+        <div className={`${feedback} [&_h3]:m-0 [&_h3]:text-[14px]`}>
           <h3>Link existing preparation notes</h3>
           <p>
             These original notes are preserved. Select or create a catalog item for each before
             publishing.
           </p>
           {document.unresolvedTools.map((entry) => (
-            <div className="legacy-requirement" key={entry.id}>
+            <div
+              className="flex items-center justify-between gap-3 py-2.5 max-[600px]:flex-col max-[600px]:items-start"
+              key={entry.id}
+            >
               <strong>{entry.label}</strong>
-              <div>
+              <div className="flex flex-wrap gap-2">
                 <CatalogPicker
                   disabled={disabled}
                   workspace={workspace}
@@ -287,14 +308,14 @@ export function GuideRequirements({
         const selected = document.requirements.filter((entry) => entry.role === group);
         const Icon = group === 'keep' ? Wrench : Package;
         return (
-          <div className="requirement-group" key={group}>
-            <h3>
+          <div className="[&+&]:mt-7" key={group}>
+            <h3 className="mt-4 mb-3 flex items-center gap-2 text-[15px]">
               <Icon size={17} aria-hidden="true" />
               {group === 'keep' ? 'What you need to hand' : 'What gets used up'}
-              <span>{selected.length}</span>
+              <span className="ms-auto text-[12px] font-medium text-muted">{selected.length}</span>
             </h3>
             {selected.length === 0 && (
-              <p className="requirements-empty">
+              <p className="mx-0 mt-[7px] mb-4 text-[13px] leading-[1.6]">
                 {group === 'keep'
                   ? 'Anything the reader still has when they are done — tools, a jig, gloves.'
                   : 'Anything used up or fitted — a screw, an adhesive, a replacement screen.'}
@@ -310,17 +331,17 @@ export function GuideRequirements({
               const allocated = allocatedRequirementQuantity(document, entry.id);
               return (
                 <article
-                  className="requirement-card"
+                  className="requirement-card my-3 scroll-mt-[120px] scroll-mb-[120px] rounded-[10px] border border-solid border-line bg-panel p-4.5 focus:[outline:2px_solid_var(--gp-semantic-focus-ring)] focus:outline-offset-[3px] max-[600px]:p-3.5"
                   id={`edit-requirement-${entry.id}`}
                   tabIndex={-1}
                   key={entry.id}
                 >
-                  <div className="requirement-card-header">
+                  <div className={cardHeader}>
                     <div>
-                      <h4>{entry.name}</h4>
-                      {entry.specification && <p>{entry.specification}</p>}
+                      <h4 className={cardTitle}>{entry.name}</h4>
+                      {entry.specification && <p className={cardDetail}>{entry.specification}</p>}
                       {[entry.manufacturer, entry.model, entry.partNumber].some(Boolean) && (
-                        <small>
+                        <small className={cardDetail}>
                           {[entry.manufacturer, entry.model, entry.partNumber]
                             .filter(Boolean)
                             .join(' · ')}
@@ -331,7 +352,7 @@ export function GuideRequirements({
                       trigger={
                         <button
                           type="button"
-                          className="icon-button"
+                          className="icon-button shrink-0"
                           aria-label={`Remove ${entry.name} from guide`}
                           disabled={disabled}
                         >
@@ -355,19 +376,19 @@ export function GuideRequirements({
                     </Dialog>
                   </div>
                   {latest?.archived && (
-                    <p className="requirements-feedback">
+                    <p className={feedback}>
                       Archived in the catalog. Existing selections remain readable; select a
                       replacement if this item is no longer suitable.
                     </p>
                   )}
                   {latest && latest.visibility === 'members' && guideAudience === 'public' && (
-                    <p className="requirements-feedback">
+                    <p className={feedback}>
                       This catalog item is private. Select a public item before publishing this
                       public guide.
                     </p>
                   )}
                   {catalogState === 'ready' && !latest && (
-                    <p className="requirements-feedback">
+                    <p className={feedback}>
                       Catalog item unavailable. Your selected details are retained; replace or
                       remove it before publishing.
                     </p>
@@ -377,14 +398,18 @@ export function GuideRequirements({
                       open={review === entry.id}
                       onOpenChange={(open) => setReview(open ? entry.id : null)}
                       trigger={
-                        <button type="button" className="requirement-update" disabled={disabled}>
+                        <button
+                          type="button"
+                          className="cursor-pointer border-0 [background:none] px-0 py-2 text-start text-[12px] text-ink underline [font:inherit]"
+                          disabled={disabled}
+                        >
                           Catalog update available · Review changes
                         </button>
                       }
                       title="Review catalog changes"
                       description="Applying this update changes only this draft’s item details. Your confirmed quantity, unit, notes and published releases stay unchanged."
                     >
-                      <div className="requirement-comparison">
+                      <div className="[&_p]:text-[13px] [&_p]:wrap-anywhere [&_p]:whitespace-pre-wrap [&_span]:font-[650] [&_strong]:capitalize [&>div]:border-b [&>div]:border-solid [&>div]:border-b-line [&>div]:py-3">
                         {(
                           [
                             'name',
@@ -442,8 +467,9 @@ export function GuideRequirements({
                     disabled={disabled}
                     onChange={(next) => patch(entry.id, next)}
                   />
-                  <label className="requirement-checkbox">
+                  <label className={checkboxLabel}>
                     <input
+                      className={checkbox}
                       type="checkbox"
                       checked={entry.optional}
                       disabled={disabled}
@@ -451,9 +477,10 @@ export function GuideRequirements({
                     />
                     Optional for this guide
                   </label>
-                  <label className="requirement-notes-label">
+                  <label>
                     Guide-specific notes
                     <textarea
+                      className={fieldControl}
                       rows={2}
                       maxLength={2000}
                       value={entry.notes}
@@ -466,7 +493,7 @@ export function GuideRequirements({
                       right answer until an author gives one, so it has to be
                       changeable after the fact. Moving it also fixes up the
                       step usages, because a thing you keep is reused. */}
-                  <label className="requirement-role">
+                  <label>
                     Will the reader still have it afterwards?
                     <select
                       value={entry.role}
@@ -493,7 +520,7 @@ export function GuideRequirements({
                       <option value="use">No — it is used up or fitted</option>
                     </select>
                   </label>
-                  <div className="requirement-allocation">
+                  <div className="flex flex-col gap-[5px] pt-3.5 text-[11px] leading-[1.5] text-muted">
                     <span>
                       {usedIn.length
                         ? `Used in steps ${usedIn.join(', ')}`
@@ -511,7 +538,7 @@ export function GuideRequirements({
                 </article>
               );
             })}
-            <div className="requirements-add-actions">
+            <div className={addActions}>
               {/* One picker per group, because the group is the answer. Three
                   buttons used to ask which permanent kind an item was, which
                   is a question the catalog no longer has an opinion about. */}
@@ -528,7 +555,7 @@ export function GuideRequirements({
         );
       })}
       {issues.length > 0 && (
-        <div className="requirements-feedback" role="status">
+        <div className={feedback} role="status">
           <strong>Before publishing</strong>
           <ul>
             {issues.map((issue, index) => (

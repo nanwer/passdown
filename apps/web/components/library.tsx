@@ -13,7 +13,6 @@ import { ArrowLeft, ArrowRight, ArrowUpRight, LockKeyhole, PenLine, Search } fro
 import { t } from '../lib/messages';
 import { LibrarySearchField } from './library-search-field';
 import { LibraryCategoryLink } from './library-category-link';
-import './library-search.css';
 import { CategoryBrowse, CategoryBreadcrumbs } from './category-browse';
 export function Library({
   guides,
@@ -148,14 +147,14 @@ export function Library({
     >
       <main id="main" tabIndex={-1}>
         {selectedCategory ? (
-          <section className="category-hero page-width">
+          <section className="page-width pt-10 pb-9">
             <CategoryBreadcrumbs category={selectedCategory} base={guideBase} />
             {/* The picture had one home, the browse grid on the front page. That
                 grid is gone, so it shows here instead — at the size it deserves,
                 on the page about this one thing. */}
             {selectedCategory.imageAssetId && (
               <img
-                className="category-hero-image"
+                className="category-hero-image mt-5 mb-1 block aspect-video w-full max-w-[320px] rounded-panel border border-line object-cover"
                 src={`/api/media/${selectedCategory.workspaceId}/${selectedCategory.imageAssetId}?w=400`}
                 alt=""
                 decoding="async"
@@ -163,8 +162,10 @@ export function Library({
             )}
             {/* The library names itself in the header tab and again in the
                 breadcrumb above. A third label here was only noise. */}
-            <h1>{selectedCategory.name}</h1>
-            <p>
+            <h1 className="max-w-[900px] text-[clamp(36px,5vw,64px)] leading-[1.12] tracking-[-0.055em] wrap-anywhere">
+              {selectedCategory.name}
+            </h1>
+            <p className="mt-4 max-w-[720px] text-[18px] text-muted wrap-anywhere">
               {selectedCategory.description ||
                 'Find instructions, explore related topics and build on what others know.'}
             </p>
@@ -226,7 +227,7 @@ export function Library({
           {selectedCategory && (
             // Inside a category the category is the page, so the search narrows
             // what is already on it and belongs beside the results.
-            <div className="library-toolbar library-toolbar--category">
+            <div className="library-toolbar mb-7">
               <LibrarySearchField
                 query={query}
                 category=""
