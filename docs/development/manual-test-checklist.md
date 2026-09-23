@@ -174,3 +174,11 @@ Publish more than 24 guides in one workspace before starting; the page holds 24.
 - Follow the README links to the roadmap, contribution guide, development status, manual tests, license, and third-party notices. Each should resolve to the intended document.
 
 This documentation update changes no application behavior. Commands were checked against the repository scripts and relative links were validated; a new installation and destructive showcase run were not performed for this documentation-only change.
+
+## Roadmap clarity
+
+1. Open `ROADMAP.md`. Expect a short list of available capabilities, followed by ordered upcoming outcomes, later work, and production-readiness requirements.
+2. Compare the photo-upload entry with the editor. Progress and retry controls should be described as available, while non-image attachments remain upcoming.
+3. Follow the README, development-status, and contribution links. Each should resolve. Upcoming milestones should state a reader or author outcome and a completion criterion without promising release dates.
+
+This is a documentation update. It does not implement the roadmap milestones or resolve application findings from a review.
