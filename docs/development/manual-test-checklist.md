@@ -117,3 +117,13 @@ Publish more than 24 guides in one workspace before starting; the page holds 24.
 7. Edit the address to a page beyond the end, such as `?page=99`. Expect a plain explanation and a way back, not an empty library.
 8. Open a category that has others inside it and compare each card's total under **Inside this thing** with the guides that branch actually holds. Expect them to agree, and a members-only guide never to be counted on the public side.
 9. Repeat steps 1–3 at 390px wide and in dark mode. Expect the summary and controls to stay readable and reachable without horizontal scrolling.
+
+## README and installation documentation
+
+- Open the repository README. The product description, current capabilities, early-development status, and local quick start should be readable without consulting implementation files.
+- Follow the Installation guide link. Check that prerequisites, generated login location, app URL, stop/restart instructions, and troubleshooting are all present.
+- On a disposable fresh installation, follow steps 1–4. Expect PostgreSQL to start, `LOCAL_ACCESS.md` to contain a generated login, and Studio to accept it. Stop with Ctrl+C and `pnpm local:down`, then restart with `pnpm local:up` and `pnpm dev`; saved content should remain.
+- Check that the optional showcase instructions clearly state that they replace local content. Do not run the showcase on a database containing work you want to keep.
+- Follow the README links to the roadmap, contribution guide, development status, manual tests, license, and third-party notices. Each should resolve to the intended document.
+
+This documentation update changes no application behavior. Commands were checked against the repository scripts and relative links were validated; a new installation and destructive showcase run were not performed for this documentation-only change.

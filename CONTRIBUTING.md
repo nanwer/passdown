@@ -6,13 +6,7 @@ Start with the [README](README.md) for working features and local setup, and the
 
 ## Development setup
 
-Use Node.js 22.22.2, pnpm 10.33.0 and Docker with Compose. From the repository root:
-
-```sh
-pnpm install --frozen-lockfile
-pnpm local:setup
-pnpm dev
-```
+Follow the [installation guide](docs/getting-started.md) to install the pinned tools, start the local database, and get your generated login. It is the shared reference for setup, restarting, updates, and troubleshooting.
 
 Enable the repository's commit-message checks and template once in your clone:
 
