@@ -342,24 +342,18 @@
     text-decoration: underline;
     text-underline-offset: 5px;
   }
+  /* One backdrop for every drawing: a trace of the accent the drawings are
+     picked out in. They used to sit on the success, warning and information
+     colours, which mean something everywhere else in the interface. */
   .artwork {
     position: relative;
     aspect-ratio: 5/3;
     color: var(--gp-semantic-text-primary);
-    background: var(--gp-semantic-status-success-background);
-  }
-  .artwork--lamp {
-    background: var(--gp-semantic-status-warning-background);
-  }
-  .artwork--keyboard,
-  .artwork--camera {
-    background: var(--gp-semantic-status-info-background);
-  }
-  .artwork--headphones {
-    background: var(--gp-semantic-accent-background);
-  }
-  .artwork--bench {
-    background: var(--gp-semantic-surface-sunken);
+    background: color-mix(
+      in srgb,
+      var(--gp-semantic-action-primary-background) 7%,
+      var(--gp-semantic-surface-panel)
+    );
   }
   .artwork svg {
     width: 100%;
