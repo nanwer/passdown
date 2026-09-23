@@ -1,4 +1,4 @@
-import { AppShell } from '@guide/ui';
+import { AppShell, buttonVariants } from '@guide/ui';
 import { ArrowLeft, BookOpen } from 'lucide-react';
 export default function NotFound() {
   return (
@@ -8,7 +8,7 @@ export default function NotFound() {
         <div className="eyebrow">NOT AVAILABLE</div>
         <h1>We couldn’t find that guide.</h1>
         <p>The link may have changed, or this content may not be available to you.</p>
-        <a className="button button--primary" href="/">
+        <a className={buttonVariants()} href="/">
           <ArrowLeft size={16} />
           Back to the library
         </a>

@@ -72,6 +72,14 @@ Owner-only authoring; manual saves without browser draft backup; category depth 
 2. Repeat in dark mode and at 390px wide. Expect the same, with nothing overflowing.
 3. Open the library, a guide, the studio, a guide in the editor and **Add from catalog**. Expect every one to look exactly as it did before this change; only the People screen was meant to change.
 
+## One button everywhere
+
+1. Look at buttons across the library, a guide, the 404 page, sign-in, the studio, the editor and People. Expect one look everywhere: primary blue, secondary with a border, the same height and text size. Hover changes the background; disabled buttons are grey and show a not-allowed cursor.
+2. In the editor, look at **Move up**, **Move down**, **Duplicate** and **Remove** above a step. Expect compact, muted buttons; on the first step **Move up** is faded, not grey-filled.
+3. At 390px wide, expect the editor header's **Preview**, **Save draft** and **Publish…** to use tighter, even padding, and **New guide** on the guides page to keep space below it.
+4. Choose **Add from catalog**, select an item in a step's requirements and look at its **Remove** and quantity buttons. Expect secondary buttons to keep their border.
+5. With a forced-colours mode on (Windows High Contrast, or emulated in the browser's rendering tools), expect every button to keep a visible outline.
+
 ## Invitations, second time round
 
 1. Invite an address that already has an account in another workspace. Open the link while signed out. Expect it to say the address already has an account and to offer sign-in, not a sign-up form.

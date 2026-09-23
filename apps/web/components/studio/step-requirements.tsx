@@ -7,7 +7,7 @@ import {
   type GuideRequirement,
   type StepRequirementUsage,
 } from '@guide/content';
-import { Dialog } from '@guide/ui';
+import { Dialog, buttonVariants } from '@guide/ui';
 import { CheckCircle2, Plus, Trash2, Wrench } from 'lucide-react';
 import { CatalogPicker } from '../structured';
 import { RequirementQuantity, requirementFromCatalog } from './guide-requirements';
@@ -122,7 +122,7 @@ export function StepRequirements({
                 This item was removed from preparation.
                 <button
                   type="button"
-                  className="button button--secondary"
+                  className={buttonVariants({ variant: 'secondary' })}
                   onClick={() => removeUsage(usage.requirementId)}
                   disabled={disabled}
                 >
@@ -172,14 +172,14 @@ export function StepRequirements({
                     <div className="requirements-add-actions">
                       <button
                         type="button"
-                        className="button button--primary"
+                        className={buttonVariants()}
                         onClick={() => removeUsage(requirement.id)}
                       >
                         Remove from step, keep in preparation
                       </button>
                       <button
                         type="button"
-                        className="button button--secondary"
+                        className={buttonVariants({ variant: 'secondary' })}
                         onClick={() => removeUsage(requirement.id, true)}
                       >
                         Remove from guide too
@@ -269,7 +269,7 @@ export function StepRequirements({
             </label>
             <button
               type="button"
-              className="button button--secondary"
+              className={buttonVariants({ variant: 'secondary' })}
               disabled={!selectedRequirement || disabled}
               onClick={() => {
                 const requirement = available.find((entry) => entry.id === selectedRequirement);
@@ -368,7 +368,7 @@ export function StepRequirements({
         ))}
         <button
           type="button"
-          className="button button--secondary"
+          className={buttonVariants({ variant: 'secondary' })}
           disabled={disabled || step.preconditions.length >= 20}
           onClick={() =>
             patch({
@@ -417,7 +417,7 @@ export function StepRequirements({
                           : 'A prerequisite step was deleted. Remove or replace this dependency.'}
                       </p>
                       <button
-                        className="button button--secondary"
+                        className={buttonVariants({ variant: 'secondary' })}
                         type="button"
                         disabled={disabled}
                         onClick={() =>

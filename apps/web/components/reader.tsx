@@ -1,4 +1,4 @@
-import { AppShell } from '@guide/ui';
+import { AppShell, buttonVariants } from '@guide/ui';
 import { GuideArtwork, StepRenderer, PreparationList } from '@guide/guide-ui';
 import { sampleArtwork, type DemoGuide } from '@guide/testing';
 import type { GuideFamily } from '@guide/contracts';
@@ -70,7 +70,7 @@ export function Reader({
           // studio link goes quiet. Two filled buttons side by side also pushed
           // the header past the viewport at phone width.
           <>
-            <Link className="button button--primary" href={editHref}>
+            <Link className={buttonVariants()} href={editHref}>
               <PenLine size={16} aria-hidden="true" /> Edit
             </Link>
             <Link className="site-header-link" href="/studio">
@@ -82,12 +82,12 @@ export function Reader({
           // "Write a guide" it was the only door from the public library into
           // the studio, so anyone looking for the catalog, things or people had
           // no reason to press it and no other way through.
-          <Link className="button button--primary" href="/studio">
+          <Link className={buttonVariants()} href="/studio">
             <PenLine size={16} aria-hidden="true" /> Open studio
           </Link>
         ) : (
           // A visitor has no studio to open.
-          <Link className="button button--primary" href="/sign-in">
+          <Link className={buttonVariants()} href="/sign-in">
             Sign in
           </Link>
         )

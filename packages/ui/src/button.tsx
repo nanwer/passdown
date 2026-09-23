@@ -1,14 +1,17 @@
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
-export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: 'primary' | 'secondary' | 'ghost';
-  loading?: boolean;
-  children: ReactNode;
-};
+import { cn } from './cn';
+import { buttonVariants, type ButtonStyleProps } from './primitives';
+export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> &
+  ButtonStyleProps & {
+    loading?: boolean;
+    children: ReactNode;
+  };
 export function Button({
-  variant = 'primary',
+  variant,
+  size,
   loading = false,
   children,
-  className = '',
+  className,
   disabled,
   type = 'button',
   ...props
@@ -19,7 +22,7 @@ export function Button({
       type={type}
       disabled={disabled || loading}
       aria-busy={loading || undefined}
-      className={`button button--${variant} ${className}`}
+      className={cn(buttonVariants({ variant, size }), className)}
     >
       {loading && <span className="spinner" aria-hidden="true" />}
       {children}

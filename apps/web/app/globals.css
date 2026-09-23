@@ -824,43 +824,6 @@
     display: flex;
     gap: 10px;
   }
-  .button {
-    min-height: 42px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 9px;
-    padding: 10px 16px;
-    border: 1px solid transparent;
-    border-radius: var(--gp-component-button-radius);
-    font-size: 12px;
-    font-weight: 600;
-    line-height: 1.5;
-    transition: background var(--gp-semantic-duration-feedback);
-  }
-  .button--primary {
-    background: var(--gp-component-button-background);
-    color: var(--gp-component-button-foreground);
-  }
-  .button--primary:hover {
-    background: var(--gp-component-button-hover);
-  }
-  .button--secondary {
-    background: var(--gp-semantic-surface-raised);
-    border-color: var(--gp-semantic-border-control);
-  }
-  .button--secondary:hover,
-  .button--ghost:hover {
-    background: var(--gp-semantic-surface-sunken);
-  }
-  .button--ghost {
-    background: transparent;
-  }
-  .button:disabled {
-    cursor: not-allowed;
-    background: var(--gp-semantic-action-disabled-background);
-    color: var(--gp-semantic-action-disabled-foreground);
-  }
   .spinner {
     border: 2px solid currentColor;
     border-inline-end-color: transparent;
@@ -1576,7 +1539,6 @@
     .workspace-menu summary,
     .workspace-options,
     .dialog-content,
-    .button,
     .form-field input {
       border-color: CanvasText;
     }

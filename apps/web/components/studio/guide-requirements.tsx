@@ -10,7 +10,7 @@ import {
   type GuideRequirement,
   type RequirementUnit,
 } from '@guide/content';
-import { Dialog } from '@guide/ui';
+import { Dialog, buttonVariants } from '@guide/ui';
 import { Package, RefreshCw, Trash2, Wrench } from 'lucide-react';
 import { CatalogPicker } from '../structured';
 import { studioFetch } from './transport';
@@ -221,7 +221,11 @@ export function GuideRequirements({
       {catalogState === 'error' && (
         <div className="requirements-feedback" role="status">
           <p>{catalogError} Your selected details are preserved.</p>
-          <button className="button button--secondary" type="button" onClick={() => void refresh()}>
+          <button
+            className={buttonVariants({ variant: 'secondary' })}
+            type="button"
+            onClick={() => void refresh()}
+          >
             <RefreshCw size={14} />
             Retry catalog status
           </button>
@@ -261,7 +265,7 @@ export function GuideRequirements({
                 >
                   <button
                     type="button"
-                    className="button button--primary"
+                    className={buttonVariants()}
                     onClick={() =>
                       onChange({
                         ...document,
@@ -343,7 +347,7 @@ export function GuideRequirements({
                     >
                       <button
                         type="button"
-                        className="button button--primary"
+                        className={buttonVariants()}
                         onClick={() => remove(entry.id)}
                       >
                         Remove from guide
@@ -412,7 +416,7 @@ export function GuideRequirements({
                       </div>
                       <button
                         type="button"
-                        className="button button--primary"
+                        className={buttonVariants()}
                         onClick={() => {
                           const next = requirementFromCatalog(latest, entry.role);
                           patch(entry.id, {

@@ -60,25 +60,56 @@ export function Label({ className, ...props }: ComponentProps<'label'>) {
   );
 }
 
+/**
+ * What a button looks like, wherever one appears.
+ *
+ * The look is the one the product already had — the hand-written `.button`
+ * rules this replaces — expressed in the project's own tokens, so converting a
+ * screen changes how it is built and not how its buttons look. Buttons keep
+ * the application's focus outline rather than taking a ring of their own.
+ *
+ * The base, the colour variants and the sizes never set the same property.
+ * That matters because a class string from buttonVariants() is used as it is,
+ * without merging: if the base said `border-transparent` and a variant named a
+ * border colour, which one won would depend on the order Tailwind emits them.
+ */
+const filledWhenDisabled =
+  'disabled:bg-[var(--gp-semantic-action-disabled-background)] disabled:text-[var(--gp-semantic-action-disabled-foreground)]';
 export const buttonVariants = cva(
   cn(
-    'inline-flex shrink-0 items-center justify-center gap-2 rounded-md text-sm font-medium',
-    'transition-[color,background-color,box-shadow] disabled:pointer-events-none disabled:opacity-50',
-    "[&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4",
-    focusRing,
+    'inline-flex shrink-0 items-center justify-center gap-[9px] whitespace-nowrap',
+    'border border-solid text-xs leading-normal font-semibold',
+    '[transition:background_var(--gp-semantic-duration-feedback)]',
+    'disabled:cursor-not-allowed forced-colors:border-[CanvasText]',
   ),
   {
     variants: {
       variant: {
-        primary: 'bg-primary text-primary-foreground hover:bg-primary/90',
-        secondary:
-          'border border-input bg-transparent hover:bg-accent hover:text-accent-foreground',
-        ghost: 'hover:bg-accent hover:text-accent-foreground',
-        destructive: 'bg-destructive text-destructive-foreground hover:bg-destructive/90',
+        primary: cn(
+          'border-transparent bg-[var(--gp-component-button-background)] text-[var(--gp-component-button-foreground)]',
+          'hover:bg-[var(--gp-component-button-hover)]',
+          filledWhenDisabled,
+        ),
+        secondary: cn(
+          'border-[var(--gp-semantic-border-control)] bg-[var(--gp-semantic-surface-raised)]',
+          'hover:bg-[var(--gp-semantic-surface-sunken)]',
+          filledWhenDisabled,
+        ),
+        ghost: cn(
+          'border-transparent bg-transparent hover:bg-[var(--gp-semantic-surface-sunken)]',
+          filledWhenDisabled,
+        ),
+        /** Secondary actions that sit in a row, such as a step's move and duplicate. */
+        quiet: cn(
+          'border-transparent bg-transparent text-[var(--gp-component-editor-muted)]',
+          'hover:bg-[var(--gp-semantic-surface-sunken)] disabled:opacity-45',
+        ),
       },
       size: {
-        default: 'h-10 px-4 py-2',
-        sm: 'h-8 rounded-sm px-3',
+        default: 'min-h-[42px] rounded-[var(--gp-component-button-radius)] px-4 py-2.5',
+        sm: 'min-h-8 rounded-[var(--gp-component-button-radius)] px-3 py-1',
+        /** Compact enough for a toolbar, and more so on a phone. */
+        tool: 'min-h-8 rounded-[6px] p-2 max-[700px]:p-1.5 max-[700px]:text-[11px]',
       },
     },
     defaultVariants: { variant: 'primary', size: 'default' },

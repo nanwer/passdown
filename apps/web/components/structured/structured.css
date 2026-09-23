@@ -175,9 +175,6 @@
     flex-wrap: wrap;
     gap: 10px;
   }
-  .structured-detail-actions .button {
-    flex-shrink: 0;
-  }
   .structured-search {
     position: relative;
     display: flex;

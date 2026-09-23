@@ -1227,6 +1227,7 @@ function Editor({ workspace, guideId }: { workspace: StudioWorkspace; guideId: s
           <div className="studio-actions">
             <Button
               variant="secondary"
+              className="max-[700px]:p-2.5"
               onClick={() => setPreview(!preview)}
               aria-pressed={preview}
               disabled={!preview && invalidContent}
@@ -1236,6 +1237,7 @@ function Editor({ workspace, guideId }: { workspace: StudioWorkspace; guideId: s
             </Button>
             <Button
               type="submit"
+              className="max-[700px]:p-2.5"
               disabled={!dirty || conflict || !!pending || invalidContent}
               loading={pending === 'save'}
             >
@@ -1270,6 +1272,7 @@ function Editor({ workspace, guideId }: { workspace: StudioWorkspace; guideId: s
               trigger={
                 <Button
                   variant="secondary"
+                  className="max-[700px]:p-2.5"
                   disabled={
                     dirty ||
                     !!pending ||
@@ -1537,7 +1540,8 @@ function Editor({ workspace, guideId }: { workspace: StudioWorkspace; guideId: s
                   </span>
                   <div className="studio-step-tools">
                     <Button
-                      variant="ghost"
+                      variant="quiet"
+                      size="tool"
                       disabled={index <= 0}
                       onClick={() => changeSteps(reorder(steps, step.id, -1))}
                     >
@@ -1545,7 +1549,8 @@ function Editor({ workspace, guideId }: { workspace: StudioWorkspace; guideId: s
                       Move up
                     </Button>
                     <Button
-                      variant="ghost"
+                      variant="quiet"
+                      size="tool"
                       disabled={index >= steps.length - 1}
                       onClick={() => changeSteps(reorder(steps, step.id, 1))}
                     >
@@ -1553,7 +1558,8 @@ function Editor({ workspace, guideId }: { workspace: StudioWorkspace; guideId: s
                       Move down
                     </Button>
                     <Button
-                      variant="ghost"
+                      variant="quiet"
+                      size="tool"
                       disabled={steps.length >= 100}
                       onClick={() => {
                         const duplicate = {
@@ -1581,7 +1587,8 @@ function Editor({ workspace, guideId }: { workspace: StudioWorkspace; guideId: s
                       Duplicate
                     </Button>
                     <Button
-                      variant="ghost"
+                      variant="quiet"
+                      size="tool"
                       disabled={steps.length <= 1}
                       onClick={() => {
                         const dependents = steps.filter((item) =>

@@ -9,7 +9,7 @@ import {
   Search,
   SlidersHorizontal,
 } from 'lucide-react';
-import { Button } from '@guide/ui';
+import { Button, buttonVariants, cn } from '@guide/ui';
 import type { Category, DraftGuide, DraftSummary, StudioWorkspace } from '@guide/contracts';
 import { composeGuideTitle, type GuideDocument, type GuideType } from '@guide/content';
 import { Frame, ErrorNotice, SessionGate } from './frame';
@@ -200,7 +200,10 @@ function GuideList({ workspace }: { workspace: StudioWorkspace }) {
           <p>Good instructions start with a first draft.</p>
         </div>
         {workspace.role === 'manage' && (
-          <a className="button button--primary" href={`/studio/${workspace.id}/new`}>
+          <a
+            className={cn(buttonVariants(), 'max-[700px]:mb-6')}
+            href={`/studio/${workspace.id}/new`}
+          >
             <Plus size={18} /> New guide
           </a>
         )}
@@ -210,7 +213,7 @@ function GuideList({ workspace }: { workspace: StudioWorkspace }) {
           <h2>Explore your workspace</h2>
           <p>Authoring is currently available to workspace owners.</p>
           <a
-            className="button button--primary"
+            className={buttonVariants()}
             href={workspace.audience === 'private' ? `/w/${workspace.id}` : '/'}
           >
             Open library
@@ -306,7 +309,7 @@ function GuideList({ workspace }: { workspace: StudioWorkspace }) {
                       Clear filters
                     </Button>
                   ) : (
-                    <a className="button button--primary" href={`/studio/${workspace.id}/new`}>
+                    <a className={buttonVariants()} href={`/studio/${workspace.id}/new`}>
                       Create a guide
                     </a>
                   )}

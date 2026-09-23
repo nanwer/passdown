@@ -150,21 +150,21 @@ for (const viewport of [
 test('forced colors retain visible control boundaries and reduced motion removes smooth scrolling', async ({
   page,
 }) => {
-  // The design workshop page used to supply a .button and a .spinner on a
+  // The design workshop page used to supply a button and a spinner on a
   // public URL. The sign-in form is now the only unauthenticated page with a
   // real button, so the motion readings happen there and the forced-colour
   // reading stays on the library, which is where the workspace control lives.
   await page.emulateMedia({ forcedColors: 'none', reducedMotion: 'no-preference' });
   await page.goto('/sign-in');
   const normalMotion = await page.evaluate(
-    () => getComputedStyle(document.querySelector('.button')!).transitionDuration,
+    () => getComputedStyle(document.querySelector('form button')!).transitionDuration,
   );
   expect(normalMotion).not.toBe('0s');
 
   await page.emulateMedia({ forcedColors: 'active', reducedMotion: 'reduce' });
   await page.reload();
   const adapted = await page.evaluate(() => ({
-    buttonTransition: getComputedStyle(document.querySelector('.button')!).transitionDuration,
+    buttonTransition: getComputedStyle(document.querySelector('form button')!).transitionDuration,
     rootScroll: getComputedStyle(document.documentElement).scrollBehavior,
   }));
   expect(adapted.buttonTransition).toBe('0s');

@@ -393,10 +393,6 @@
     border-bottom: 1px solid var(--gp-semantic-border-subtle);
     padding-bottom: 18px;
   }
-  .studio-step-tools .button {
-    font-size: 12px;
-    padding: 8px;
-  }
   .studio-live-preview .reader-step {
     margin-top: 24px;
   }
@@ -423,9 +419,6 @@
   }
   .studio-publish .studio-notice {
     margin: 0;
-  }
-  .studio .button {
-    white-space: nowrap;
   }
   .studio [disabled] {
     cursor: not-allowed;
@@ -475,9 +468,6 @@
     .studio-heading-row {
       align-items: flex-start;
       flex-direction: column;
-    }
-    .studio-heading-row > .button {
-      margin-bottom: 24px;
     }
     .studio-signin {
       grid-template-columns: 1fr;
@@ -532,13 +522,6 @@
     .studio-editor-header .studio-actions {
       gap: 8px;
     }
-    .studio-editor-header .button {
-      font-size: 12px;
-      padding: 10px;
-    }
-    .studio-step-tools .button {
-      min-height: 44px;
-    }
     .studio-field-grid {
       grid-template-columns: 1fr;
     }
@@ -589,15 +572,6 @@
     border: 0;
     gap: 2px;
   }
-  .studio-step-tools .button {
-    border-radius: 6px;
-    min-height: 32px;
-    color: var(--gp-component-editor-muted);
-  }
-  .studio-step-tools .button:disabled {
-    background: transparent;
-    opacity: 0.45;
-  }
   .studio-editor-canvas > .studio-step-form {
     margin-top: 24px;
   }
@@ -635,10 +609,6 @@
     }
     .studio-editor-canvas {
       padding: 20px 16px 36px;
-    }
-    .studio-step-tools .button {
-      padding: 6px;
-      font-size: 11px;
     }
   }
 

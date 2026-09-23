@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { words } from '../lib/vocabulary';
-import { AppShell } from '@guide/ui';
+import { AppShell, buttonVariants } from '@guide/ui';
 import { GuideCard } from '@guide/guide-ui';
 import { sampleArtwork, type DemoGuide } from '@guide/testing';
 import {
@@ -133,14 +133,14 @@ export function Library({
           // "Write a guide" it was the only door from the public library into
           // the studio, so anyone looking for the catalog, things or people had
           // no reason to press it and no other way through.
-          <Link className="button button--primary" href="/studio">
+          <Link className={buttonVariants()} href="/studio">
             <PenLine size={16} aria-hidden="true" /> Open studio
           </Link>
         ) : (
           // A visitor has no studio to open. The same button used to say so to
           // everybody, because it asked whether the installation had a database
           // rather than whether anybody was signed in.
-          <Link className="button button--primary" href="/sign-in">
+          <Link className={buttonVariants()} href="/sign-in">
             Sign in
           </Link>
         )
@@ -312,7 +312,11 @@ export function Library({
                 {/* Both filters, because the label says filters and because
                     somebody looking at nothing wants the way back to
                     everything — not to a category that is also nearly empty. */}
-                <Link className="button button--secondary" href={base} scroll={false}>
+                <Link
+                  className={buttonVariants({ variant: 'secondary' })}
+                  href={base}
+                  scroll={false}
+                >
                   {query ? t.clearFilters : 'Browse all guides'}
                 </Link>
               </div>
@@ -334,13 +338,19 @@ export function Library({
               </p>
               <div className="library-pager-links">
                 {currentPage > 1 && (
-                  <Link className="button button--secondary" href={pageLink(currentPage - 1)}>
+                  <Link
+                    className={buttonVariants({ variant: 'secondary' })}
+                    href={pageLink(currentPage - 1)}
+                  >
                     <ArrowLeft size={16} aria-hidden="true" />
                     Previous
                   </Link>
                 )}
                 {guides.length > 0 && currentPage < pageCount && (
-                  <Link className="button button--secondary" href={pageLink(currentPage + 1)}>
+                  <Link
+                    className={buttonVariants({ variant: 'secondary' })}
+                    href={pageLink(currentPage + 1)}
+                  >
                     Next
                     <ArrowRight size={16} aria-hidden="true" />
                   </Link>
