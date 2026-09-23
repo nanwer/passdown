@@ -14,7 +14,8 @@ Passdown is an early, working application for public community guides and privat
 - Immutable published releases with explicit content licenses.
 - One nested tree of the things guides are about, each able to carry a picture, browsable as a gallery, with inline creation from inside the thing it belongs to.
 - A kind of work on each guide, separate from the thing it is about, with a title composed from the answers and a per-workspace catalog of the kinds offered.
-- One searchable catalog of items with exact specifications, usage per item, archive/restore and reviewed updates. An item carries no permanent classification; a guide says whether it keeps it or uses it up.
+- One searchable catalog of items with exact specifications, usage per item, deactivate/reactivate and reviewed updates. An item carries no permanent classification; a guide says whether it keeps it or uses it up.
+- Things and the catalog managed as tables: every column sorts, columns can be chosen and are remembered per browser, status tabs count what the search matches, the catalog pages, and a record opens in a sheet that closes back to the same table. The tree stays a tree — branches open on their own control and a search shows its matches in context.
 - A cover picture per guide, chosen in the editor, frozen into each release and shown wherever the guide appears in a listing. A guide without one falls back to its first step picture and then to the picture of the thing it is about.
 - Step photographs with numbered marks and arrows, captions, ordering and reuse, re-encoded on upload and readable only through a guide the reader may already open — and visible to the author who uploaded them before the draft is saved.
 - Public and internal sections of a public workspace, and moving a published guide between them with reasons when it cannot go.
@@ -29,7 +30,7 @@ Passdown is an early, working application for public community guides and privat
 
 Saves are manual. Open signup is deliberately off — an account exists because somebody was invited or because the installation created the first one. Nothing sends email; invitations are links passed on by hand, and account recovery does not exist. Attachments other than pictures, cross-guide prerequisites, approval workflows and collaborative editing are not implemented.
 
-An installation serves one organisation and gets one workspace, which carries a public library and an internal section; creating further workspaces is deliberately out of scope. The interface is mid-migration onto shadcn components: buttons everywhere, the people screen and the Manage overview use them, and the rest still uses the older stylesheets, now layered beneath the newer utilities so each screen can be converted on its own. The information architecture work is partly done — see [the backlog](../backlog.md).
+An installation serves one organisation and gets one workspace, which carries a public library and an internal section; creating further workspaces is deliberately out of scope. The interface is mid-migration onto shadcn components: buttons everywhere, the people screen and the Manage overview use them, and the rest still uses the older stylesheets, now layered beneath the newer utilities so each screen can be converted on its own. One vocabulary runs through the studio: things, the catalog, and Active or Inactive.
 
 A showcase library is available for evaluation — `pnpm seed:showcase` — written through the API rather than into tables, so it exercises the same validation and publication rules as hand-written content.
 

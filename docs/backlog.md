@@ -4,7 +4,7 @@ Work that is understood and deliberately not being done yet.
 
 ## Information architecture
 
-**Deferred until the front-end migration and theme change are finished.**
+**Done.** Kept here as the record of what was decided and why.
 
 Navigation is inconsistent about where you are and what you can reach from
 there, and the same destination is described differently depending on the
