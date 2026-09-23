@@ -846,6 +846,12 @@
   .dialog-content[data-size='wide'] {
     --dialog-width: var(--gp-component-dialog-width-wide);
   }
+  /* A picker or a form can be taller than the screen; the dialog scrolls rather than clipping. */
+  .dialog-content:has(.structured-form),
+  .dialog-content:has(.structured-picker-content) {
+    max-height: min(90dvh, 1000px);
+    overflow-y: auto;
+  }
   .dialog-content[data-size='sheet'] {
     inset: 0 0 0 auto;
     transform: none;

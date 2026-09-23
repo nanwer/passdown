@@ -1,4 +1,5 @@
 'use client';
+import * as S from './structured-styles';
 import { useState, type ReactElement } from 'react';
 import { Plus, Search, ArrowLeft, Package, Check } from 'lucide-react';
 import { Button, Dialog } from '@guide/ui';
@@ -8,7 +9,6 @@ import { ErrorNotice } from '../studio/frame';
 import { announceStructuredChange, useCatalog } from './data';
 import { filterCatalog } from './tree-model';
 import { useFormRequest } from './use-form-request';
-import './structured.css';
 export interface CatalogPickerProps {
   workspace: StudioWorkspace;
   onSelect: (item: CatalogItem) => void;
@@ -54,10 +54,10 @@ export function CatalogPicker({
         if (!next) setCreating(false);
       }}
     >
-      <div className="structured-picker-content">
+      <div className={S.pickerContent}>
         {creating ? (
           <>
-            <button className="structured-back" type="button" onClick={() => setCreating(false)}>
+            <button className={S.back} type="button" onClick={() => setCreating(false)}>
               <ArrowLeft size={15} />
               Back to catalog
             </button>
@@ -77,7 +77,7 @@ export function CatalogPicker({
           </>
         ) : (
           <>
-            <div className="structured-search">
+            <div className={S.search}>
               <Search size={17} aria-hidden="true" />
               <input
                 aria-label="Search catalog"
@@ -96,12 +96,13 @@ export function CatalogPicker({
             ) : loading ? (
               <p role="status">Loading catalog…</p>
             ) : (
-              <div className="catalog-picker-results" aria-live="polite">
+              <div className={S.catalogResults} aria-live="polite">
                 {available.length ? (
                   <ul>
                     {available.map((item) => (
                       <li key={item.id}>
                         <button
+                          className={S.catalogResult}
                           type="button"
                           onClick={() => {
                             if (disabled) return;
@@ -109,14 +110,14 @@ export function CatalogPicker({
                             setOpen(false);
                           }}
                         >
-                          <span className="catalog-kind-icon">
+                          <span className={S.kindIcon}>
                             <Package size={20} />
                           </span>
-                          <span className="catalog-item-copy">
+                          <span className={S.itemCopy}>
                             <strong>{item.name}</strong>
                             {item.specification && <span>{item.specification}</span>}
                           </span>
-                          <span className="catalog-picker-status">
+                          <span className={S.pickerStatus}>
                             {selectedIds.includes(item.id) ? (
                               <>
                                 <Check size={15} />
@@ -131,7 +132,7 @@ export function CatalogPicker({
                     ))}
                   </ul>
                 ) : (
-                  <p className="structured-empty">
+                  <p className={S.empty}>
                     {workspace.role === 'manage'
                       ? 'No matching items. Try another name or specification, or create the exact item you need.'
                       : 'No matching items. Try another name or specification.'}
@@ -140,7 +141,7 @@ export function CatalogPicker({
               </div>
             )}
             {workspace.role === 'manage' && (
-              <div className="structured-picker-footer">
+              <div className={S.pickerFooter}>
                 <Button type="button" variant="secondary" onClick={() => setCreating(true)}>
                   <Plus size={16} />
                   Create catalog item
@@ -237,7 +238,7 @@ export function CatalogForm({
   }
   return (
     <div
-      className="structured-form"
+      className={S.form}
       onKeyDown={(event) => {
         if (
           event.key === 'Enter' &&
@@ -250,7 +251,7 @@ export function CatalogForm({
         }
       }}
     >
-      <div className="structured-fields-row">
+      <div className={S.fieldsRow}>
         <label>
           Default unit
           <select
@@ -267,7 +268,7 @@ export function CatalogForm({
         </label>
       </div>
       {initial && (
-        <p className="structured-notice">
+        <p className={S.notice}>
           Create another catalog item for a different type. Existing requirements keep this item’s
           identity.
         </p>
@@ -294,7 +295,7 @@ export function CatalogForm({
         />
       </label>
       <label>
-        Description <span className="structured-optional">optional</span>
+        Description <span className={S.optional}>optional</span>
         <textarea
           rows={3}
           value={description}
@@ -304,13 +305,13 @@ export function CatalogForm({
         />
       </label>
       <details
-        className="structured-extra-fields"
+        className={S.extraFields}
         open={!!(initial?.manufacturer || initial?.model || initial?.partNumber)}
       >
         <summary>
-          Manufacturer and identifiers <span className="structured-optional">optional</span>
+          Manufacturer and identifiers <span className={S.optional}>optional</span>
         </summary>
-        <div className="structured-fields-row">
+        <div className={`${S.fieldsRow} my-4`}>
           <label>
             Manufacturer
             <input
@@ -351,7 +352,7 @@ export function CatalogForm({
           <option value="members">Workspace members</option>
         </select>
       </label>
-      <p className="structured-notice">
+      <p className={S.notice}>
         {audience === 'public'
           ? 'Public requirements may reference this item and its specifications.'
           : 'Only workspace members can browse this item.'}{' '}
@@ -360,7 +361,7 @@ export function CatalogForm({
           : 'Creating the item saves it to your workspace catalog, even if you cancel guide editing.'}
       </p>
       {error && <ErrorNotice error={error} />}
-      <div className="structured-form-actions">
+      <div className={S.formActions}>
         <Button
           type="button"
           variant="secondary"

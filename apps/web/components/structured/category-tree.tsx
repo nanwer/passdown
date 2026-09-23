@@ -1,10 +1,11 @@
 'use client';
+import { cn } from '@guide/ui';
+import * as S from './structured-styles';
 import { useEffect, useState } from 'react';
 import { ChevronDown, ChevronRight, Folder, FolderOpen, Check, Plus } from 'lucide-react';
 import type { Category, CategoryCounts } from '@guide/contracts';
 import { categoryPath, searchCategories } from './tree-model';
 import { words } from '../../lib/vocabulary';
-import './structured.css';
 export interface CategoryTreeProps {
   categories: Category[];
   value?: string | null;
@@ -61,7 +62,7 @@ export function CategoryTree({
     if (pictures && category.imageAssetId)
       return (
         <img
-          className="category-node-picture"
+          className={S.nodePicture}
           src={`/api/media/${category.workspaceId}/${category.imageAssetId}?w=400`}
           alt=""
           loading="lazy"
@@ -89,7 +90,7 @@ export function CategoryTree({
       badges: (
         <>
           {described && (
-            <small className="category-count" aria-hidden="true" title={described.full}>
+            <small className={S.nodeCount} aria-hidden="true" title={described.full}>
               {described.short}
             </small>
           )}
@@ -128,20 +129,20 @@ export function CategoryTree({
   const sorted = searchCategories(categories, query);
   if (!sorted.length)
     return (
-      <p className="structured-empty">
+      <p className={S.empty}>
         {query ? 'Nothing matches that. Try another name.' : 'Nothing here yet.'}
       </p>
     );
   if (query.trim())
     return (
-      <ul className="category-results" aria-label={label}>
+      <ul className={S.results} aria-label={label}>
         {sorted.map((category) => {
           const extras = rowExtras(category);
           return (
             <li key={category.id}>
               <button
                 type="button"
-                className={value === category.id ? 'selected' : ''}
+                className={cn(S.result, value === category.id && S.resultSelected)}
                 aria-describedby={extras.describedBy}
                 onClick={() => onSelect(category)}
               >
@@ -174,10 +175,10 @@ export function CategoryTree({
           const extras = rowExtras(category);
           return (
             <li key={category.id}>
-              <div className="category-tree-row">
+              <div className={S.treeRow}>
                 {children ? (
                   <button
-                    className="category-expander"
+                    className={S.expander}
                     type="button"
                     aria-label={`${open ? 'Collapse' : 'Expand'} ${category.name}`}
                     aria-expanded={open}
@@ -193,11 +194,11 @@ export function CategoryTree({
                     {open ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                   </button>
                 ) : (
-                  <span className="category-leaf-spacer" />
+                  <span className={S.leafSpacer} />
                 )}
                 <button
                   type="button"
-                  className={`category-node ${value === category.id ? 'selected' : ''}`}
+                  className={cn(S.node, value === category.id && S.nodeSelected)}
                   title={categoryPath(category)}
                   aria-pressed={value === category.id}
                   aria-describedby={extras.describedBy}
@@ -212,7 +213,7 @@ export function CategoryTree({
                 {onAddChild && !category.archived && (
                   <button
                     type="button"
-                    className="category-add-child"
+                    className={S.addChild}
                     aria-label={addChildLabel(category)}
                     onClick={() => onAddChild(category)}
                   >
@@ -229,7 +230,7 @@ export function CategoryTree({
     );
   }
   return (
-    <nav className="category-tree" aria-label={label}>
+    <nav className={S.tree} aria-label={label}>
       {branch(null)}
     </nav>
   );

@@ -1,4 +1,5 @@
 'use client';
+import * as S from './structured-styles';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   Archive,
@@ -43,7 +44,6 @@ import {
   type Sort,
   type Status,
 } from './data-table';
-import './structured.css';
 import { words } from '../../lib/vocabulary';
 
 /**
@@ -255,19 +255,19 @@ function ThingPicture({
   }
 
   return (
-    <div className="structured-thing-picture">
+    <div className={S.thingPicture}>
       {category.imageAssetId ? (
         <img
           src={`/api/media/${workspaceId}/${category.imageAssetId}?w=400`}
           alt=""
-          className="structured-thing-image"
+          className={S.thingImage}
         />
       ) : (
-        <span className="structured-detail-icon">
+        <span className={S.detailIcon}>
           <FolderTree size={28} />
         </span>
       )}
-      <div className="structured-thing-picture-actions">
+      <div className={S.pictureActions}>
         {busy ? (
           <label>
             Adding
@@ -433,7 +433,7 @@ function ThingsManagement({ workspace }: { workspace: StudioWorkspace }) {
   }
 
   return (
-    <main className="studio-container structured-management" id="main" tabIndex={-1}>
+    <main className={`studio-container ${S.management}`} id="main" tabIndex={-1}>
       <ManagementHeading
         workspace={workspace}
         active="things"
@@ -474,7 +474,7 @@ function ThingsManagement({ workspace }: { workspace: StudioWorkspace }) {
         </p>
       )}
       {!owner && (
-        <p className="structured-notice">
+        <p className={S.notice}>
           You can look through these. Someone who manages this workspace can change them.
         </p>
       )}
@@ -488,7 +488,7 @@ function ThingsManagement({ workspace }: { workspace: StudioWorkspace }) {
       ) : loading && !categories.length ? (
         <p role="status">Loading…</p>
       ) : !rows.length ? (
-        <div className="structured-empty">
+        <div className={S.empty}>
           <FolderTree size={36} />
           {inTree.length === 0 ? (
             <>
@@ -837,7 +837,7 @@ function ThingDetail({
             }}
             closeDisabled={pending}
           >
-            <div className="structured-form">
+            <div className={S.form}>
               <p>
                 <strong>{categoryPath(category)}</strong>
               </p>
@@ -845,7 +845,7 @@ function ThingDetail({
                 <p role="status">Checking what still uses it…</p>
               )}
               {!category.archived && reasons.length > 0 && (
-                <div className="structured-blockers">
+                <div className={S.blockers}>
                   <p>
                     <strong>Move these first.</strong> Nothing is deleted; each of these still
                     points here.
@@ -853,7 +853,7 @@ function ThingDetail({
                   <ul>
                     {reasons.map((reason) => (
                       <li key={reason.key}>
-                        <span className="structured-blocker-count">{reason.count}</span>
+                        <span className={S.blockerCount}>{reason.count}</span>
                         {reason.label}
                         {reason.href && <a href={reason.href}>{reason.action}</a>}
                       </li>
@@ -862,7 +862,7 @@ function ThingDetail({
                 </div>
               )}
               {actionError && <ErrorNotice error={actionError} />}
-              <div className="structured-form-actions">
+              <div className={S.formActions}>
                 <Button
                   type="button"
                   variant="secondary"
@@ -1001,7 +1001,7 @@ function CatalogManagement({ workspace }: { workspace: StudioWorkspace }) {
   }
 
   return (
-    <main className="studio-container structured-management" id="main" tabIndex={-1}>
+    <main className={`studio-container ${S.management}`} id="main" tabIndex={-1}>
       <ManagementHeading
         workspace={workspace}
         active="catalog"
@@ -1039,7 +1039,7 @@ function CatalogManagement({ workspace }: { workspace: StudioWorkspace }) {
           {notice}
         </p>
       )}
-      <p className="structured-count" role="status">
+      <p className={S.count} role="status">
         {loading
           ? 'Loading catalog…'
           : `${filtered.length} ${filtered.length === 1 ? 'item' : 'items'}`}
@@ -1052,7 +1052,7 @@ function CatalogManagement({ workspace }: { workspace: StudioWorkspace }) {
           </Button>
         </>
       ) : loading && !items.length ? null : !filtered.length ? (
-        <div className="structured-empty">
+        <div className={S.empty}>
           <Package size={36} />
           {/* An empty catalog and an over-narrow search are different situations,
               and suggesting a different search to somebody with nothing yet reads
@@ -1251,7 +1251,7 @@ function CatalogDetail({
           ['Model', item.model || '—'],
         ]}
       />
-      <section className="structured-usage" aria-label="Used in guides">
+      <section className={S.usage} aria-label="Used in guides">
         <h3>Used in guides</h3>
         {usageError ? (
           <ErrorNotice error={usageError} />
@@ -1307,12 +1307,12 @@ function CatalogDetail({
             }}
             closeDisabled={pending}
           >
-            <div className="structured-form">
+            <div className={S.form}>
               <p>
                 <strong>{item.name}</strong> {item.specification}
               </p>
               {error && <ErrorNotice error={error} />}
-              <div className="structured-form-actions">
+              <div className={S.formActions}>
                 <Button
                   type="button"
                   variant="secondary"

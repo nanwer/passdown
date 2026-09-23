@@ -1,4 +1,5 @@
 'use client';
+import * as S from './structured-styles';
 import { useId, useState, type ReactElement } from 'react';
 import { ChevronDown, FolderPlus, Search, ArrowLeft, FolderTree } from 'lucide-react';
 import { Button, Dialog } from '@guide/ui';
@@ -10,7 +11,6 @@ import { useCategories, announceStructuredChange } from './data';
 import { categoryPath, eligibleCategories } from './tree-model';
 import { CategoryTree } from './category-tree';
 import { useFormRequest } from './use-form-request';
-import './structured.css';
 /**
  * What to call a node of this tree.
  *
@@ -57,8 +57,8 @@ export function CategoryPicker({
   const [created, setCreated] = useState<Category>();
   const display = selected ?? (created?.id === value ? created : undefined);
   return (
-    <div className="category-picker">
-      <span id={`${id}-label`} className="structured-field-label">
+    <div className={S.picker}>
+      <span id={`${id}-label`} className={S.fieldLabel}>
         {label}
         {required && <span aria-hidden="true"> *</span>}
       </span>
@@ -68,7 +68,7 @@ export function CategoryPicker({
           <button
             type="button"
             disabled={disabled}
-            className="category-picker-trigger"
+            className={S.trigger}
             aria-labelledby={`${id}-label ${id}-value`}
           >
             <FolderTree size={17} aria-hidden="true" />
@@ -96,10 +96,10 @@ export function CategoryPicker({
           if (!next) setCreating(false);
         }}
       >
-        <div className="structured-picker-content">
+        <div className={S.pickerContent}>
           {creating ? (
             <>
-              <button type="button" className="structured-back" onClick={() => setCreating(false)}>
+              <button type="button" className={S.back} onClick={() => setCreating(false)}>
                 <ArrowLeft size={15} />
                 Back to categories
               </button>
@@ -123,7 +123,7 @@ export function CategoryPicker({
             </>
           ) : (
             <>
-              <div className="structured-search">
+              <div className={S.search}>
                 <Search size={17} aria-hidden="true" />
                 <input
                   aria-label={`Search ${words.things}`}
@@ -135,7 +135,7 @@ export function CategoryPicker({
               {!required && (
                 <button
                   type="button"
-                  className="structured-top-level"
+                  className={S.topLevel}
                   onClick={() => {
                     if (disabled) return;
                     onChange(null);
@@ -155,7 +155,7 @@ export function CategoryPicker({
               ) : loading ? (
                 <p role="status">Loading {words.things}…</p>
               ) : (
-                <div className="structured-tree-scroll">
+                <div className={S.treeScroll}>
                   <CategoryTree
                     categories={eligible}
                     value={value}
@@ -170,7 +170,7 @@ export function CategoryPicker({
                 </div>
               )}
               {allowCreate && workspace.role === 'manage' && (
-                <div className="structured-picker-footer">
+                <div className={S.pickerFooter}>
                   <Button type="button" variant="secondary" onClick={() => setCreating(true)}>
                     <FolderPlus size={16} />
                     {value
@@ -185,7 +185,7 @@ export function CategoryPicker({
         </div>
       </Dialog>
       {display?.archived && (
-        <small className="structured-warning">
+        <small className={S.warning}>
           This category is archived. Choose an active category before publishing.
         </small>
       )}
@@ -264,7 +264,7 @@ export function CategoryForm({
   }
   return (
     <div
-      className="structured-form"
+      className={S.form}
       onKeyDown={(event) => {
         if (
           event.key === 'Enter' &&
@@ -296,9 +296,7 @@ export function CategoryForm({
         standing, so it is stated rather than asked. Moving one afterwards is a
         real need, so the control stays; it belongs to editing.
       */}
-      {!initial && parent && (
-        <p className="structured-path-preview">Inside {categoryPath(parent)}</p>
-      )}
+      {!initial && parent && <p className={S.pathPreview}>Inside {categoryPath(parent)}</p>}
       {initial && (
         <>
           <CategoryPicker
@@ -313,14 +311,14 @@ export function CategoryForm({
             visibility={audience}
             disabled={pending}
           />
-          <p className="structured-path-preview">
+          <p className={S.pathPreview}>
             {parent ? `${categoryPath(parent)} / ` : ''}
             {name.trim() || initial.name}
           </p>
         </>
       )}
       <label>
-        Description <span className="structured-optional">optional</span>
+        Description <span className={S.optional}>optional</span>
         <textarea
           rows={3}
           maxLength={2000}
@@ -329,7 +327,7 @@ export function CategoryForm({
           disabled={pending}
         />
       </label>
-      <div className="structured-fields-row">
+      <div className={S.fieldsRow}>
         <label>
           Visibility
           <select
@@ -357,7 +355,7 @@ export function CategoryForm({
           </label>
         )}
       </div>
-      <p className="structured-notice">
+      <p className={S.notice}>
         {audience === 'public'
           ? 'This name and description are public immediately, even before there are any guides here.'
           : 'Only workspace members can see this.'}
@@ -366,7 +364,7 @@ export function CategoryForm({
           : ''}
       </p>
       {error && <ErrorNotice error={error} />}
-      <div className="structured-form-actions">
+      <div className={S.formActions}>
         <Button
           type="button"
           variant="secondary"
