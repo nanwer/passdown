@@ -1,14 +1,12 @@
 'use client';
-import { useId, useState, type ReactElement } from 'react';
-import { Plus, Search, ArrowLeft, Package, Wrench, Check, ChevronDown } from 'lucide-react';
+import { useState, type ReactElement } from 'react';
+import { Plus, Search, ArrowLeft, Package, Check } from 'lucide-react';
 import { Button, Dialog } from '@guide/ui';
 import type { Category, CatalogItem, StudioWorkspace } from '@guide/contracts';
 import { studioFetch } from '../studio/transport';
 import { ErrorNotice } from '../studio/frame';
-import { announceStructuredChange, useCatalog, useCategories } from './data';
-import { CategoryPicker } from './category-picker';
-import { CategoryTree } from './category-tree';
-import { eligibleCategories, filterCatalog } from './tree-model';
+import { announceStructuredChange, useCatalog } from './data';
+import { filterCatalog } from './tree-model';
 import { useFormRequest } from './use-form-request';
 import './structured.css';
 export interface CatalogPickerProps {
@@ -28,7 +26,6 @@ export function CatalogPicker({
   disabled = false,
 }: CatalogPickerProps) {
   const { items, error, loading, refresh } = useCatalog(workspace.id);
-  const { categories } = useCategories(workspace.id);
   const [open, setOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [search, setSearch] = useState('');
@@ -135,7 +132,9 @@ export function CatalogPicker({
                   </ul>
                 ) : (
                   <p className="structured-empty">
-                    No matching items. Clear a filter or create the exact item you need.
+                    {workspace.role === 'manage'
+                      ? 'No matching items. Try another name or specification, or create the exact item you need.'
+                      : 'No matching items. Try another name or specification.'}
                   </p>
                 )}
               </div>

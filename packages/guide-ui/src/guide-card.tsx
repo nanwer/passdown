@@ -1,4 +1,4 @@
-import { ArrowUpRight, Clock3 } from 'lucide-react';
+import { ArrowUpRight, BookOpenText, Clock3 } from 'lucide-react';
 import { GuideArtwork, type ArtworkKind } from './artwork';
 export type GuideCardProps = {
   title: string;
@@ -7,13 +7,14 @@ export type GuideCardProps = {
   minutes: number;
   difficulty: string;
   steps: number;
-  artwork: ArtworkKind;
+  /** A drawing, for the sample guides that ship one instead of pictures. */
+  artwork?: ArtworkKind;
   /**
    * The guide's own picture, where it has one.
    *
-   * Without it every card drew the same illustration: `app.guide.artwork`
-   * defaults to 'bench' and nothing in the product ever sets it, so a real
-   * library of twenty guides was twenty identical drawings of a workbench.
+   * A guide with neither shows a plain placeholder. It used to draw a
+   * workbench, from a column nothing ever set, so a library of twenty guides
+   * without pictures was twenty identical drawings of the same bench.
    */
   cover?: { src: string; alt: string };
   href: string;
@@ -35,8 +36,12 @@ export function GuideCard({
         <div className="guide-card-image">
           {cover ? (
             <img className="guide-card-cover" src={cover.src} alt={cover.alt} loading="lazy" />
-          ) : (
+          ) : artwork ? (
             <GuideArtwork kind={artwork} />
+          ) : (
+            <div className="guide-card-placeholder" aria-hidden="true">
+              <BookOpenText size={30} strokeWidth={1.5} />
+            </div>
           )}
           <span className="card-open" aria-hidden="true">
             <ArrowUpRight size={19} />

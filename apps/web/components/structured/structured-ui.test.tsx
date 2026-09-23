@@ -153,6 +153,36 @@ describe('structured authoring pickers', () => {
     expect(selected).toHaveBeenCalledTimes(1);
     expect(selected).toHaveBeenCalledWith(item);
   });
+  for (const role of ['manage', 'view'] as const) {
+    it(`offers creating a missing item only to somebody who can (${role})`, async () => {
+      // The picker has no filters, so an empty result can only mean the search
+      // matched nothing. Only a manager has the create button to point at.
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(
+          async () =>
+            new Response(JSON.stringify({ items: [item] }), {
+              headers: { 'Content-Type': 'application/json' },
+            }),
+        ),
+      );
+      render(<CatalogPicker workspace={{ ...workspace, role }} onSelect={() => {}} />);
+      fireEvent.click(screen.getByRole('button', { name: 'Add from catalog' }));
+      await screen.findByRole('button', { name: /Phillips screwdriver/ });
+      fireEvent.change(screen.getByRole('textbox', { name: 'Search catalog' }), {
+        target: { value: 'nothing like this' },
+      });
+      const empty = await screen.findByText(/No matching items/);
+      expect(empty).not.toHaveTextContent(/filter/i);
+      if (role === 'manage') {
+        expect(empty).toHaveTextContent('create the exact item');
+        expect(screen.getByRole('button', { name: 'Create catalog item' })).toBeVisible();
+      } else {
+        expect(empty).not.toHaveTextContent(/create/i);
+        expect(screen.queryByRole('button', { name: 'Create catalog item' })).toBeNull();
+      }
+    });
+  }
   it('lets an existing item be corrected without changing what it is', () => {
     vi.stubGlobal(
       'fetch',

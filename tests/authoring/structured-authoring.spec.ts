@@ -307,21 +307,16 @@ test('catalog selection, step allocations, prerequisites and reviewed updates pr
     await api<{ items: CatalogItem[] }>(page.request, `/api/studio/${workspace}/catalog`)
   ).items.find((item) => item.name === toolName)!;
   const partName = `Replacement screw ${suffix}`;
-  const { item: part } = await api<{ item: CatalogItem }>(
-    page.request,
-    `/api/studio/${workspace}/catalog`,
-    'POST',
-    {
-      name: partName,
-      specification: 'M2 × 4 mm',
-      description: 'New replacement screws.',
-      manufacturer: '',
-      model: '',
-      partNumber: '',
-      defaultUnit: 'each',
-      visibility: 'public',
-    },
-  );
+  await api<{ item: CatalogItem }>(page.request, `/api/studio/${workspace}/catalog`, 'POST', {
+    name: partName,
+    specification: 'M2 × 4 mm',
+    description: 'New replacement screws.',
+    manufacturer: '',
+    model: '',
+    partNumber: '',
+    defaultUnit: 'each',
+    visibility: 'public',
+  });
   const guide = await draft(
     page.request,
     workspace,
@@ -1589,7 +1584,7 @@ test('a thing gets a picture, and it reaches exactly the readers the thing does'
   await login(page.request);
   const workspace = 'repair-collective';
   const suffix = randomUUID().slice(0, 8);
-  const open = await category(page.request, workspace, `Bicycles ${suffix}`);
+  await category(page.request, workspace, `Bicycles ${suffix}`);
 
   await page.goto(`/studio/${workspace}/categories`);
   await page.getByRole('button', { name: `Bicycles ${suffix}`, exact: true }).click();

@@ -152,7 +152,6 @@ export type PublishedGuide = {
   audience: 'public' | 'members';
   state: 'published';
   document: GuideDocument;
-  artwork: 'bicycle' | 'lamp' | 'keyboard' | 'headphones' | 'bench' | 'camera';
   author: string;
   updatedAt: string;
   release: number;

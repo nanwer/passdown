@@ -2,22 +2,14 @@ import Link from 'next/link';
 import { words } from '../lib/vocabulary';
 import { AppShell } from '@guide/ui';
 import { GuideCard } from '@guide/guide-ui';
-import type { DemoGuide } from '@guide/testing';
+import { sampleArtwork, type DemoGuide } from '@guide/testing';
 import {
   libraryPageSize,
   type PublishedGuide,
   type Category,
   type CategoryCounts,
 } from '@guide/contracts';
-import {
-  ArrowLeft,
-  ArrowRight,
-  ArrowUpRight,
-  FolderTree,
-  LockKeyhole,
-  PenLine,
-  Search,
-} from 'lucide-react';
+import { ArrowLeft, ArrowRight, ArrowUpRight, LockKeyhole, PenLine, Search } from 'lucide-react';
 import { t } from '../lib/messages';
 import { LibrarySearchField } from './library-search-field';
 import { LibraryCategoryLink } from './library-category-link';
@@ -84,6 +76,9 @@ export function Library({
     const search = query ? `?q=${encodeURIComponent(query)}` : '';
     return next ? `${guideBase}/categories/${next}${search}` : `${base}${search}`;
   };
+  /** The drawing a sample guide ships instead of pictures. Nothing else has one. */
+  const drawing = (guide: DemoGuide | PublishedGuide) =>
+    'artwork' in guide ? guide.artwork : guide.isSample ? sampleArtwork(guide.id) : undefined;
   /**
    * A picture for a guide card: the cover somebody chose, or the guide's own
    * first picture, or the picture of the nearest thing it is filed under.
@@ -299,7 +294,7 @@ export function Library({
                     minutes={guide.document.durationMinutes}
                     difficulty={guide.document.difficulty}
                     steps={guide.document.steps.length}
-                    artwork={guide.artwork}
+                    artwork={drawing(guide)}
                     cover={cover(guide)}
                     href={`${guideBase}/guides/${guide.id}`}
                   />

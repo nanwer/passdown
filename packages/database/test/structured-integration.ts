@@ -951,7 +951,6 @@ export async function structuredChecks({
   await check(
     'the picture chooser lists a workspace to its owner alone, bounded and in scope',
     async () => {
-      const suffix = randomUUID().slice(0, 8);
       const made: string[] = [];
       for (let n = 0; n < 3; n += 1) {
         const id = randomUUID();

@@ -1,7 +1,6 @@
 'use client';
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
-import { BookOpen, ArrowLeft, LogOut, PenLine, SlidersHorizontal } from 'lucide-react';
-import { words } from '../../lib/vocabulary';
+import { BookOpen, ArrowLeft, LogOut, SlidersHorizontal } from 'lucide-react';
 import { Button, SiteHeader, ThemeToggle } from '@guide/ui';
 import type { StudioSession, StudioWorkspace } from '@guide/contracts';
 import { StudioError, studioFetch } from './transport';

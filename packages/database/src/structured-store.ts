@@ -12,7 +12,6 @@ import {
   type CategoryCounts,
   type CategoryDomain,
   type CatalogItem,
-  type CatalogKind,
   type CatalogUsage,
   type CatalogUsageCounts,
   type CreateCategoryInput,

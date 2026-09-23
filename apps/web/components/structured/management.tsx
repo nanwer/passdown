@@ -642,7 +642,6 @@ export function CatalogManagementPage({ workspaceId }: { workspaceId: string }) 
 }
 function CatalogManagement({ workspace }: { workspace: StudioWorkspace }) {
   const { items, usage, error, loading, refresh } = useCatalog(workspace.id, { withUsage: true });
-  const { categories, error: categoryError } = useCategories(workspace.id);
   const [search, setSearch] = useState('');
   const [selectedId, setSelected] = useState<string | null>(null);
   const [status, setStatus] = useState<'all' | 'active' | 'inactive'>('active');
@@ -714,7 +713,6 @@ function CatalogManagement({ workspace }: { workspace: StudioWorkspace }) {
               </button>
             ))}
           </div>
-          {categoryError && <ErrorNotice error={categoryError} />}
           <a className="structured-manage-link" href={`/studio/${workspace.id}/categories`}>
             Manage {words.things}
           </a>

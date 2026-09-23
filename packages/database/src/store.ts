@@ -182,7 +182,6 @@ function published(row: Row): PublishedGuide {
     audience: row.audience,
     state: 'published',
     document,
-    artwork: row.artwork,
     author: row.author,
     isSample: row.is_sample,
     release: row.release,

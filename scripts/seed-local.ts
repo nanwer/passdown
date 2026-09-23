@@ -80,14 +80,13 @@ export async function seedLocal(config: Record<string, string>) {
           )
         ).rows[0];
       const added = await client.query(
-        "INSERT INTO app.guide(id,workspace_id,audience,state,document,category,version,current_release,published_version,artwork,author,is_sample,updated_at,category_id) VALUES($1,$2,$3,'published',$4,$5,1,1,1,$6,$7,true,$8,$9) ON CONFLICT(id) DO NOTHING RETURNING id",
+        "INSERT INTO app.guide(id,workspace_id,audience,state,document,category,version,current_release,published_version,author,is_sample,updated_at,category_id) VALUES($1,$2,$3,'published',$4,$5,1,1,1,$6,true,$7,$8) ON CONFLICT(id) DO NOTHING RETURNING id",
         [
           guide.id,
           guide.workspaceId,
           guide.audience,
           toStructuredDocument(guide.document, randomUUID),
           guide.category,
-          guide.artwork,
           guide.author,
           guide.updatedAt,
           category.id,

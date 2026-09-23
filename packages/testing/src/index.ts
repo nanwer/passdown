@@ -254,6 +254,17 @@ const guides: DemoGuide[] = [
     summary: 'This record must not appear in release results.',
   },
 ];
+/**
+ * The drawing a sample guide was written with.
+ *
+ * Sample guides have no stored pictures, so they carry a drawing instead. The
+ * choice lives here, with the sample content, rather than in a database column
+ * every real guide would inherit a meaningless default from. A guide that is
+ * not one of these samples has none.
+ */
+export function sampleArtwork(id: string): Artwork | undefined {
+  return guides.find((guide) => guide.id === id)?.artwork;
+}
 /** Only synthetic data. Production identity/storage adapters must never be wired into the preview routes. */
 export function createDemoQueries() {
   return createGuideQueries({

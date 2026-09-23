@@ -646,6 +646,13 @@ button {
 .guide-card-image .artwork {
   aspect-ratio: 5/3.1;
 }
+.guide-card-placeholder {
+  aspect-ratio: 5/3.1;
+  display: grid;
+  place-items: center;
+  color: var(--gp-semantic-text-secondary);
+  background: var(--gp-semantic-surface-sunken);
+}
 .card-open {
   position: absolute;
   top: 14px;

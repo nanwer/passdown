@@ -81,8 +81,10 @@ Owner-only authoring; manual saves without browser draft backup; category depth 
 
 1. Open a draft, choose **Guide details**, and find **Cover picture**. Add one, save, and publish.
 2. Find the guide in the library. Expect its card to show that picture.
-3. Remove the cover, save and publish again. Expect the card to fall back to the guide's first step picture, or to the picture of the thing it is about, or to the illustration.
+3. Remove the cover, save and publish again. Expect the card to fall back to the guide's first step picture, and then to the picture of the thing it is about.
 4. Change the cover on the draft without publishing. Expect the published guide's card to keep the cover it was published with.
+5. Publish a guide with no cover, no step pictures, filed under a thing with no picture. Expect its card to show a plain grey panel with a book outline, not a drawing. Before this change it drew a workbench.
+6. With the local sample guides loaded (for example _Get to know a bicycle brake_), expect their cards and the first and third steps of each to keep their drawings. Only the sample guides have drawings.
 
 ## Pictures on a step
 

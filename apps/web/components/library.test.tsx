@@ -37,7 +37,6 @@ const guide = (n: number): PublishedGuide => ({
   categoryPath: [{ id: 'category-1', name: 'Bicycles' }],
   audience: 'public',
   state: 'published',
-  artwork: 'bicycle',
   coverAssetId: null,
   author: 'Author',
   updatedAt: '2026-01-01T00:00:00.000Z',
@@ -152,4 +151,21 @@ it('browse cards count guides from the database totals, not from the listed page
 
   const browse = screen.getByRole('region', { name: 'Inside this thing' });
   expect(within(browse).getByRole('link', { name: /Brakes/ })).toHaveTextContent('176 guides');
+});
+
+it('a guide without any picture shows a placeholder, and only a sample guide draws', () => {
+  // Every picture-less card used to draw the same workbench, from a column
+  // nothing ever set. A real guide now shows a plain placeholder; a sample guide
+  // stored by the local seed still gets the drawing its sample content names.
+  const written = { ...guide(1), id: 'a-real-guide', title: 'Written by somebody' };
+  const sample = { ...guide(2), id: 'bicycle-brake', title: 'A stored sample', isSample: true };
+  const { container } = render(
+    <Library guides={[written, sample]} total={2} offset={0} limit={24} />,
+  );
+
+  const card = (title: string) => screen.getByRole('heading', { name: title }).closest('article')!;
+  expect(card('Written by somebody').querySelector('.guide-card-placeholder')).not.toBeNull();
+  expect(card('Written by somebody').querySelector('.artwork')).toBeNull();
+  expect(card('A stored sample').querySelector('.artwork--bicycle')).not.toBeNull();
+  expect(container.querySelectorAll('.artwork--bench')).toHaveLength(0);
 });

@@ -1,6 +1,6 @@
 import { AppShell } from '@guide/ui';
 import { GuideArtwork, StepRenderer, PreparationList } from '@guide/guide-ui';
-import type { DemoGuide } from '@guide/testing';
+import { sampleArtwork, type DemoGuide } from '@guide/testing';
 import type { GuideFamily } from '@guide/contracts';
 import type { PublishedGuide } from '@guide/contracts';
 import Link from 'next/link';
@@ -56,6 +56,7 @@ export function Reader({
       ? '/preview/workshop/guides'
       : '/guides';
   const sample = !('isSample' in guide) || guide.isSample;
+  const drawing = 'artwork' in guide ? guide.artwork : sample ? sampleArtwork(guide.id) : undefined;
   const synthetic = team && !persistent;
   return (
     <AppShell
@@ -201,8 +202,8 @@ export function Reader({
                 index={index}
                 mediaSrc={mediaSrc}
                 illustration={
-                  sample && (index === 0 || index === 2) ? (
-                    <GuideArtwork kind={guide.artwork} detail />
+                  drawing && (index === 0 || index === 2) ? (
+                    <GuideArtwork kind={drawing} detail />
                   ) : undefined
                 }
               />
