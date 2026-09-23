@@ -26,4 +26,5 @@ export const migrationManifest: { name: string; checksum: string }[] = [
   { name: '023_first_workspace_is_root.sql', checksum: 'c2a196ba94bfa286af9e315533f86598af47c6e57da347a73b15eabbaf7937b2' },
   { name: '024_manager_reads_own_pictures.sql', checksum: 'debf979fa0f74d840f11f9e07ddb40da815214956ed0aae4434558b5e4462fd1' },
   { name: '025_guide_cover.sql', checksum: '379bd5baa436d64550c277c3b6a66326f7446f5f86bf283534ddcf1e1fca9634' },
+  { name: '026_catalog_respects_workspace.sql', checksum: 'b979021a671311c7b67c3919d867eaa556399fb665f0c99c8d7b1151b0bc2cf6' },
 ];

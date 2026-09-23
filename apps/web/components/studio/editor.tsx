@@ -1065,6 +1065,10 @@ function Editor({ workspace, guideId }: { workspace: StudioWorkspace; guideId: s
           document: parsed.data,
           categoryId: snapshot.categoryId,
           coverAssetId: snapshot.coverAssetId,
+          // Sent even though omission now preserves it: the editor holds the
+          // guide's type on screen, so leaving it out of the save would mean
+          // the payload no longer describes what the author is looking at.
+          guideType: snapshot.guideType,
           expectedVersion: snapshot.version,
         }),
       });

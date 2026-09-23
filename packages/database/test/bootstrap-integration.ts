@@ -203,6 +203,30 @@ export async function verifyBootstrap(
       );
     });
 
+    // Every other check here hands bootstrap an address. The documented path
+    // hands it nothing, and that path chose `admin@localhost`, which the
+    // identity library rejects for having no dot in the domain — so the
+    // zero-configuration start caught the error and created no administrator.
+    await check('an installation configured with nothing still gets an administrator', async () => {
+      await db.query('TRUNCATE public.auth_session, public.auth_account, public.auth_user CASCADE');
+      await db.query('TRUNCATE app.membership, app.workspace CASCADE');
+      const result = await bootstrapFirstRun({
+        connectionString: runtime.href,
+        secret,
+        baseURL,
+        log: silent,
+      });
+      assert.equal(result.created, true, 'the default path has to produce an administrator');
+      const users = await db.query<{ email: string }>('SELECT email FROM public.auth_user');
+      assert.equal(users.rowCount, 1);
+      assert.match(users.rows[0].email, /@/);
+      assert.equal(
+        (await db.query('SELECT count(*)::int n FROM app.workspace')).rows[0].n,
+        1,
+        'and somewhere to work',
+      );
+    });
+
     await check('two servers starting at once produce one administrator', async () => {
       await db.query('TRUNCATE public.auth_session, public.auth_account, public.auth_user CASCADE');
       await db.query('TRUNCATE app.membership, app.workspace CASCADE');

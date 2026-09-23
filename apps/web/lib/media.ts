@@ -1,10 +1,10 @@
 import 'server-only';
 import { createHash } from 'node:crypto';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import sharp, { type Metadata, type Sharp } from 'sharp';
 import { ApplicationError } from '@guide/contracts';
-import { type ServedImageWidth } from '@guide/content';
+import { servedImageWidths, type ServedImageWidth } from '@guide/content';
 
 /**
  * Turning an upload into bytes this application is willing to serve.
@@ -129,6 +129,21 @@ export async function storeUpload(
  * computed. The width must come from the allow-list, so the number of files a
  * caller can cause is bounded at one per size.
  */
+/**
+ * Removes an asset's stored renditions.
+ *
+ * Used when the bytes have been written but the row cannot be recorded, so a
+ * refused upload does not leave files behind that nothing will ever reference
+ * or clean up.
+ */
+export async function discardStoredAsset(workspaceId: string, assetId: string): Promise<void> {
+  await Promise.all(
+    (['display', ...servedImageWidths.map((w) => `w${w}` as const)] as const).map((variant) =>
+      rm(assetPath(workspaceId, assetId, variant), { force: true }),
+    ),
+  );
+}
+
 export async function readStoredAsset(
   workspaceId: string,
   assetId: string,

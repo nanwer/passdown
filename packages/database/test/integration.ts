@@ -1116,6 +1116,53 @@ try {
     }
   });
 
+  await check('roster changes are serialised, not merely checked', async () => {
+    // The trigger fires at commit and reads the row it is committing against,
+    // so two managers demoting themselves concurrently each saw the other still
+    // in place, both passed, and both committed — leaving a workspace nobody
+    // could administer. Checking the invariant is not enough; the changes have
+    // to be ordered, which is what the roster lock does.
+    //
+    // Asserted by holding that lock and watching the store wait for it. Racing
+    // two calls and hoping they overlap proves nothing on a fast machine: that
+    // version passed with the lock removed.
+    const where = 'private';
+    const managers = (
+      await owner.query<{ actor_id: string }>(
+        "SELECT actor_id FROM app.membership WHERE workspace_id=$1 AND role='manage' AND active ORDER BY actor_id",
+        [where],
+      )
+    ).rows.map((row) => row.actor_id);
+    assert(managers.length >= 2, 'this check needs a workspace that can spare a manager');
+    const standingDown = managers[0];
+
+    const holder = await runtime.connect();
+    let settled = false;
+    try {
+      await holder.query('BEGIN');
+      await holder.query('SELECT pg_advisory_xact_lock(hashtextextended($1,719821010))', [where]);
+
+      const demotion = store
+        .setMemberRole(actor(standingDown), where, standingDown, 'view')
+        .then(() => {
+          settled = true;
+        });
+
+      await new Promise((done) => setTimeout(done, 400));
+      assert.equal(settled, false, 'a roster change must wait for one already in flight');
+
+      await holder.query('ROLLBACK');
+      await demotion;
+      assert.equal(settled, true, 'and proceed once the other has finished');
+    } finally {
+      holder.release();
+      await owner.query(
+        "UPDATE app.membership SET role='manage' WHERE workspace_id=$1 AND actor_id=$2",
+        [where, standingDown],
+      );
+    }
+  });
+
   await check('only a manager can see or change who is in a workspace', async () => {
     // 'reader' holds view on the private workspace.
     await denied(store.listPeople(actor('reader'), 'private'));

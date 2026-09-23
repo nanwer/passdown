@@ -1069,6 +1069,67 @@ export async function structuredChecks({
       coverPicture,
     );
 
+    // A private workspace has no public side, so a catalog item labelled public
+    // inside one is not readable by somebody who is not a member. The rule used
+    // to ask only about the item, so the label alone was enough.
+    await assert.rejects(
+      store.createCatalogItem(who, 'private', {
+        name: `Leaky item ${suffix}`,
+        specification: '',
+        description: '',
+        manufacturer: '',
+        model: '',
+        partNumber: '',
+        defaultUnit: 'each',
+        visibility: 'public',
+      }),
+      /private workspace has no public catalog/i,
+      'the combination cannot be written',
+    );
+
+    const membersOnly = await store.createCatalogItem(who, 'private', {
+      name: `Private item ${suffix}`,
+      specification: '',
+      description: '',
+      manufacturer: '',
+      model: '',
+      partNumber: '',
+      defaultUnit: 'each',
+      visibility: 'members',
+    });
+    // Planted as the owner with the trigger off, because rows written before
+    // that trigger existed look exactly like this. The read rule has to stand
+    // on its own rather than rely on nothing bad ever having been stored.
+    const legacy = await owner.connect();
+    try {
+      await legacy.query(
+        // All of them: the snapshot trigger would otherwise record a second
+        // version row under the number this row already carries.
+        'ALTER TABLE app.catalog_item DISABLE TRIGGER USER',
+      );
+      await legacy.query('UPDATE app.catalog_item SET visibility=$2 WHERE id=$1', [
+        membersOnly.id,
+        'public',
+      ]);
+    } finally {
+      await legacy.query('ALTER TABLE app.catalog_item ENABLE TRIGGER USER');
+      legacy.release();
+    }
+    await scoped(actor('outsider'), 'private', async (c) => {
+      const seen = await c.query('SELECT app.catalog_readable($1,$2) AS ok', [
+        'private',
+        membersOnly.id,
+      ]);
+      assert.equal(seen.rows[0].ok, false, 'a nonmember cannot read it however it is labelled');
+    });
+    await scoped(who, 'private', async (c) => {
+      const seen = await c.query('SELECT app.catalog_readable($1,$2) AS ok', [
+        'private',
+        membersOnly.id,
+      ]);
+      assert.equal(seen.rows[0].ok, true, 'a member still reads their own workspace');
+    });
+
     // A picture nothing refers to at all, which is every picture between being
     // uploaded and the draft being saved. The editor drew a broken image for
     // the whole of that window, and so did every thumbnail in the list offering
@@ -1154,10 +1215,36 @@ export async function structuredChecks({
       guideType: { key: 'repair', subject: 'Skirting' },
     });
     assert.deepEqual(saved.guideType, { key: 'repair', subject: 'Skirting' });
-    const cleared = await store.saveDraft(who, 'public', saved.id, {
+
+    // Leaving the field out is not the same as clearing it. This check used to
+    // assert the opposite, which is how an editor that never sent the field
+    // erased the type on every ordinary save and nothing noticed.
+    const untouched = await store.saveDraft(who, 'public', saved.id, {
       expectedVersion: saved.version,
       document: saved.document,
       categoryId: shelf.id,
+    });
+    assert.deepEqual(
+      untouched.guideType,
+      { key: 'repair', subject: 'Skirting' },
+      'a save that says nothing about the type must leave it alone',
+    );
+
+    // And it survives into the release, which is what a reader sees.
+    await store.publishDraft(who, 'public', untouched.id, {
+      expectedVersion: untouched.version,
+      expectedRelease: null,
+      license: 'all-rights-reserved',
+    });
+    const published = (await store.getDraft(who, 'public', untouched.id))!;
+    assert.deepEqual(published.guideType, { key: 'repair', subject: 'Skirting' });
+
+    // Clearing is still possible, by saying so.
+    const cleared = await store.saveDraft(who, 'public', untouched.id, {
+      expectedVersion: published.version,
+      document: saved.document,
+      categoryId: shelf.id,
+      guideType: null,
     });
     assert.equal(cleared.guideType, null);
 

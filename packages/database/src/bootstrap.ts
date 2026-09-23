@@ -59,7 +59,10 @@ export async function bootstrapFirstRun(options: {
     const { rows } = await client.query('SELECT count(*)::int AS n FROM public.auth_user');
     if (rows[0].n > 0) return { created: false, reason: 'users-exist' };
 
-    const email = options.email?.trim() || 'admin@localhost';
+    // `admin@localhost` is what an operator expects and what the identity
+    // library refuses: no dot in the domain, so it fails validation and the
+    // documented zero-configuration start created no administrator at all.
+    const email = options.email?.trim() || 'admin@passdown.local';
     const password = options.password?.trim() || generatePassword();
     const generated = !options.password?.trim();
     const workspaceName = options.workspaceName?.trim() || 'Workspace';

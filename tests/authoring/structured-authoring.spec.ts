@@ -1694,6 +1694,28 @@ test('a thing gets a picture, and it reaches exactly the readers the thing does'
   await anonymous.close();
 });
 
+test('a refused upload writes nothing to disk', async ({ page }) => {
+  const sharp = (await import('sharp')).default;
+  const { readdir } = await import('node:fs/promises');
+  const { join } = await import('node:path');
+  await login(page.request);
+  const bytes = await sharp({ create: { width: 2, height: 2, channels: 3, background: '#fff' } })
+    .png()
+    .toBuffer();
+  const mediaRoot = join(process.cwd(), '.media-authoring');
+  const stranger = `nowhere-${randomUUID().slice(0, 8)}`;
+
+  // The route used to decode and write the image and only then ask whether the
+  // caller may create an asset here, so a 404 still left a file behind.
+  const refused = await page.request.post(`/api/studio/${stranger}/assets`, {
+    headers,
+    multipart: { file: { name: 'probe.png', mimeType: 'image/png', buffer: bytes } },
+  });
+  expect(refused.status()).toBe(404);
+  const after = await readdir(join(mediaRoot, stranger)).catch(() => [] as string[]);
+  expect(after, 'a refused upload must leave no files').toEqual([]);
+});
+
 test('a guide is given a cover, and it is what the library shows', async ({ page, browser }) => {
   const sharp = (await import('sharp')).default;
   await login(page.request);

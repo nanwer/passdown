@@ -10,7 +10,7 @@ import { isConfigured } from './application';
  * sets nothing still gets a working administrator and a password on their
  * console, which is the point.
  *
- *   PASSDOWN_ADMIN_EMAIL          who to create, default admin@localhost
+ *   PASSDOWN_ADMIN_EMAIL          who to create, default admin@passdown.local
  *   PASSDOWN_ADMIN_PASSWORD       set one yourself instead of being given one
  *   PASSDOWN_ADMIN_PASSWORD_FILE  where to also write a generated password
  *   PASSDOWN_WORKSPACE_NAME       what the first workspace is called

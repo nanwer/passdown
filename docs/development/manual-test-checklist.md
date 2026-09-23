@@ -65,6 +65,11 @@ Owner-only authoring; manual saves without browser draft backup; category depth 
 1. Open **Studio → a workspace → Tools & materials**. Expect items used by guides to show a total such as `3 guides`, and unused items to show nothing.
 2. Use the **All / Active / Inactive** tabs with the search, kind and category filters. Expect All to equal Active plus Inactive under whatever else is filtered.
 
+## A guide keeps what it is
+
+1. Create a guide with a kind of work and a subject. Edit its instructions, save, reload, and publish.
+2. Expect the kind of work and subject to be unchanged at every step, including on the published release.
+
 ## A guide's cover
 
 1. Open a draft, choose **Guide details**, and find **Cover picture**. Add one, save, and publish.

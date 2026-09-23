@@ -86,7 +86,7 @@ Point the app at a migrated database and start it. The first time it comes up ag
 
 | Variable                       | What it does                                                                                                                                                                                  |
 | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `PASSDOWN_ADMIN_EMAIL`         | Who to create. Defaults to `admin@localhost`.                                                                                                                                                 |
+| `PASSDOWN_ADMIN_EMAIL`         | Who to create. Defaults to `admin@passdown.local`.                                                                                                                                            |
 | `PASSDOWN_ADMIN_PASSWORD`      | Set one yourself instead of being given one. Honoured, and the weaker option: an environment variable is readable from `docker inspect`, from `ps`, and from any crash dump that captures it. |
 | `PASSDOWN_ADMIN_PASSWORD_FILE` | Where to also write a generated password. Written `0600`.                                                                                                                                     |
 | `PASSDOWN_WORKSPACE_NAME`      | What the first workspace is called. Defaults to `Workspace`.                                                                                                                                  |

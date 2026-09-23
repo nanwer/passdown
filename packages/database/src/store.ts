@@ -354,6 +354,23 @@ export function createApplicationStore(options: { connectionString: string }) {
     if (!row || row.role !== 'manage') throw missing();
     return row;
   }
+  /**
+   * Serialises changes to one workspace's manager roster.
+   *
+   * The constraint trigger that refuses to leave a workspace without a manager
+   * fires at commit and reads the row it is committing against. Two managers
+   * each demoting themselves at the same time therefore each saw the other
+   * still in place, both passed, and both committed — leaving nobody able to
+   * restore access. The invariant needs the changes ordered, not just checked.
+   *
+   * A separate key from the structured-edit lock, so writing a guide does not
+   * queue behind somebody editing the people list.
+   */
+  async function lockRoster(client: pg.PoolClient, workspaceId: string) {
+    await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,719821010))', [
+      workspaceId,
+    ]);
+  }
   async function lockedDraft(client: pg.PoolClient, workspaceId: string, id: string) {
     await owner(client, workspaceId);
     const row = (
@@ -708,6 +725,7 @@ export function createApplicationStore(options: { connectionString: string }) {
     ): Promise<void> {
       await transaction(actor, workspaceId, async (c) => {
         await owner(c, workspaceId);
+        await lockRoster(c, workspaceId);
         const result = await c.query(
           'UPDATE app.membership SET role=$3 WHERE workspace_id=$1 AND actor_id=$2',
           [workspaceId, memberId, role],
@@ -719,6 +737,7 @@ export function createApplicationStore(options: { connectionString: string }) {
     async removeMember(actor: Actor, workspaceId: string, memberId: string): Promise<void> {
       await transaction(actor, workspaceId, async (c) => {
         await owner(c, workspaceId);
+        await lockRoster(c, workspaceId);
         const result = await c.query(
           'DELETE FROM app.membership WHERE workspace_id=$1 AND actor_id=$2',
           [workspaceId, memberId],
@@ -811,7 +830,17 @@ export function createApplicationStore(options: { connectionString: string }) {
           data.document,
           guideDocumentSchema.parse(current.document),
         );
-        const guideType = await resolveGuideType(c, workspaceId, data.guideType ?? null);
+        // Leaving the field out means "I am not changing this"; sending null
+        // means "clear it". They were the same thing, so every ordinary save
+        // from the editor — which never sent the field — erased the guide's
+        // kind of work and carried that loss into the next release.
+        const guideType =
+          data.guideType === undefined
+            ? {
+                key: current.guide_type_key as string | null,
+                subject: current.guide_type_subject ?? '',
+              }
+            : await resolveGuideType(c, workspaceId, data.guideType);
         const row = (
           await c.query(
             'UPDATE app.guide SET document=$3,category=$4,category_id=$5,guide_type_key=$6,guide_type_subject=$7,cover_asset_id=$8,version=version+1,updated_at=clock_timestamp() WHERE workspace_id=$1 AND id=$2 RETURNING *',

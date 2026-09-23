@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { ApplicationError, assetPageSize, maxLibraryPageSize } from '@guide/contracts';
 import { mutationContext, requireSession, getApplication } from '../../../../../lib/application';
 import { apiResponse, assertIdentifier } from '../../../../../lib/http';
-import { maxUploadBytes, storeUpload } from '../../../../../lib/media';
+import { discardStoredAsset, maxUploadBytes, storeUpload } from '../../../../../lib/media';
 export const dynamic = 'force-dynamic';
 type Context = { params: Promise<{ workspace: string }> };
 
@@ -20,6 +20,24 @@ export function POST(request: Request, context: Context) {
     const { workspace } = await context.params;
     assertIdentifier(workspace);
 
+    // Before the body is read, let alone decoded and written. This used to run
+    // after storeUpload, so a signed-in caller could put files in the media
+    // directory of a workspace they do not manage — and of one that does not
+    // exist — and get a 404 while the file stayed there.
+    const workspaces = await store.listWorkspaces(actor);
+    if (!workspaces.some((candidate) => candidate.id === workspace && candidate.role === 'manage'))
+      throw new ApplicationError('NOT_FOUND', 'Record not found.', 404);
+
+    // Cheap rejection of an oversized body before it is buffered. The check
+    // below still stands: a declared length is a claim, not a fact.
+    const declared = Number(request.headers.get('content-length') ?? 0);
+    if (declared > maxUploadBytes + 1024 * 1024)
+      throw new ApplicationError(
+        'VALIDATION_ERROR',
+        'Images must be 20 MB or smaller. Export a smaller copy and try again.',
+        422,
+      );
+
     const form = await request.formData().catch(() => null);
     const file = form?.get('file');
     if (!(file instanceof File))
@@ -33,7 +51,14 @@ export function POST(request: Request, context: Context) {
 
     const id = randomUUID();
     const stored = await storeUpload(workspace, id, Buffer.from(await file.arrayBuffer()));
-    await store.createAsset(actor, workspace, { id, ...stored });
+    try {
+      await store.createAsset(actor, workspace, { id, ...stored });
+    } catch (error) {
+      // Authorization already passed, so this is a lost race or a database
+      // fault rather than a refusal — either way the bytes have no owner.
+      await discardStoredAsset(workspace, id);
+      throw error;
+    }
     return Response.json(
       { asset: { id, width: stored.width, height: stored.height } },
       { status: 201 },
