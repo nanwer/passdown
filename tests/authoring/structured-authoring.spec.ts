@@ -549,11 +549,10 @@ test('deactivation explains what still uses a category and only unblocks once th
   await expect(row).toBeVisible();
   await row.click();
 
-  // The code is no longer shown to an author. It still exists, still never
-  // changes, and is still what support would ask for — it is simply not
-  // something the person filing a guide has any use for.
-  await expect(page.getByText(target.code, { exact: true })).toHaveCount(0);
+  // The code never changes and is what people quote to support, so the
+  // record states it.
   expect(target.code).toMatch(/^GC-\d+$/);
+  await expect(page.getByRole('dialog').getByText(target.code, { exact: true })).toBeVisible();
 
   await page.getByRole('button', { name: 'Deactivate', exact: true }).click();
   const confirm = page.getByRole('dialog', { name: 'Deactivate this thing' });
@@ -1593,9 +1592,126 @@ test('a thing is added inside another from the row itself, and shows up there', 
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(page.getByRole('row').filter({ hasText: 'Bathroom' })).toBeVisible();
 
-  // And the support code is not shown unless somebody asks for its column.
-  await expect(page.getByRole('columnheader', { name: /Code/ })).toHaveCount(0);
-  await expect(page.getByText(parent.code, { exact: true })).toHaveCount(0);
+  // And each row carries its support code without anybody asking for it.
+  await expect(page.getByRole('columnheader', { name: /Code/ })).toBeVisible();
+  await expect(topRow.getByText(parent.code, { exact: true })).toBeVisible();
+});
+
+test('a thing added while the table is filtered is shown and focused, not hidden', async ({
+  page,
+}) => {
+  await login(page.request);
+  const workspace = 'repair-collective';
+  const suffix = randomUUID().slice(0, 8);
+  await page.goto(`/studio/${workspace}/categories`);
+  const search = page.getByRole('searchbox', { name: 'Search things' });
+
+  // A search that matches nothing, then a new thing that does not match it
+  // either. It used to be created out of sight, with focus left behind.
+  await search.fill(`zzzz ${suffix}`);
+  await expect(page.getByRole('heading', { name: 'Nothing matches' })).toBeVisible();
+  await page.getByRole('button', { name: 'Add a thing', exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByRole('textbox', { name: 'Name', exact: true }).fill(`Unrelated ${suffix}`);
+  await dialog.getByRole('button', { name: 'Add thing', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(search).toHaveValue('');
+  await expect(
+    page.getByRole('button', { name: `Unrelated ${suffix}`, exact: true }),
+  ).toBeFocused();
+
+  // The same under Inactive, where a new thing — always active — cannot appear.
+  const status = page.getByRole('group', { name: 'Status' });
+  await status.getByRole('button', { name: /^Inactive/ }).click();
+  await page.getByRole('button', { name: 'Add a thing', exact: true }).click();
+  await page
+    .getByRole('dialog')
+    .getByRole('textbox', { name: 'Name', exact: true })
+    .fill(`Fresh ${suffix}`);
+  await page.getByRole('dialog').getByRole('button', { name: 'Add thing', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(status.getByRole('button', { name: /^Active/ })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  await expect(page.getByRole('button', { name: `Fresh ${suffix}`, exact: true })).toBeFocused();
+});
+
+test('deactivating a record leaves focus on the table, not the page', async ({ page }) => {
+  await login(page.request);
+  const workspace = 'repair-collective';
+  const suffix = randomUUID().slice(0, 8);
+  const first = await category(page.request, workspace, `Leaving ${suffix} a`);
+  await category(page.request, workspace, `Leaving ${suffix} b`);
+
+  await page.goto(`/studio/${workspace}/categories`);
+  await page.getByRole('searchbox', { name: 'Search things' }).fill(`Leaving ${suffix}`);
+  await page.getByRole('button', { name: first.name, exact: true }).click();
+  await page.getByRole('button', { name: 'Deactivate', exact: true }).click();
+  const confirm = page.getByRole('dialog', { name: 'Deactivate this thing' });
+  await confirm.getByRole('button', { name: 'Deactivate', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: first.name, exact: true })).toHaveCount(0);
+
+  // Its row has gone from the Active table; the row now in its place has focus.
+  await expect(
+    page.getByRole('button', { name: `Leaving ${suffix} b`, exact: true }),
+  ).toBeFocused();
+
+  // With nothing left in the table, focus goes to the search.
+  await page.getByRole('button', { name: `Leaving ${suffix} b`, exact: true }).click();
+  await page.getByRole('button', { name: 'Deactivate', exact: true }).click();
+  await confirm.getByRole('button', { name: 'Deactivate', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Nothing matches' })).toBeVisible();
+  await expect(page.getByRole('searchbox', { name: 'Search things' })).toBeFocused();
+
+  // The catalog does the same.
+  const item = (
+    await api<{ item: CatalogItem }>(page.request, `/api/studio/${workspace}/catalog`, 'POST', {
+      name: `Leaving item ${suffix}`,
+      specification: '',
+      description: '',
+      manufacturer: '',
+      model: '',
+      partNumber: '',
+      defaultUnit: 'each',
+      visibility: 'public',
+    })
+  ).item;
+  await page.goto(`/studio/${workspace}/catalog`);
+  await page.getByRole('searchbox', { name: 'Search catalog' }).fill(item.name);
+  await page.getByRole('button', { name: item.name, exact: true }).click();
+  await page.getByRole('button', { name: 'Deactivate', exact: true }).click();
+  await page
+    .getByRole('dialog', { name: /Deactivate/ })
+    .last()
+    .getByRole('button', { name: 'Deactivate', exact: true })
+    .click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.getByRole('searchbox', { name: 'Search catalog' })).toBeFocused();
+});
+
+test('a catalog item added under a filter that hides it is still where closing it lands', async ({
+  page,
+}) => {
+  await login(page.request);
+  const workspace = 'repair-collective';
+  const suffix = randomUUID().slice(0, 8);
+  await page.goto(`/studio/${workspace}/catalog`);
+  const status = page.getByRole('group', { name: 'Status' });
+  await status.getByRole('button', { name: /^Inactive/ }).click();
+  await page.getByRole('button', { name: 'New catalog item', exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByRole('textbox', { name: 'Item name', exact: true }).fill(`Placed ${suffix}`);
+  await dialog.getByRole('button', { name: 'Create item', exact: true }).click();
+  await expect(page.getByRole('dialog', { name: `Placed ${suffix}` })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(status.getByRole('button', { name: /^Active/ })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  await expect(page.getByRole('button', { name: `Placed ${suffix}`, exact: true })).toBeFocused();
 });
 
 test('a thing gets a picture, and it reaches exactly the readers the thing does', async ({
@@ -2300,7 +2416,7 @@ test('nobody is asked to choose from a list of one workspace', async ({ page }) 
   }
 });
 
-test('management tables sort every column, remember their columns, and survive opening a record', async ({
+test('management tables sort text, number and status columns, remember their columns, and survive opening a record', async ({
   page,
 }) => {
   test.setTimeout(300000);
@@ -2315,6 +2431,7 @@ test('management tables sort every column, remember their columns, and survive o
   // Twenty-seven writes on top of everything the suite has already done can
   // meet the API's per-minute limit, which is right to refuse them. So each
   // write waits its turn, as the showcase seed does, rather than failing.
+  const created: CatalogItem[] = [];
   const patiently = async (data: unknown) => {
     for (let tries = 0; ; tries++) {
       const response = await page.request.post(`/api/studio/${workspace}/catalog`, {
@@ -2323,6 +2440,7 @@ test('management tables sort every column, remember their columns, and survive o
       });
       if (response.status() !== 429 || tries >= 3) {
         expect(response.ok(), await response.text()).toBeTruthy();
+        created.push((await response.json()).item);
         return;
       }
       await page.waitForTimeout(Number(response.headers()['retry-after'] ?? 60) * 1000);
@@ -2385,6 +2503,14 @@ test('management tables sort every column, remember their columns, and survive o
   await expect(table.getByRole('columnheader', { name: /Manufacturer/ })).toBeVisible();
   await expect(table.getByRole('columnheader', { name: /Specification/ })).toHaveCount(0);
 
+  // The column that was hidden sorts like any other: Even before Odd.
+  const manufacturer = table.getByRole('columnheader', { name: /Manufacturer/ });
+  await manufacturer.getByRole('button').click();
+  await expect(manufacturer).toHaveAttribute('aria-sort', 'ascending');
+  expect((await firstNames()).slice(0, 13)).toEqual(names.filter((_, n) => n % 2));
+  await name.getByRole('button').click();
+  await expect(name).toHaveAttribute('aria-sort', 'ascending');
+
   // Page two, then open a record and close it: the same page, search and sort
   // come back, and focus returns to the row it was opened from.
   await page.getByRole('button', { name: 'Next', exact: true }).click();
@@ -2402,6 +2528,33 @@ test('management tables sort every column, remember their columns, and survive o
   await expect(page.getByRole('searchbox', { name: 'Search catalog' })).toHaveValue(
     `Sorter ${suffix}`,
   );
+
+  // Status sorts active before inactive, and the other way round.
+  for (const n of [3, 5]) {
+    const item = created[n]!;
+    await api(page.request, `/api/studio/${workspace}/catalog/${item.id}`, 'PATCH', {
+      name: item.name,
+      specification: item.specification,
+      description: item.description,
+      manufacturer: item.manufacturer,
+      model: item.model,
+      partNumber: item.partNumber,
+      defaultUnit: item.defaultUnit,
+      visibility: item.visibility,
+      expectedVersion: item.version,
+      archived: true,
+    });
+  }
+  await page.reload();
+  await page.getByRole('searchbox', { name: 'Search catalog' }).fill(`Sorter ${suffix} 0`);
+  await page.getByRole('group', { name: 'Status' }).getByRole('button', { name: /^All/ }).click();
+  const status = table.getByRole('columnheader', { name: /Status/ });
+  await status.getByRole('button').click();
+  await expect(status).toHaveAttribute('aria-sort', 'ascending');
+  expect((await firstNames()).slice(-2).sort()).toEqual([names[3], names[5]]);
+  await status.getByRole('button').click();
+  await expect(status).toHaveAttribute('aria-sort', 'descending');
+  expect((await firstNames()).slice(0, 2).sort()).toEqual([names[3], names[5]]);
 
   // Things: an opened branch stays open across a record's sheet, and the
   // guide total says where its guides are.
@@ -2424,4 +2577,26 @@ test('management tables sort every column, remember their columns, and survive o
   // Opening a branch is not opening the record.
   await page.getByRole('button', { name: `Hide what is inside Outer ${suffix}` }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
+
+  // Guides sort as numbers: a second top-level thing with one guide, and one
+  // with none, around Outer's two.
+  const single = await category(page.request, workspace, `Single ${suffix}`);
+  await category(page.request, workspace, `Empty ${suffix}`);
+  await draft(page.request, workspace, single.id, `Filed alone ${suffix}`);
+  await page.reload();
+  const things = page.getByRole('table', { name: 'Things' });
+  await page.getByRole('searchbox', { name: 'Search things' }).fill(suffix);
+  // Searching opens the matches inside matches, so Inner shows under Outer.
+  await expect(page.getByRole('button', { name: `Inner ${suffix}`, exact: true })).toBeVisible();
+  const guides = things.getByRole('columnheader', { name: /Guides/ });
+  await guides.getByRole('button').click();
+  await expect(guides).toHaveAttribute('aria-sort', 'ascending');
+  const order = async () =>
+    (await things.getByRole('rowheader').allTextContents()).filter((text) =>
+      /^(Empty|Single|Outer)/.test(text),
+    );
+  expect((await order()).map((text) => text.split(' ')[0])).toEqual(['Empty', 'Single', 'Outer']);
+  await guides.getByRole('button').click();
+  await expect(guides).toHaveAttribute('aria-sort', 'descending');
+  expect((await order()).map((text) => text.split(' ')[0])).toEqual(['Outer', 'Single', 'Empty']);
 });

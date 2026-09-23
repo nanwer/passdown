@@ -61,15 +61,24 @@ Writing needs manage permission; manual saves without browser draft backup; the 
 
 ## Things and catalog tables
 
-1. Open **Studio → Manage → Things**. Expect a table with Name, Guides, Published, Visible to and Status. Only the top level shows; **+**/**−** beside a row opens or closes what is inside it without opening the thing.
+1. Open **Studio → Manage → Things**. Expect a table with Name, Code, Guides, Published, Visible to and Status. Only the top level shows; **+**/**−** beside a row opens or closes what is inside it without opening the thing.
 2. Hover a Guides figure. Expect the split, such as `1 here + 4 inside`; the figure counts each guide once.
-3. Type in the search box. Expect matching things with the things they sit inside shown in grey, marked `contains matches`, and the **All / Active / Inactive** counts to follow the search with All equal to Active plus Inactive.
+3. Type in the search box. Expect matching things with the things they sit inside shown in grey, marked `contains matches`, and the **All / Active / Inactive** counts to follow the search with All equal to Active plus Inactive. A matching thing with more matches inside it opens by itself — search for a top-level thing's name and expect what is inside it listed underneath without pressing **+**. Its **−** still closes it; changing the search opens everything again.
 4. Choose any column header, then the same header again. Expect the rows to sort by it and then reverse; siblings sort among themselves and the tree stays a tree. The sort survives changing status or search.
-5. Choose **Columns** and turn on **Code**. Expect short codes such as `GC-0001`; reload and expect the column still there. **Name** cannot be turned off. Rename or move a thing and expect its code unchanged.
+5. Expect short codes such as `GC-0001` in the **Code** column, and the same code under **Code** when a thing is opened. Turn the column off under **Columns**, reload and expect it still off; **Name** cannot be turned off. Rename or move a thing and expect its code unchanged. (A browser that had already saved a column choice before this change keeps that choice; turn **Code** on once.)
 6. Choose a thing's name. Expect a panel from the side with its picture, facts and actions; press Escape and expect the same table, still searched, sorted and opened as before, with focus on that row.
 7. Open a thing that still holds a guide and choose **Deactivate**. Expect a list naming what still uses it, with links, and the confirm disabled. Move the guide elsewhere, reopen it, and expect deactivation to proceed.
-8. Open **Catalog**. Expect Name, Specification, Part number, Guides and Status, sorted by name; Manufacturer, Model, Unit and Visible to are available under **Columns**. With more than 25 matching items, expect **Previous** / **Next** and `Showing 1–25 of …`. Open an item from page 2 and close it: expect page 2 again.
-9. Repeat at 390px wide and in dark mode. Expect the table to scroll sideways inside its panel, never the page.
+8. With the keyboard only: search for two unused things, open the first, **Deactivate** and confirm. Expect the sheet to close, the row to disappear from **Active**, and focus on the row now in its place (press Enter and expect that thing to open). Deactivate the last one left and expect focus in the search box. Do the same for a catalog item.
+9. Search for `zzzz`, choose **Add a thing** and add `New unrelated thing`. Expect the search to clear and the new row to be visible with focus on it. Choose **Inactive**, add another, and expect the table to switch to **Active** with the new row focused. Adding inside a folded branch opens the branch.
+10. In **Catalog**, choose **Inactive**, then **New catalog item**, create one and press Escape on the record that opens. Expect **Active** selected, the table turned to the page holding the new item, and focus on its row.
+11. Open **Catalog**. Expect Name, Specification, Part number, Guides and Status, sorted by name; Manufacturer, Model, Unit and Visible to are available under **Columns**. With more than 25 matching items, expect **Previous** / **Next** and `Showing 1–25 of …`. Open an item from page 2 and close it: expect page 2 again.
+12. Repeat at 390px wide and in dark mode. Expect the table to scroll sideways inside its panel, never the page.
+
+## Fixes from the interface audit
+
+1. **Typing before the library has loaded.** Open the library on a slow connection (browser developer tools → Network → Slow 3G) and type a guide's title into the search box as soon as it appears. Expect the results to narrow to that guide and the address to gain `?q=…` once the page finishes loading, with your words still in the box. Before, the words stayed in the box and nothing searched.
+2. **Step title focus border.** In the editor, click into a step's title and leave the pointer over it. Expect the blue focus border to stay; before, hovering replaced it with the grey hover border. A title without focus still shows the grey border on hover.
+3. **Enter straight after moving the caret.** In a step's instructions, type `Read the manual.`, select `manual`, make it a link, press → twice and Enter at once. Expect the link kept and a new line after the full stop. On a busy machine the editor used to act on the old selection, so Enter replaced the linked word. The same fix applies to every key command (Backspace, formatting shortcuts) pressed immediately after the caret moves.
 
 ## Catalog usage
 

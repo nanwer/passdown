@@ -661,3 +661,24 @@ test('a step number stays on one line beside a title that wraps', async ({ page 
   expect(rows.some((row) => row.titleLines > 1)).toBe(true);
   for (const row of rows) expect(row.numberHeight, row.number!).toBeLessThan(row.lineHeight * 1.5);
 });
+
+test('a focused step title keeps its focus border while the pointer is over it', async ({
+  page,
+}) => {
+  // Hover and focus both colour the border. Focus has to win: somebody typing
+  // with the pointer resting on the field still needs to see where they are.
+  await login(page.request);
+  await page.goto('/studio/repair-collective/bicycle-brake');
+  const title = page.getByRole('textbox', { name: 'Step title', exact: true });
+  await title.focus();
+  await page.mouse.move(0, 0);
+  const border = () => title.evaluate((element) => getComputedStyle(element).borderTopColor);
+  const focused = await border();
+  await title.hover();
+  expect(await border()).toBe(focused);
+  await page.getByRole('button', { name: 'Preview', exact: true }).hover();
+  await page.getByRole('textbox', { name: 'Instructions', exact: true }).focus();
+  // And a hovered field that is not focused still shows the hover border.
+  await title.hover();
+  expect(await border()).not.toBe(focused);
+});

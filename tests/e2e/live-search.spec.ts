@@ -170,3 +170,23 @@ test('authorized guide metadata uses the guide title and denied guides stay gene
   await page.goto('/preview/workshop/guides/bench-handover');
   await expect(page).toHaveTitle(/synthetic team preview/);
 });
+
+test('words typed before the page finishes loading still search', async ({ page }) => {
+  // On a slow connection the search box arrives, and can be typed into, before
+  // the script that listens to it. Those words used to sit in the box and do
+  // nothing. Hold the scripts back, type, then let them arrive.
+  let release!: () => void;
+  const held = new Promise<void>((done) => (release = done));
+  await page.route(/\/_next\/static\/chunks\/.*\.js/, async (route) => {
+    await held;
+    await route.continue();
+  });
+  await page.goto('/', { waitUntil: 'commit' });
+  const search = page.getByRole('searchbox');
+  await search.fill('keyboard');
+  release();
+
+  await expect(page.locator('.guide-card')).toHaveCount(1);
+  await expect(page).toHaveURL(/\?q=keyboard$/);
+  await expect(search).toHaveValue('keyboard');
+});

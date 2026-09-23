@@ -1646,7 +1646,7 @@ function Editor({ workspace, guideId }: { workspace: StudioWorkspace; guideId: s
                   </div>
                 </div>
                 <div className={cn(X.form, 'mt-6')}>
-                  <label className="gap-2 text-[12px] text-editor-muted [&_input]:-ml-2.5 [&_input]:w-[calc(100%_+_10px)] [&_input]:rounded-[6px] [&_input]:border [&_input]:border-solid [&_input]:border-transparent [&_input]:bg-transparent [&_input]:px-2.5 [&_input]:py-2 [&_input]:text-[clamp(22px,2vw,28px)] [&_input]:leading-[1.35] [&_input]:font-[650] [&_input]:tracking-[-0.025em] [&_input]:text-editor-ink [&_input:hover]:border-editor-line [&_input:focus]:border-action [&_input:focus]:bg-editor-canvas">
+                  <label className="gap-2 text-[12px] text-editor-muted [&_input]:-ml-2.5 [&_input]:w-[calc(100%_+_10px)] [&_input]:rounded-[6px] [&_input]:border [&_input]:border-solid [&_input]:border-transparent [&_input]:bg-transparent [&_input]:px-2.5 [&_input]:py-2 [&_input]:text-[clamp(22px,2vw,28px)] [&_input]:leading-[1.35] [&_input]:font-[650] [&_input]:tracking-[-0.025em] [&_input]:text-editor-ink [&_input:hover:not(:focus)]:border-editor-line [&_input:focus]:border-action [&_input:focus]:bg-editor-canvas">
                     Step title
                     <input
                       maxLength={160}

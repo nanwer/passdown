@@ -41,6 +41,7 @@ import {
   nextSort,
   tableClass,
   useColumnChoice,
+  useRowFocus,
   type Column,
   type Sort,
   type Status,
@@ -312,11 +313,10 @@ export function CategoryManagementPage({ workspaceId }: { workspaceId: string })
 const thingColumns = (counts: Map<string, CategoryCounts>): Column<Category>[] => [
   { key: 'name', header: 'Name', primary: true, sortValue: (c) => c.name, cell: () => null },
   {
-    // The support code: stable and never recycled, and of no use to somebody
-    // filing a guide, so it is there for whoever asks for the column.
+    // The support code: stable and never recycled, so it is what people quote
+    // to each other and to support. Shown unless the viewer hides it.
     key: 'code',
     header: 'Code',
-    hiddenByDefault: true,
     sortValue: (c) => c.code,
     cell: (c) => <code>{c.code}</code>,
   },
@@ -381,22 +381,14 @@ function ThingsManagement({ workspace }: { workspace: StudioWorkspace }) {
   const [status, setStatus] = useState<Status>('active');
   const [sort, setSort] = useState<Sort>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  // Rows closed by hand during a search, which otherwise opens every match.
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [selectedId, setSelected] = useState<string | null>(null);
   const [addingInside, setAddingInside] = useState<Category | null>(null);
-  const [focusId, setFocusId] = useState<string | null>(null);
   const [notice, setNotice] = useState('');
-  const openers = useRef(new Map<string, HTMLButtonElement>());
-  const lastOpened = useRef<string | null>(null);
   const owner = workspace.role === 'manage';
-  // A new row takes focus once it exists, unless a sheet is open over it.
-  useEffect(() => {
-    if (!focusId || selectedId) return;
-    const opener = openers.current.get(focusId);
-    if (opener) {
-      opener.focus();
-      setFocusId(null);
-    }
-  }, [focusId, selectedId, categories, expanded]);
+  const searching = query.trim() !== '';
+  useEffect(() => setCollapsed(new Set()), [query]);
 
   const inTree = categories.filter((category) => category.domain === domain);
   // Status counts describe what the search matches before the status narrows
@@ -411,11 +403,20 @@ function ThingsManagement({ workspace }: { workspace: StudioWorkspace }) {
     matches: (c) => found.has(c.id) && (status === 'all' || (status === 'active') === !c.archived),
     expanded,
     compare: compareBy(columns, sort),
+    searching,
+    collapsed,
   });
   const selected = categories.find((category) => category.id === selectedId);
+  const focus = useRowFocus(
+    rows.map((row) => row.category.id),
+    {
+      fallback: () => document.getElementById('things-search'),
+      paused: Boolean(selectedId || addingInside),
+    },
+  );
 
   function open(category: Category) {
-    lastOpened.current = category.id;
+    focus.opened(category.id);
     setSelected(category.id);
   }
   /**
@@ -423,14 +424,27 @@ function ThingsManagement({ workspace }: { workspace: StudioWorkspace }) {
    *
    * Adding stays in the table rather than opening the new record, so adding
    * several in a row is several presses rather than a sheet to close each
-   * time. A thing added inside a closed branch opens the branch, because one
-   * that does not appear reads as a creation that failed.
+   * time. A thing added inside a closed branch opens the branch, and a search
+   * or status that would hide it is cleared, because one that does not appear
+   * reads as a creation that failed.
    */
   function reveal(category: Category) {
-    setExpanded(
-      (current) => new Set([...current, ...category.path.slice(0, -1).map((node) => node.id)]),
-    );
-    setFocusId(category.id);
+    const ancestors = category.path.slice(0, -1).map((node) => node.id);
+    setExpanded((current) => new Set([...current, ...ancestors]));
+    setCollapsed((current) => new Set([...current].filter((id) => !ancestors.includes(id))));
+    if (searching && !searchCategories([category], query).length) setQuery('');
+    if (status === 'inactive') setStatus('active');
+    focus.focusWhenShown(category.id);
+  }
+  function toggleRow(category: Category) {
+    const flip = (current: Set<string>) => {
+      const next = new Set(current);
+      if (next.has(category.id)) next.delete(category.id);
+      else next.add(category.id);
+      return next;
+    };
+    if (searching) setCollapsed(flip);
+    else setExpanded(flip);
   }
 
   return (
@@ -443,6 +457,7 @@ function ThingsManagement({ workspace }: { workspace: StudioWorkspace }) {
       />
       <div className={toolbarClass}>
         <TableSearch
+          id="things-search"
           label={`Search ${words.things}`}
           placeholder={`Find a ${words.thing} or path…`}
           value={query}
@@ -543,12 +558,7 @@ function ThingsManagement({ workspace }: { workspace: StudioWorkspace }) {
                               className="grid size-7 shrink-0 place-items-center rounded-md border border-[var(--gp-semantic-border-control)] hover:bg-[var(--gp-semantic-surface-raised)]"
                               onClick={(event) => {
                                 event.stopPropagation();
-                                setExpanded((current) => {
-                                  const next = new Set(current);
-                                  if (next.has(category.id)) next.delete(category.id);
-                                  else next.add(category.id);
-                                  return next;
-                                });
+                                toggleRow(category);
                               }}
                             >
                               {isOpen ? <Minus size={14} /> : <Plus size={14} />}
@@ -571,10 +581,7 @@ function ThingsManagement({ workspace }: { workspace: StudioWorkspace }) {
                           )}
                           <button
                             type="button"
-                            ref={(node) => {
-                              if (node) openers.current.set(category.id, node);
-                              else openers.current.delete(category.id);
-                            }}
+                            ref={focus.register(category.id)}
                             className={cn(openRowClass, context && 'font-normal')}
                             onClick={(event) => {
                               event.stopPropagation();
@@ -644,13 +651,7 @@ function ThingsManagement({ workspace }: { workspace: StudioWorkspace }) {
           onOpenChange={(next) => {
             if (!next) setSelected(null);
           }}
-          onCloseAutoFocus={(event) => {
-            const opener = lastOpened.current && openers.current.get(lastOpened.current);
-            if (opener) {
-              event.preventDefault();
-              opener.focus();
-            }
-          }}
+          onCloseAutoFocus={focus.restore}
           title={selected.name}
           description={categoryPath(selected)}
         >
@@ -766,6 +767,7 @@ function ThingDetail({
       <p className="mt-4">{category.description || 'No description yet.'}</p>
       <Facts
         items={[
+          ['Code', <code key="code">{category.code}</code>],
           ['Status', <StatusLabel key="status" inactive={category.archived} />],
           ['Visible to', <Visibility key="visibility" value={category.visibility} />],
           ['Version', category.version],
@@ -972,8 +974,8 @@ function CatalogManagement({ workspace }: { workspace: StudioWorkspace }) {
   const [page, setPage] = useState(1);
   const [selectedId, setSelected] = useState<string | null>(null);
   const [notice, setNotice] = useState('');
-  const openers = useRef(new Map<string, HTMLButtonElement>());
-  const lastOpened = useRef<string | null>(null);
+  // A new item, until the table has moved to the page it sits on.
+  const [placing, setPlacing] = useState<string | null>(null);
   const owner = workspace.role === 'manage';
 
   // Status counts describe what the search matches, before the selected status
@@ -995,10 +997,31 @@ function CatalogManagement({ workspace }: { workspace: StudioWorkspace }) {
   const selected = items.find((item) => item.id === selectedId);
   // A different question starts from its first page; opening a record does not.
   useEffect(() => setPage(1), [search, status, sort]);
+  useEffect(() => {
+    const index = placing ? ordered.findIndex((item) => item.id === placing) : -1;
+    if (index < 0) return;
+    setPage(Math.floor(index / catalogPageSize) + 1);
+    setPlacing(null);
+  });
+  const focus = useRowFocus(
+    shownRows.map((item) => item.id),
+    { fallback: () => document.getElementById('catalog-search'), paused: Boolean(selectedId) },
+  );
 
   function open(item: CatalogItem) {
-    lastOpened.current = item.id;
+    focus.opened(item.id);
     setSelected(item.id);
+  }
+  /**
+   * A new item opens straight away. Behind it, the table clears a search or
+   * status that would hide it and turns to its page, so closing the record
+   * lands on its row rather than on a table that does not contain it.
+   */
+  function place(item: CatalogItem) {
+    if (filterCatalog([item], { search, includeArchived: false }).length === 0) setSearch('');
+    if (status === 'inactive') setStatus('active');
+    setPlacing(item.id);
+    open(item);
   }
 
   return (
@@ -1011,6 +1034,7 @@ function CatalogManagement({ workspace }: { workspace: StudioWorkspace }) {
       />
       <div className={toolbarClass}>
         <TableSearch
+          id="catalog-search"
           label="Search catalog"
           placeholder="Find names, sizes, models or part numbers…"
           value={search}
@@ -1029,7 +1053,7 @@ function CatalogManagement({ workspace }: { workspace: StudioWorkspace }) {
               </Button>
             }
             onSaved={(item) => {
-              open(item);
+              place(item);
               setNotice(`${item.name} added to the catalog.`);
             }}
           />
@@ -1107,10 +1131,7 @@ function CatalogManagement({ workspace }: { workspace: StudioWorkspace }) {
                             />
                             <button
                               type="button"
-                              ref={(node) => {
-                                if (node) openers.current.set(item.id, node);
-                                else openers.current.delete(item.id);
-                              }}
+                              ref={focus.register(item.id)}
                               className={openRowClass}
                               onClick={(event) => {
                                 event.stopPropagation();
@@ -1151,13 +1172,7 @@ function CatalogManagement({ workspace }: { workspace: StudioWorkspace }) {
           onOpenChange={(next) => {
             if (!next) setSelected(null);
           }}
-          onCloseAutoFocus={(event) => {
-            const opener = lastOpened.current && openers.current.get(lastOpened.current);
-            if (opener) {
-              event.preventDefault();
-              opener.focus();
-            }
-          }}
+          onCloseAutoFocus={focus.restore}
           title={selected.name}
           description={selected.specification || 'No specification recorded.'}
         >

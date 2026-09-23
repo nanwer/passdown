@@ -158,7 +158,16 @@ function EditableInstructions({
         }
         return false;
       },
-      handleKeyDown(_view, event) {
+      handleKeyDown(view, event) {
+        // The browser moves the caret for arrow keys itself, and the editor
+        // hears about it from a selectionchange event that comes later. A key
+        // pressed before that event — Enter straight after an arrow, on a busy
+        // machine — acted on the old selection: with a word still selected,
+        // Enter replaced it. Read the caret first, so every key command acts
+        // where the caret actually is. flush() is ProseMirror's own reading of
+        // the DOM selection, the same one selectionchange triggers.
+        if (!event.isComposing && event.keyCode !== 229)
+          (view as unknown as { domObserver: { flush(): void } }).domObserver.flush();
         if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
           event.preventDefault();
           setLinkOpen(true);

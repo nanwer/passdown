@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import * as Menu from '@radix-ui/react-dropdown-menu';
 import { ArrowDown, ArrowUp, ArrowUpDown, Check, Columns3, Search } from 'lucide-react';
 import { buttonVariants, cn } from '@guide/ui';
@@ -215,11 +215,14 @@ export function StatusTabs({
 }
 
 export function TableSearch({
+  id,
   label,
   placeholder,
   value,
   onChange,
 }: {
+  /** Lets the table return focus here when no row is left to hold it. */
+  id?: string;
   label: string;
   placeholder: string;
   value: string;
@@ -233,6 +236,7 @@ export function TableSearch({
         className="pointer-events-none absolute start-3.5 top-1/2 -translate-y-1/2 text-[var(--gp-semantic-text-secondary)]"
       />
       <input
+        id={id}
         type="search"
         aria-label={label}
         placeholder={placeholder}
@@ -294,3 +298,93 @@ export function Pager({
 export const tableClass = 'w-full border-collapse text-sm';
 export const cellClass =
   'border-b border-[var(--gp-semantic-border-subtle)] px-3 py-2.5 align-middle';
+
+/**
+ * Where keyboard focus goes as a table changes underneath it.
+ *
+ * Closing a record returns focus to the row that opened it. But a record can
+ * leave the table as a result of what was done to it — deactivated under the
+ * Active tab, renamed out of the search, moved to another page — and a focused
+ * button that disappears drops focus onto the page itself, leaving a keyboard
+ * user nowhere. So while focus is still on that row, or has just been lost
+ * from it, the table puts it on the row now in the same place, or on the
+ * search when nothing is left. A row that was just created takes focus as
+ * soon as it appears, once nothing is open over the table.
+ */
+export function useRowFocus(
+  rowIds: string[],
+  { fallback, paused = false }: { fallback: () => HTMLElement | null; paused?: boolean },
+) {
+  const openers = useRef(new Map<string, HTMLElement>());
+  const last = useRef<{ id: string; index: number } | null>(null);
+  const watching = useRef(false);
+  const pending = useRef<string | null>(null);
+  const [, setPendingVersion] = useState(0);
+
+  const neighbour = () => {
+    const index = Math.min(last.current?.index ?? 0, rowIds.length - 1);
+    const target = (index >= 0 && openers.current.get(rowIds[index]!)) || fallback();
+    target?.focus();
+    watching.current = false;
+  };
+  const focusPending = () => {
+    const id = pending.current;
+    const opener = id && openers.current.get(id);
+    if (!id || !opener) return false;
+    last.current = { id, index: rowIds.indexOf(id) };
+    pending.current = null;
+    opener.focus();
+    return true;
+  };
+
+  useEffect(() => {
+    // Anything the viewer moves to deliberately ends the watch.
+    const moved = (event: FocusEvent) => {
+      const current = last.current && openers.current.get(last.current.id);
+      if (event.target !== current) watching.current = false;
+    };
+    document.addEventListener('focusin', moved);
+    return () => document.removeEventListener('focusin', moved);
+  }, []);
+
+  useEffect(() => {
+    if (paused) return;
+    if (pending.current) {
+      focusPending();
+      return;
+    }
+    const active = document.activeElement;
+    const lost = !active || active === document.body;
+    if (watching.current && lost && last.current && !rowIds.includes(last.current.id)) neighbour();
+  });
+
+  return {
+    /** The ref for the button that opens a row. */
+    register: (id: string) => (node: HTMLElement | null) => {
+      if (node) openers.current.set(id, node);
+      else openers.current.delete(id);
+    },
+    /** Called when a row is opened, so closing can come back to it. */
+    opened(id: string) {
+      last.current = { id, index: rowIds.indexOf(id) };
+    },
+    /** For the sheet's onCloseAutoFocus: the opener, or its neighbour if it has gone. */
+    restore(event: Event) {
+      event.preventDefault();
+      // A row created from inside the record goes first.
+      if (pending.current) {
+        focusPending();
+        return;
+      }
+      watching.current = true;
+      const opener = last.current && openers.current.get(last.current.id);
+      if (opener) opener.focus();
+      else neighbour();
+    },
+    /** Focus a row as soon as it exists — one that was just created. */
+    focusWhenShown(id: string) {
+      pending.current = id;
+      setPendingVersion((version) => version + 1);
+    },
+  };
+}

@@ -61,10 +61,12 @@ export type ThingRow = {
  * The rows of the things table, in order.
  *
  * A row appears when it matches, or when something inside it does — then it is
- * context, marked as such, and always open along the way to that match, so a
- * search never hides its results inside a collapsed branch. A matching row
- * opens and closes as the viewer chooses. Siblings are ordered by the chosen
- * sort, or by the tree's own order; the hierarchy itself is never flattened.
+ * context, marked as such, and always open along the way to that match. While
+ * searching, a matching row with matches inside it starts open too, so a
+ * search never hides its results inside a collapsed branch; the viewer can
+ * still close one. Outside a search, rows open only when the viewer opens
+ * them. Siblings are ordered by the chosen sort, or by the tree's own order;
+ * the hierarchy itself is never flattened.
  */
 export function thingRows(
   categories: Category[],
@@ -72,10 +74,16 @@ export function thingRows(
     matches,
     expanded,
     compare,
+    searching = false,
+    collapsed = new Set<string>(),
   }: {
     matches: (category: Category) => boolean;
     expanded: ReadonlySet<string>;
     compare: ((a: Category, b: Category) => number) | null;
+    /** Whether the matches come from a search, which opens the way to all of them. */
+    searching?: boolean;
+    /** Rows the viewer has closed during this search. */
+    collapsed?: ReadonlySet<string>;
   },
 ): ThingRow[] {
   const ids = new Set(categories.map((category) => category.id));
@@ -99,7 +107,9 @@ export function thingRows(
     for (const category of [...(children.get(parent) ?? [])].sort(order)) {
       const context = !matched.has(category.id);
       const hasChildren = (children.get(category.id)?.length ?? 0) > 0;
-      const open = hasChildren && (context || expanded.has(category.id));
+      const open =
+        hasChildren &&
+        (context || (searching ? !collapsed.has(category.id) : expanded.has(category.id)));
       rows.push({ category, depth, context, hasChildren, expanded: open });
       if (open) visit(category.id, depth + 1);
     }

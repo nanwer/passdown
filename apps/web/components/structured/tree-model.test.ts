@@ -122,3 +122,41 @@ describe('thingRows', () => {
     ).toEqual(['Bicycles', '  Brakes', '  Chains', 'Lamps']);
   });
 });
+
+describe('thingRows while searching', () => {
+  const node = (id: string, name: string, parent: Category | null): Category => ({
+    ...root,
+    id,
+    name,
+    parentId: parent?.id ?? null,
+    path: [...(parent?.path ?? []), { id, name }],
+  });
+  const parent = node('parent', 'Parent', null);
+  const child = node('child', 'Child', parent);
+  const all = [parent, child];
+  const byPath = (category: Category) => category.path.some((part) => part.name === 'Parent');
+
+  it('opens a matching row that has matches inside it', () => {
+    // Searching "Parent" matches Parent and Parent / Child by path. Child used
+    // to stay hidden until Parent was opened by hand.
+    const rows = thingRows(all, {
+      matches: byPath,
+      expanded: new Set(),
+      compare: null,
+      searching: true,
+    });
+    expect(rows.map((row) => row.category.name)).toEqual(['Parent', 'Child']);
+    expect(rows[0]).toMatchObject({ context: false, expanded: true });
+  });
+
+  it('lets the viewer close one during a search', () => {
+    const rows = thingRows(all, {
+      matches: byPath,
+      expanded: new Set(),
+      compare: null,
+      searching: true,
+      collapsed: new Set(['parent']),
+    });
+    expect(rows.map((row) => row.category.name)).toEqual(['Parent']);
+  });
+});

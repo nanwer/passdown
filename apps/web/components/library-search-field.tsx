@@ -36,6 +36,7 @@ export function LibrarySearchField({
   const composingRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dirtyRef = useRef(false);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const navigate = (nextQuery: string, mode: 'push' | 'replace') => {
     if (timerRef.current) clearTimeout(timerRef.current);
@@ -60,6 +61,22 @@ export function LibrarySearchField({
       dirtyRef.current = false;
     }
   }, [query]);
+
+  useEffect(() => {
+    // The box is in the page before the script that listens to it, so on a slow
+    // connection somebody can type into it first. Take up whatever is there and
+    // search for it, rather than leaving their words in a box that does nothing.
+    // Compared with the query the page was rendered for, not with what this
+    // component last recorded, so running the effect twice still searches.
+    const typed = inputRef.current?.value ?? '';
+    if (typed !== query) {
+      setValue(typed);
+      valueRef.current = typed;
+      dirtyRef.current = true;
+      scheduleSearch(typed);
+    }
+    // Once, when the field comes alive.
+  }, []);
 
   useEffect(() => {
     const categoryNavigation = (event: Event) => {
@@ -109,6 +126,7 @@ export function LibrarySearchField({
         {label}
       </label>
       <input
+        ref={inputRef}
         id="guide-search"
         type="search"
         name="q"
