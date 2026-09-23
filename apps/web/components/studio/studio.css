@@ -5,41 +5,6 @@
     color: var(--gp-semantic-text-primary);
     background: var(--gp-semantic-surface-canvas);
   }
-  .studio-header {
-    min-height: 88px;
-    display: flex;
-    align-items: center;
-    gap: 40px;
-    padding: 20px 4%;
-    border-bottom: 1px solid var(--gp-semantic-border-subtle);
-    background: var(--gp-semantic-surface-panel);
-  }
-  .studio-brand {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 23px;
-    font-weight: 750;
-    letter-spacing: -1px;
-  }
-  .studio-brand > span {
-    font-weight: 400;
-    color: var(--gp-semantic-text-secondary);
-  }
-  .studio-header nav,
-  .studio-header nav a,
-  .studio-header-actions {
-    display: flex;
-    align-items: center;
-    gap: 24px;
-  }
-  .studio-header nav a {
-    gap: 8px;
-  }
-  .studio-header-actions {
-    margin-inline-start: auto;
-    gap: 12px;
-  }
   .studio-user {
     font-size: 13px;
     color: var(--gp-semantic-text-secondary);
@@ -462,20 +427,6 @@
     }
   }
   @media (max-width: 700px) {
-    .studio-header {
-      padding: 16px 20px;
-      gap: 18px;
-      flex-wrap: wrap;
-    }
-    .studio-header nav {
-      order: 3;
-      width: 100%;
-      gap: 24px;
-      font-size: 14px;
-    }
-    .studio-header-actions {
-      gap: 8px;
-    }
     .studio-container {
       padding: 36px 20px;
     }
@@ -640,21 +591,6 @@
     text-align: start;
     text-decoration: underline;
     text-underline-offset: 3px;
-  }
-  .studio-header nav {
-    flex-wrap: wrap;
-    column-gap: 20px;
-    row-gap: 8px;
-  }
-  @media (min-width: 701px) and (max-width: 1100px) {
-    .studio-header {
-      gap: 20px;
-      flex-wrap: wrap;
-    }
-    .studio-header nav {
-      order: 3;
-      flex-basis: 100%;
-    }
   }
 
   /* Section choice at creation. Immutable afterwards, so both options are shown

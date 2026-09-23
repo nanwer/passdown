@@ -187,37 +187,6 @@
   .brand-mark i:nth-child(3) {
     height: 20px;
   }
-  .primary-nav {
-    display: flex;
-    align-self: stretch;
-    gap: 30px;
-    align-items: stretch;
-  }
-  .primary-nav a {
-    display: flex;
-    gap: 8px;
-    align-items: center;
-    font-weight: 500;
-    color: var(--gp-semantic-text-secondary);
-    position: relative;
-    font-size: 13px;
-  }
-  .primary-nav a.active {
-    color: var(--gp-semantic-text-primary);
-  }
-  .primary-nav a.active::after {
-    content: '';
-    position: absolute;
-    bottom: -1px;
-    width: 100%;
-    height: 2px;
-    background: var(--gp-semantic-action-primary-background);
-  }
-  .header-actions {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-  }
   .icon-button {
     display: inline-flex;
     align-items: center;
@@ -552,61 +521,6 @@
   /* The way into a category's own page, shown only while one is selected. The
    picture grid that used to lead there cost 407px on every visit; this costs
    nothing until you have asked for a category. */
-  .library-chosen-category {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    padding: 12px 16px;
-    margin-bottom: 22px;
-    border: 1px solid var(--gp-semantic-border-subtle);
-    border-radius: var(--gp-component-card-radius);
-    background: var(--gp-component-card-background);
-    color: inherit;
-  }
-  .library-chosen-category:hover {
-    border-color: var(--gp-semantic-border-control);
-  }
-  .library-chosen-category img,
-  .library-chosen-icon {
-    flex: none;
-    width: 40px;
-    height: 40px;
-    border-radius: 7px;
-    object-fit: cover;
-  }
-  .library-chosen-icon {
-    display: grid;
-    place-items: center;
-    background: var(--gp-semantic-surface-sunken);
-    color: var(--gp-semantic-text-secondary);
-  }
-  .library-chosen-copy {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    min-width: 0;
-    flex: 1;
-  }
-  .library-chosen-copy strong {
-    font-size: 14px;
-    font-weight: 600;
-  }
-  .library-chosen-copy > span {
-    font-size: 12px;
-    color: var(--gp-semantic-text-secondary);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .library-chosen-go {
-    flex: none;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--gp-semantic-text-secondary);
-  }
 
   /* A guide's own picture, filling the space the illustration would have had. */
   .guide-card-cover {
@@ -1164,115 +1078,6 @@
   .workshop {
     padding-block: 60px;
   }
-  .workshop-header {
-    margin-bottom: 40px;
-    max-width: 750px;
-  }
-  .workshop-header h1 {
-    font-size: clamp(32px, 4vw, 51px);
-    font-weight: 500;
-    letter-spacing: -1.5px;
-    margin-block: 15px;
-    line-height: 1.2;
-  }
-  .workshop-header p {
-    max-width: 620px;
-    font-size: 15px;
-    line-height: 1.9;
-    color: var(--gp-semantic-text-secondary);
-  }
-  .workshop-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 24px;
-  }
-  .spec-panel {
-    border: 1px solid var(--gp-semantic-border-subtle);
-    border-radius: var(--gp-semantic-radius-panel);
-    padding: 32px;
-    background: var(--gp-semantic-surface-panel);
-    min-width: 0;
-  }
-  .spec-heading {
-    margin-bottom: 24px;
-  }
-  .spec-heading span {
-    font-family: var(--gp-semantic-font-code);
-    font-size: 10px;
-    letter-spacing: 1.3px;
-    color: var(--gp-semantic-text-secondary);
-  }
-  .spec-heading h2 {
-    font-size: 19px;
-    font-weight: 500;
-    letter-spacing: -0.5px;
-    margin-top: 9px;
-  }
-  .spec-panel > p,
-  .wide-panel > div > p {
-    color: var(--gp-semantic-text-secondary);
-    font-size: 13px;
-    line-height: 1.8;
-    margin-bottom: 22px;
-  }
-  .component-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 15px;
-    align-items: center;
-    margin-block: 20px;
-  }
-  .spec-panel .component-note {
-    font-size: 11px;
-    margin: 22px 0 0;
-  }
-  .status-example {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-    padding: 14px;
-    background: var(--gp-semantic-status-success-background);
-    border: 1px solid var(--gp-semantic-status-success-border);
-    color: var(--gp-semantic-status-success-foreground);
-    border-radius: 8px;
-    font-size: 12px;
-  }
-  .wide-panel {
-    grid-column: 1/-1;
-    display: grid;
-    grid-template-columns: 1fr 360px;
-    align-items: center;
-    gap: 50px;
-  }
-  .swatch-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    margin-top: 30px;
-  }
-  .swatch {
-    display: grid;
-    place-items: center;
-    width: 80px;
-    height: 72px;
-    border-radius: var(--gp-semantic-radius-control);
-    border: 1px solid var(--gp-semantic-border-subtle);
-    font-size: 10px;
-  }
-  .swatch-canvas {
-    background: var(--gp-semantic-surface-canvas);
-  }
-  .swatch-panel {
-    background: var(--gp-semantic-surface-panel);
-  }
-  .swatch-action {
-    background: var(--gp-semantic-action-primary-background);
-    color: var(--gp-semantic-action-primary-foreground);
-  }
-  .swatch-accent {
-    background: var(--gp-semantic-accent-background);
-    color: var(--gp-semantic-accent-foreground);
-  }
   .not-found {
     padding-block: 100px;
     min-height: 75vh;
@@ -1290,25 +1095,9 @@
   .not-found p {
     color: var(--gp-semantic-text-secondary);
   }
-  .loading-state {
-    padding-block: 50px;
-  }
   .skeleton {
     border-radius: 12px;
     background: var(--gp-semantic-surface-sunken);
-  }
-  .skeleton-title {
-    width: 60%;
-    height: 55px;
-    margin-bottom: 20px;
-  }
-  .skeleton-copy {
-    width: 40%;
-    height: 20px;
-    margin-bottom: 50px;
-  }
-  .skeleton-card {
-    height: 320px;
   }
   @media (min-width: 1550px) {
     .site-header {
@@ -1319,12 +1108,6 @@
     .site-header {
       gap: 18px;
       min-height: 86px;
-    }
-    .primary-nav {
-      gap: 20px;
-    }
-    .primary-nav a svg {
-      display: none;
     }
     .workspace-menu summary span {
       display: none;
@@ -1342,10 +1125,6 @@
       grid-template-columns: 200px minmax(0, 1fr);
       gap: 28px;
     }
-    .wide-panel {
-      grid-template-columns: 1fr 300px;
-      gap: 25px;
-    }
   }
   @media (max-width: 760px) {
     .site-header {
@@ -1356,19 +1135,6 @@
     }
     .brand {
       font-size: 19px;
-    }
-    .header-actions {
-      margin-inline-start: auto;
-      gap: 8px;
-    }
-    .primary-nav {
-      order: 3;
-      width: 100%;
-      gap: 25px;
-      height: 43px;
-    }
-    .primary-nav a {
-      font-size: 12px;
     }
     .collection {
       padding-top: 29px;
@@ -1470,15 +1236,6 @@
     .workshop {
       padding-block: 38px;
     }
-    .workshop-grid {
-      grid-template-columns: 1fr;
-    }
-    .wide-panel {
-      grid-template-columns: 1fr;
-    }
-    .spec-panel {
-      padding: 24px;
-    }
   }
   @media (max-width: 470px) {
     .library-search-band {
@@ -1552,7 +1309,6 @@
       background: Canvas;
       opacity: 0.65;
     }
-    .primary-nav a.active::after,
     .brand-mark i {
       background: Highlight;
     }

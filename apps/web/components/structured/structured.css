@@ -3,17 +3,6 @@
   .structured-management {
     max-width: 1320px;
   }
-  .structured-page-heading {
-    margin: 28px 0;
-    max-width: 750px;
-  }
-  .structured-page-heading h1 {
-    margin: 10px 0 14px;
-  }
-  .structured-page-heading p {
-    font-size: 16px;
-    line-height: 1.65;
-  }
   .structured-back {
     display: inline-flex;
     align-items: center;
@@ -26,154 +15,12 @@
     cursor: pointer;
     text-decoration: none;
   }
-  .structured-tabs {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 24px;
-    border-bottom: 1px solid var(--gp-semantic-border-subtle);
-    margin: 32px 0 24px;
-  }
-  .structured-tabs a {
-    display: inline-flex;
-    gap: 8px;
-    align-items: center;
-    padding: 0 0 15px;
-    font-size: 14px;
-    color: var(--gp-semantic-text-secondary);
-    text-decoration: none;
-    border-bottom: 2px solid transparent;
-  }
-  .structured-tabs a[aria-current='page'] {
-    color: var(--gp-semantic-text-primary);
-    border-bottom-color: var(--gp-semantic-focus-ring);
-    font-weight: 700;
-  }
-  .structured-management-toolbar {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: space-between;
-    align-items: center;
-    gap: 16px;
-    margin-bottom: 24px;
-  }
-  .structured-management-toolbar > .structured-search {
-    flex: 1;
-    max-width: 580px;
-  }
-  .structured-domain-tabs {
-    display: inline-flex;
-    flex-wrap: wrap;
-    gap: 4px;
-    padding: 4px;
-    border: 1px solid var(--gp-semantic-border-subtle);
-    border-radius: 9px;
-    background: var(--gp-semantic-surface-sunken);
-  }
-  .structured-domain-tabs button {
-    padding: 9px 13px;
-    border: 0;
-    border-radius: 6px;
-    color: var(--gp-semantic-text-secondary);
-    background: transparent;
-    font-size: 12px;
-    cursor: pointer;
-  }
-  .structured-domain-tabs button[aria-pressed='true'] {
-    background: var(--gp-semantic-surface-raised);
-    color: var(--gp-semantic-text-primary);
-    box-shadow: 0 1px 3px rgb(0 0 0 / 0.08);
-    font-weight: 650;
-  }
-  .structured-management-grid {
-    display: grid;
-    grid-template-columns: minmax(250px, 0.95fr) minmax(0, 1.4fr);
-    gap: 24px;
-    align-items: start;
-  }
-  .structured-tree-panel,
-  .structured-detail-panel,
-  .catalog-list-panel {
-    min-width: 0;
-    border: 1px solid var(--gp-semantic-border-subtle);
-    border-radius: 12px;
-    background: var(--gp-semantic-surface-panel);
-    padding: 24px;
-  }
-  .structured-tree-panel {
-    min-height: 440px;
-  }
-  .structured-detail-panel {
-    padding: 32px;
-  }
-  .structured-detail-empty {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    justify-content: center;
-    min-height: 370px;
-    max-width: 450px;
-  }
-  .structured-detail-empty > svg {
-    color: var(--gp-semantic-text-secondary);
-    margin-bottom: 20px;
-  }
-  .structured-detail-empty p {
-    line-height: 1.6;
-  }
   .structured-detail-icon {
     display: inline-flex;
     padding: 16px;
     margin-bottom: 20px;
     border-radius: 12px;
     background: var(--gp-semantic-surface-sunken);
-  }
-  .structured-breadcrumb {
-    font-size: 12px;
-    line-height: 1.6;
-    overflow-wrap: anywhere;
-    margin: 0 0 12px;
-    color: var(--gp-semantic-text-secondary);
-  }
-  .structured-detail-panel h2 {
-    margin: 0 0 16px;
-  }
-  .structured-inline-meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px 18px;
-    font-size: 12px;
-    margin-bottom: 24px;
-    color: var(--gp-semantic-text-secondary);
-  }
-  .structured-inline-meta > span {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-  }
-  .structured-facts {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 20px 32px;
-    margin: 24px 0;
-    padding: 20px 0;
-    border-block: 1px solid var(--gp-semantic-border-subtle);
-  }
-  .structured-facts dt {
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--gp-semantic-text-secondary);
-    margin-bottom: 7px;
-  }
-  .structured-facts dd {
-    font-size: 14px;
-    font-weight: 650;
-    margin: 0;
-  }
-  .structured-detail-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
   }
   .structured-search {
     position: relative;
@@ -204,28 +51,6 @@
   .structured-search:focus-within {
     outline: 2px solid var(--gp-semantic-focus-ring);
     outline-offset: 2px;
-  }
-  .structured-management .structured-checkbox {
-    display: inline-flex;
-    flex-direction: row;
-    align-items: center;
-    gap: 8px;
-    min-height: 44px;
-    font-size: 12px;
-    font-weight: 500;
-    margin: 8px 0;
-    color: var(--gp-semantic-text-secondary);
-    cursor: pointer;
-  }
-  .structured-checkbox input[type='checkbox'] {
-    accent-color: var(--gp-semantic-focus-ring);
-    flex: 0 0 16px;
-    width: 16px;
-    height: 16px;
-    min-height: 16px;
-    margin: 0;
-    padding: 0;
-    cursor: pointer;
   }
   .category-tree {
     overflow-x: auto;
@@ -401,9 +226,7 @@
     color: var(--gp-semantic-text-secondary);
     font-size: 11px;
   }
-  .structured-top-level,
-  .structured-text-button,
-  .structured-manage-link {
+  .structured-top-level {
     display: inline-flex;
     margin: 14px 0 4px;
     padding: 0;
@@ -415,9 +238,6 @@
     text-underline-offset: 3px;
     cursor: pointer;
   }
-  .structured-manage-link {
-    margin-top: 24px;
-  }
   .structured-form {
     display: flex;
     flex-direction: column;
@@ -427,10 +247,7 @@
   .structured-picker-content > .structured-back {
     margin-bottom: 20px;
   }
-  .structured-form label,
-  .structured-tree-panel > label:not(.structured-checkbox),
-  .structured-picker-filters label,
-  .structured-filter-field {
+  .structured-form label {
     display: flex;
     flex-direction: column;
     gap: 7px;
@@ -438,9 +255,7 @@
     font-size: 13px;
     min-width: 0;
   }
-  .structured-form :is(input, textarea, select),
-  .structured-tree-panel select,
-  .structured-picker-filters select {
+  .structured-form :is(input, textarea, select) {
     width: 100%;
     min-width: 0;
     padding: 11px 12px;
@@ -492,14 +307,6 @@
     line-height: 1.6;
     color: var(--gp-semantic-text-secondary);
   }
-  .structured-success {
-    padding: 12px 16px;
-    border: 1px solid var(--gp-semantic-status-success-border);
-    border-radius: 8px;
-    background: var(--gp-semantic-status-success-background);
-    color: var(--gp-semantic-status-success-foreground);
-    font-size: 13px;
-  }
   .structured-warning {
     display: block;
     margin-top: 8px;
@@ -512,8 +319,7 @@
     gap: 10px;
     padding-top: 8px;
   }
-  .structured-extra-fields summary,
-  .structured-category-filter summary {
+  .structured-extra-fields summary {
     cursor: pointer;
     font-size: 12px;
   }
@@ -526,67 +332,20 @@
     margin-top: 16px;
     margin-bottom: 16px;
   }
-  .structured-picker-filters {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
-    gap: 12px;
-    margin: 16px 0;
-    align-items: start;
-  }
-  .structured-picker-filters select {
-    min-height: 44px;
-  }
-  .structured-category-filter {
-    min-width: 0;
-    border: 1px solid var(--gp-component-field-border);
-    background: var(--gp-component-field-background);
-    border-radius: 7px;
-  }
-  .structured-category-filter summary {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    min-height: 42px;
-    padding: 10px 12px;
-    font-size: 13px;
-    font-weight: 400;
-    line-height: 1.5;
-  }
-  .structured-category-filter summary > svg {
-    flex-shrink: 0;
-  }
-  .structured-category-filter[open] summary > svg {
-    transform: rotate(180deg);
-  }
-  .structured-category-filter summary > span {
-    min-width: 0;
-    overflow-wrap: anywhere;
-  }
-  .structured-category-filter > .structured-text-button {
-    margin-inline: 12px;
-  }
-  .structured-category-filter .category-tree {
-    max-height: 230px;
-    margin-inline: 8px;
-    overflow: auto;
-  }
   .catalog-picker-results {
     max-height: 360px;
     overflow: auto;
     overscroll-behavior: contain;
   }
-  .catalog-picker-results ul,
-  .catalog-management-list {
+  .catalog-picker-results ul {
     list-style: none;
     padding: 0;
     margin: 0;
   }
-  .catalog-picker-results li + li,
-  .catalog-management-list li + li {
+  .catalog-picker-results li + li {
     border-top: 1px solid var(--gp-semantic-border-subtle);
   }
-  .catalog-picker-results button,
-  .catalog-management-list button {
+  .catalog-picker-results button {
     display: flex;
     align-items: flex-start;
     gap: 13px;
@@ -600,9 +359,7 @@
     color: var(--gp-semantic-text-primary);
     cursor: pointer;
   }
-  .catalog-picker-results button:hover,
-  .catalog-management-list button:hover,
-  .catalog-management-list button.selected {
+  .catalog-picker-results button:hover {
     background: var(--gp-semantic-surface-sunken);
   }
   .catalog-kind-icon {
@@ -642,38 +399,12 @@
     font-size: 11px;
     color: var(--gp-semantic-text-secondary);
   }
-  .catalog-management-grid {
-    display: grid;
-    grid-template-columns: minmax(230px, 0.65fr) minmax(0, 1.6fr);
-    gap: 24px;
-    align-items: start;
-  }
-  .catalog-list-panel {
-    padding: 12px 20px 20px;
-  }
   .structured-count {
     padding: 4px 10px 16px;
     margin: 0;
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-  }
-  .structured-kind-label {
-    font-size: 10px;
-    text-transform: capitalize;
-    border: 1px solid var(--gp-semantic-border-subtle);
-    border-radius: 4px;
-    padding: 4px 6px;
-    color: var(--gp-semantic-text-secondary);
-  }
-  .catalog-detail {
-    margin-top: 24px;
-  }
-  .structured-detail-heading {
-    display: flex;
-    justify-content: space-between;
-    gap: 20px;
-    align-items: flex-start;
   }
   .structured-usage {
     margin: 24px 0;
@@ -707,54 +438,15 @@
     max-height: min(90dvh, 1000px);
     overflow-y: auto;
   }
-  @media (max-width: 800px) {
-    .structured-management-grid,
-    .catalog-management-grid {
-      grid-template-columns: 1fr;
-    }
-    .structured-tree-panel {
-      min-height: 0;
-    }
-    .structured-tree-panel > .category-tree {
-      max-height: 330px;
-    }
-    .structured-detail-panel {
-      padding: 24px;
-    }
-    .structured-detail-empty {
-      min-height: 220px;
-    }
-  }
   @media (max-width: 480px) {
     .structured-fields-row {
       grid-template-columns: 1fr;
     }
-    .structured-management-toolbar {
-      align-items: stretch;
-    }
-    .structured-domain-tabs {
-      width: 100%;
-    }
-    .structured-domain-tabs button {
-      padding: 8px;
-      font-size: 11px;
-    }
-    .structured-tree-panel,
-    .catalog-list-panel {
-      padding: 16px;
-    }
-    .structured-detail-heading {
-      flex-direction: column;
-    }
     .catalog-kind-icon {
       padding: 7px;
     }
-    .catalog-picker-results button,
-    .catalog-management-list button {
+    .catalog-picker-results button {
       gap: 8px;
-    }
-    .structured-kind-label {
-      display: none;
     }
     .structured-form-actions {
       flex-wrap: wrap;
@@ -763,57 +455,9 @@
 
   /* Status tabs: All / Active / Inactive, each carrying the count of records the
    current search matches before the selected status narrows the list. */
-  .structured-status-tabs {
-    display: inline-flex;
-    flex-wrap: wrap;
-    gap: 4px;
-    padding: 4px;
-    border: 1px solid var(--gp-semantic-border-subtle);
-    border-radius: 9px;
-    background: var(--gp-semantic-surface-sunken);
-  }
-  .structured-status-tabs button {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    padding: 7px 11px;
-    border: 0;
-    border-radius: 6px;
-    color: var(--gp-semantic-text-secondary);
-    background: transparent;
-    font-size: 12px;
-    cursor: pointer;
-  }
-  .structured-status-tabs button[aria-pressed='true'] {
-    background: var(--gp-semantic-surface-raised);
-    color: var(--gp-semantic-text-primary);
-    box-shadow: 0 1px 3px rgb(0 0 0 / 0.08);
-    font-weight: 650;
-  }
-  .structured-status-count {
-    min-width: 20px;
-    padding: 1px 6px;
-    border-radius: 999px;
-    background: var(--gp-semantic-surface-sunken);
-    color: var(--gp-semantic-text-secondary);
-    font-size: 11px;
-    font-variant-numeric: tabular-nums;
-    text-align: center;
-  }
-  .structured-status-tabs button[aria-pressed='true'] .structured-status-count {
-    background: var(--gp-semantic-surface-sunken);
-    color: var(--gp-semantic-text-primary);
-  }
 
   /* Stable short code. Shown beside the name so a renamed category is still
    recognizable by the identifier other records reference. */
-  .category-code {
-    font-family: var(--gp-semantic-font-code);
-    font-size: 11px;
-    letter-spacing: 0.02em;
-    color: var(--gp-semantic-text-secondary);
-    white-space: nowrap;
-  }
   /* Distinct-guide total for the whole subtree; the title and screen-reader text
    carry the direct-versus-nested breakdown. */
   .category-count {
@@ -871,16 +515,6 @@
   /* Distinct guides using an item. A visual scanning aid: the detail panel
    carries the full draft-versus-published breakdown for assistive technology,
    so this stays out of the row's accessible name. */
-  .catalog-usage {
-    margin-left: auto;
-    padding: 1px 7px;
-    border-radius: 999px;
-    border: 1px solid var(--gp-semantic-border-subtle);
-    color: var(--gp-semantic-text-secondary);
-    font-size: 11px;
-    font-variant-numeric: tabular-nums;
-    white-space: nowrap;
-  }
 
   /* Adding something inside a row, from the row itself. Quiet until the row is
    hovered or the button is focused, so a long tree does not read as a column
