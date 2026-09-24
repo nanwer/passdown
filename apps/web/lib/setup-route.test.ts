@@ -62,13 +62,36 @@ it('requires a configured origin and correct code before account creation', asyn
   expect((await POST(request({ ...input, code: 'wrong' }))).status).toBe(403);
   expect(state.completeSetup).not.toHaveBeenCalled();
 });
-it('honors setup throttling before creating accounts or sessions', async () => {
+it('throttles incorrect codes before creating accounts or sessions', async () => {
   state.rate.mockRejectedValue(new ApplicationError('RATE_LIMITED', 'Wait before retrying.', 429));
-  const response = await POST(request());
+  const response = await POST(request({ ...input, code: 'wrong' }));
   expect(response.status).toBe(429);
   expect(response.headers.get('Retry-After')).toBe('60');
   expect(state.completeSetup).not.toHaveBeenCalled();
   expect(state.signIn).not.toHaveBeenCalled();
+});
+it('keeps correct-code setup available after incorrect attempts exhaust the shared limit', async () => {
+  let attempts = 0;
+  state.rate.mockImplementation(async () => {
+    if (++attempts > 30) throw new ApplicationError('RATE_LIMITED', 'Wait before retrying.', 429);
+  });
+  const statuses = [];
+  for (let attempt = 0; attempt < 31; attempt++)
+    statuses.push((await POST(request({ ...input, code: 'wrong' }))).status);
+  const response = await POST(request());
+  expect({
+    statuses,
+    completed: response.status,
+    accountsCreated: state.completeSetup.mock.calls.length,
+    sessionsCreated: state.signIn.mock.calls.length,
+    buckets: state.rate.mock.calls,
+  }).toEqual({
+    statuses: [...Array(30).fill(403), 429],
+    completed: 201,
+    accountsCreated: 1,
+    sessionsCreated: 1,
+    buckets: Array.from({ length: 31 }, () => ['setup:failures', 30]),
+  });
 });
 it('refuses setup when the operator has not configured a code hash', async () => {
   state.hash = undefined;

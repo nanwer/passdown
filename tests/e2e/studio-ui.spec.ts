@@ -97,6 +97,31 @@ const initial = {
     ],
   },
 };
+for (const backwards of [false, true]) {
+  test(`explicit Option+${backwards ? 'Shift+' : ''}Tab wraps at the dialog boundary on every platform`, async ({
+    page,
+  }) => {
+    await page.route('**/api/studio/session', (route) =>
+      route.fulfill({
+        json: {
+          user: { id: 'user', name: 'Test owner', email: 'owner@test.local' },
+          workspaces: [workspace],
+        },
+      }),
+    );
+    await page.goto(`/studio/${workspace.id}/categories`);
+    await page.getByRole('button', { name: 'Testing', exact: true }).click();
+    await page.getByRole('button', { name: 'Edit or move', exact: true }).click();
+    await page.getByRole('button', { name: /^Sits inside/ }).click();
+    const dialog = page.getByRole('dialog', { name: /Choose sits inside/i });
+    const first = dialog.getByRole('textbox', { name: 'Search things' });
+    const last = dialog.getByRole('button', { name: 'Close dialog' });
+    await (backwards ? first : last).focus();
+    // Deliberately bypass the platform helper: Linux CI must send Option too.
+    await page.keyboard.press(backwards ? 'Alt+Shift+Tab' : 'Alt+Tab');
+    await expect(backwards ? last : first).toBeFocused();
+  });
+}
 for (const retainParentEscapeListener of [false, true]) {
   test(`a nested dialog shields its parent and restores the unfinished form${retainParentEscapeListener ? ' with a retained parent Escape listener' : ''}`, async ({
     page,

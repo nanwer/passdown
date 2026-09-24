@@ -4,7 +4,7 @@ Passdown is an early, working application for public community guides and privat
 
 ## Working now
 
-- Browser first-run setup on an empty configured database: a hash-verified setup code, an administrator-chosen password, and one account and workspace created together. Setup closes once an account exists; uncertain commit results direct the person to reload or sign in. The separate installation-administrator capability and installer are upcoming.
+- Browser first-run setup on an empty configured database: a hash-verified setup code, an administrator-chosen password, and one account and workspace created together. Incorrect-code attempts are throttled without blocking a correct code. Setup closes once an account exists; uncertain commit results direct the person to reload or sign in. The separate installation-administrator capability and installer are upcoming.
 - Production builds refuse sample guides and preview identities, validate runtime database and identity settings, and use the same unsafe-role check for transactions and health. Development database connections remain loopback-only.
 - A private workspace has no public catalog: an item labelled public inside one is refused on write and unreadable to nonmembers, matching the rule guides have always followed.
 - Roster changes are serialised per workspace, so two managers standing down at once cannot both succeed.

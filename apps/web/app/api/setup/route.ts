@@ -11,7 +11,6 @@ export function POST(request: Request) {
     assertOrigin(request, app.origin);
     if (!(await setupRequired()))
       throw new ApplicationError('NOT_FOUND', 'This installation is already set up.', 404);
-    await enforceRateLimit('setup:attempts', 30);
     const input = parseInput(setupSchema, await readJSON(request, 16 * 1024));
     const hash = deploymentStatus().setupCodeHash;
     if (!hash)
@@ -20,12 +19,16 @@ export function POST(request: Request) {
         'This installation has no setup code yet. Ask the operator to configure a setup code.',
         503,
       );
-    if (!setupCodeMatches(input.code, hash))
+    if (!setupCodeMatches(input.code, hash)) {
+      // Wrong guesses must never exhaust the operator's ability to use a valid code.
+      // Per-client request-volume limits belong at the trusted reverse proxy.
+      await enforceRateLimit('setup:failures', 30);
       throw new ApplicationError(
         'SETUP_CODE_INVALID',
         "That setup code isn't right. Check the code printed by the settings step, or ask the operator for a new one.",
         403,
       );
+    }
     const email = canonicalAccountEmail(input.email);
     const { code: _code, ...account } = input;
     const outcome = await app.store.completeSetup({ ...account, email });

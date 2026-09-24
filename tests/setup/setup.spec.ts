@@ -54,9 +54,33 @@ test('complete a new installation, recover invalid inputs, and close setup forev
     data: {},
   });
   expect(crossOrigin.status()).toBe(403);
+  // Saturate the shared bucket through real requests, then finish with the
+  // correct code. The operator must not be locked out by incorrect guesses.
+  const failures = [];
+  for (let attempt = 0; attempt < 31; attempt++) {
+    const response = await request.post('/api/setup', {
+      headers: { origin: 'http://127.0.0.1:3106' },
+      data: {
+        code: 'wrong',
+        name: 'Owner',
+        email: 'owner@example.org',
+        password: 'a long synthetic browser password',
+        workspaceName: 'Workshop',
+      },
+    });
+    failures.push(response.status());
+  }
   await page.getByLabel('Setup code').fill('12345-67890-ABCDE-FGHJK');
+  const submitted = page.waitForResponse(
+    (response) => response.url().endsWith('/api/setup') && response.request().method() === 'POST',
+  );
   await page.getByRole('button', { name: 'Create installation' }).click();
-  await expect(page).toHaveURL(/\/studio$/);
+  expect({ rateLimited: failures.includes(429), submitted: (await submitted).status() }).toEqual({
+    rateLimited: true,
+    submitted: 201,
+  });
+  // A single-workspace installation redirects to that workspace immediately.
+  await expect(page).toHaveURL('/studio/workshop');
   await expect(page.getByRole('heading', { name: 'Set up Passdown' })).toHaveCount(0);
   expect((await request.get('/api/health')).ok()).toBe(true);
   expect((await request.get('/setup')).status()).toBe(404);
