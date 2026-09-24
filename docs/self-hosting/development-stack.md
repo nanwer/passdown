@@ -19,7 +19,7 @@ The script writes a private `.env` and prints a setup code once. Save the code b
 
 Each settings file gets a project name derived from its absolute path. Separate directories and different settings filenames therefore use separate volumes. To choose a readable name, add `--project passdown-evaluation` when initializing; the name is saved in the settings and reused by renewal. Keep that project name when moving an existing installation.
 
-Before creating settings, the script checks Docker for that project's containers and volumes. If resources already exist—even when the settings file was lost—it refuses to generate replacement credentials. Restore the original settings from your secret store. For a separate installation, choose another settings path or an unused `--project` name. If Docker is unavailable, initialization stops without writing settings.
+Before creating settings, the script checks Docker for that project's containers and volumes. If resources already exist—even when the settings file was lost—it refuses to generate replacement credentials. Restore the original settings from your secret store. For a separate installation, choose another settings path or an unused `--project` name. If Docker is unavailable, initialization stops without writing settings. Older evaluations used the shared project name `passdown`. If their `passdown_database` or `passdown_media` volume remains, default initialization also stops. Restore the old settings; use an explicit unused `--project` only when you intend to create a separate installation.
 
 Open `https://localhost:18443/setup`. For a localhost evaluation, Caddy issues an internal certificate. Export this stack's public root certificate:
 

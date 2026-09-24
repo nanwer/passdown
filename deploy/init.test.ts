@@ -24,7 +24,7 @@ writeFileSync(
 if [ -n "$INIT_DOCKER_LOG" ]; then printf '%s\\n' "$@" >> "$INIT_DOCKER_LOG"; fi
 [ "$INIT_DOCKER_FAIL" != 1 ] || exit 1
 case "$1 $2" in
-  'volume ls') printf '%s\\n' "$INIT_VOLUME_NAMES" ;;
+  'volume ls') case "$*" in *label=*) printf '%s\\n' "$INIT_VOLUME_NAMES" ;; *) printf '%s\\n' "\${INIT_ALL_VOLUME_NAMES:-$INIT_VOLUME_NAMES}" ;; esac ;;
   'container ls') printf '%s\\n' "$INIT_CONTAINER_IDS" ;;
   *) exit 1 ;;
 esac
@@ -77,6 +77,27 @@ afterEach(() => {
 });
 
 describe('installation settings', () => {
+  it.each(['passdown_database', 'passdown_media'])(
+    'refuses default initialization while legacy volume %s exists',
+    (volume) => {
+      const dir = directory();
+      const result = run(dir, ['--domain', 'localhost'], { INIT_ALL_VOLUME_NAMES: volume });
+      expect(result.status).toBe(4);
+      expect(result.stderr).toContain('legacy');
+      expect(result.stdout).not.toContain('Setup code:');
+      expect(readdirSync(dir)).toEqual([]);
+    },
+  );
+
+  it('allows an explicitly separate unused project beside legacy volumes', () => {
+    const dir = directory();
+    const result = run(dir, ['--domain', 'localhost', '--project', 'separate-evaluation'], {
+      INIT_ALL_VOLUME_NAMES: 'passdown_database\npassdown_media',
+    });
+    expect(result.status).toBe(0);
+    expect(settings(dir)).toContain('COMPOSE_PROJECT_NAME=separate-evaluation\n');
+  });
+
   it('isolates directories and custom settings files while keeping a lost-file project identity stable', () => {
     const first = directory();
     const second = directory();

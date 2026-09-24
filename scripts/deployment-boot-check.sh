@@ -66,27 +66,26 @@ try {
 finally { for (const server of servers) server.close(); }
 NODE
 stage='private settings'
-set -- --domain localhost --http-port "$http_port" --https-port "$https_port" --output "$work/.env"
+set -- --project "$project" --domain localhost --http-port "$http_port" --https-port "$https_port" --output "$work/.env"
 [ "$use_build" = false ] || set -- "$@" --build
 sh "$root/deploy/init.sh" "$@" > "$work/init.log" 2>&1
-node --input-type=module - "$work" "$project" <<'NODE'
+node --input-type=module - "$work" <<'NODE'
 import { readFileSync, writeFileSync } from 'node:fs';
-const [dir, project] = process.argv.slice(2);
+const [dir] = process.argv.slice(2);
 const output = readFileSync(`${dir}/init.log`, 'utf8');
 const code = output.match(/Setup code:\s+([0-9A-HJKMNP-TV-Z]{5}(?:-[0-9A-HJKMNP-TV-Z]{5}){3})/);
 if (!code) throw new Error('Initializer did not produce a setup code.');
 writeFileSync(`${dir}/setup-code`, code[1], { mode: 0o600, flag: 'wx' });
-writeFileSync(`${dir}/.env`, readFileSync(`${dir}/.env`, 'utf8').replace(/^COMPOSE_PROJECT_NAME=.*$/m, `COMPOSE_PROJECT_NAME=${project}`), { mode: 0o600 });
 NODE
 if [ "$use_build" = true ] && [ "${PASSDOWN_SKIP_BUILD:-0}" != 1 ]; then
   stage='local image build'
   printf '%s\n' 'Building deployment images locally.'
-  compose build > "$work/build.log" 2>&1
+  if ! compose build > "$work/build.log" 2>&1; then exit 1; fi
 fi
 stage='stack startup'
 printf '%s\n' 'Starting isolated deployment stack.'
 started=true
-compose up -d --wait --wait-timeout 240 > "$work/up.log" 2>&1
+if ! compose up -d --wait --wait-timeout 240 > "$work/up.log" 2>&1; then exit 1; fi
 stage='internal certificate readiness'
 attempt=0
 until compose cp proxy:/data/caddy/pki/authorities/local/root.crt "$work/root.crt" > "$work/certificate.log" 2>&1; do
@@ -115,7 +114,7 @@ for (const container of containers) {
 }
 NODE
 stage='idempotent migrations'
-compose run --rm -T migrate > "$work/migrate-again.log" 2>&1
+if ! compose run --rm -T migrate > "$work/migrate-again.log" 2>&1; then exit 1; fi
 # The operator's contract is a concise, secret-free migration summary.
 grep -q '0 applied now' "$work/migrate-again.log"
 stage='first-run setup and private image'
@@ -125,7 +124,7 @@ count=$(compose exec -T postgres psql -U guide_owner -d guide_app -tAc 'select c
 [ "$count" = 1 ]
 stage='container recreation'
 printf '%s\n' 'Recreating containers while preserving the disposable volumes.'
-compose down > "$work/recreate.log" 2>&1
-compose up -d --wait --wait-timeout 240 >> "$work/recreate.log" 2>&1
+if ! compose down > "$work/recreate.log" 2>&1; then exit 1; fi
+if ! compose up -d --wait --wait-timeout 240 >> "$work/recreate.log" 2>&1; then exit 1; fi
 node "$root/scripts/deployment-first-flow.mjs" --resume --origin "https://localhost:$https_port" --state-file "$work/session.json" --ca-file "$work/root.crt"
 printf '%s\n' 'Deployment boot check passed; disposable resources are being removed.'

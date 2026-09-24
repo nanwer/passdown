@@ -184,6 +184,10 @@ if project_volumes=$(docker volume ls -q --filter "label=com.docker.compose.proj
    project_containers=$(docker container ls -aq --filter "label=com.docker.compose.project=$project" 2>/dev/null); then :
 else fail 1 'Could not check Docker resources. Start Docker and retry; no settings were created.'; fi
 named_volumes=$(printf '%s\n' "$volume_names" | awk -v project="$project" '$0==project "_database" || $0==project "_media" || $0==project "_proxy-data" || $0==project "_proxy-config" {print}')
+if [ -z "$requested_project" ]; then
+  legacy_volumes=$(printf '%s\n' "$volume_names" | awk '$0=="passdown_database" || $0=="passdown_media" {print}')
+  [ -z "$legacy_volumes" ] || fail 4 'A legacy Passdown installation still has Docker volumes. Restore its original settings rather than starting over. For an intentionally separate installation, choose an unused --project name explicitly.'
+fi
 [ -z "$project_volumes$named_volumes$project_containers" ] || fail 4 'This project already has Docker resources. Restore its original settings; do not create replacement credentials or delete its volumes. Use --project with a different name for a separate installation.'
 owner_password=$(random_hex 32)
 runtime_password=$(random_hex 32)
