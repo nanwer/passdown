@@ -12,7 +12,14 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   timeout: 120000,
-  use: { baseURL: 'http://127.0.0.1:3106', trace: 'off', screenshot: 'off', video: 'off' },
+  use: {
+    baseURL: 'http://127.0.0.1:3106',
+    locale: 'en-US',
+    timezoneId: 'UTC',
+    trace: 'off',
+    screenshot: 'off',
+    video: 'off',
+  },
   projects: [
     {
       name: browser,

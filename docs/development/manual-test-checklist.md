@@ -28,6 +28,13 @@ Use a dedicated empty, migrated evaluation database and the hash-only setup-code
 
 Automated setup browser checks: `pnpm test:setup` runs Chromium, Firefox and WebKit sequentially, each with a new disposable database and server on port 3106. Setup traces/screenshots are disabled to avoid recording entered credentials. Container installation, setup-code renewal tooling, installation-wide account recovery and deployment certification remain unfinished.
 
+## Keeping an unfinished form open
+
+1. In **Studio → Manage → Things**, open a thing, choose **Edit or move**, and change its name without saving.
+2. Open **Sits inside**. Use Tab and Shift+Tab to move through the picker controls; focus should reach the picker actions, then wrap from the last control back to the first; Shift+Tab should wrap in the opposite direction. It must never enter the underlying form. On macOS Safari, use Option+Tab when your keyboard settings otherwise skip buttons.
+3. Press Escape. Expect only the picker to close, focus to return to **Sits inside**, and your edited name to remain in **Edit thing**.
+4. Reopen and dismiss the picker several times, including immediately after opening. Expect the same preserved form every time. Cancel the edit afterward; the unsaved name must not be stored.
+
 ## Catalog picker
 
 | Feature                   | Steps                                                                                                                        | Expected result                                                                                                                                                                                          |

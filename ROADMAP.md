@@ -8,11 +8,12 @@ This roadmap describes the next product outcomes in priority order. It is not a 
 
 The current application supports local evaluation and development:
 
-- Public and members-only guide libraries with search and category browsing.
+- Public and members-only guide libraries with search and nested things to browse.
 - A visual step editor with rich text, tables, contextual panels, and annotated photographs.
-- Shared categories and catalog items, guide preparation lists, and per-step requirements.
+- Shared things and catalog items, guide preparation lists, and per-step requirements.
 - Manual draft saves, preview, and published releases that preserve their instructions and item details.
 - Invitation links, view/manage permissions, and sortable management tables with server-side paging, combined filters, and column preferences.
+- Browser setup for a new installation, protected by a setup code, with the first account and workspace created together.
 
 Photo upload progress and retry controls are already implemented. Non-image attachments, cross-guide prerequisites, account recovery, approvals, and community contributions are still upcoming.
 
@@ -20,7 +21,18 @@ See the [README](README.md) to try the app and the [development status](docs/dev
 
 ## Next priorities
 
-### 1. Make authoring and management dependable
+### 1. Make self-hosting practical
+
+**Outcome:** An operator can install Passdown, recover access, and keep its knowledge safe through updates.
+
+- Package installation and configuration into a repeatable, documented process.
+- Recover accounts through administrator-issued reset links and let people change their own passwords.
+- Withdraw a published guide and reinstate it when it is ready to be read again.
+- Back up and restore guides and pictures together, and rehearse upgrades before distributing them.
+
+**Ready when:** A fresh installation, account recovery, guide withdrawal, backup, restore and upgrade all work through documented journeys. Browser setup is available now; the complete installation and recovery workflow is still being built.
+
+### 2. Make authoring and management dependable
 
 **Outcome:** Authors can finish everyday work without losing edits or their place in the interface.
 
@@ -31,7 +43,7 @@ See the [README](README.md) to try the app and the [development status](docs/dev
 
 **Ready when:** An author can recover from a failed save, return from a record to the same list context, and complete the workflow with a keyboard or on a small screen.
 
-### 2. Attach the documents a guide needs
+### 3. Attach the documents a guide needs
 
 **Outcome:** Instructions and their supporting documents stay together.
 
@@ -41,7 +53,7 @@ See the [README](README.md) to try the app and the [development status](docs/dev
 
 **Ready when:** An author can attach a document, publish it, and verify that permitted readers can access the correct file while other visitors cannot.
 
-### 3. Connect guides through prerequisites
+### 4. Connect guides through prerequisites
 
 **Outcome:** Authors can reuse an existing procedure instead of copying its instructions.
 
@@ -53,11 +65,10 @@ See the [README](README.md) to try the app and the [development status](docs/dev
 
 ## Following those foundations
 
-### Team review and account recovery
+### Team review
 
-Help teams control changes and recover access:
+Help teams control changes:
 
-- Account recovery and the email delivery needed to support it.
 - Optional review and approval before publication.
 - Clear revision history, comparisons, and restoration of earlier content for authorized users.
 

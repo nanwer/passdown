@@ -58,16 +58,18 @@ pnpm exec playwright install chromium firefox webkit
 pnpm test:e2e
 pnpm test:database
 pnpm test:authoring
+pnpm test:setup
 git diff --check
 ```
 
-`pnpm check` covers generated tokens, package boundaries, TypeScript and unit/contract tests. Run the browser and database suites relevant to the change. Database and persistent authoring tests require `pnpm local:setup` first.
+`pnpm check` covers generated tokens, package boundaries, TypeScript and unit/contract tests. Run the browser and database suites relevant to the change. Database, persistent authoring and setup tests require `pnpm local:setup` first.
 
-| Suite                 | Isolation                                                       |
-| --------------------- | --------------------------------------------------------------- |
-| `pnpm test:e2e`       | Sample-data app on port 3102, without the application database. |
-| `pnpm test:database`  | Dedicated `guide_app_test` database; resets its test data.      |
-| `pnpm test:authoring` | Dedicated `guide_app_e2e` database and app on port 3101.        |
+| Suite                 | Isolation                                                                   |
+| --------------------- | --------------------------------------------------------------------------- |
+| `pnpm test:e2e`       | Sample-data app on port 3102, without the application database.             |
+| `pnpm test:database`  | Dedicated `guide_app_test` database; resets its test data.                  |
+| `pnpm test:authoring` | Dedicated `guide_app_e2e` database and app on port 3101.                    |
+| `pnpm test:setup`     | Recreates `guide_app_setup_e2e` for each engine, with the app on port 3106. |
 
 Leave the test ports available and run one instance of each browser or database suite at a time. Browser suites start and own their test server; an occupied port fails the run instead of reusing another run's server, which could disappear during teardown. The fixture suite defaults to two workers so cold route compilation and browser interactions share a predictable amount of CPU. Run the production build and browser suites sequentially when checking timing-sensitive interactions. Use these databases only for tests. Set `PLAYWRIGHT_CHANNEL=chrome` to run browser tests with an installed Google Chrome. Do not point test runners at a database containing content you want to keep.
 
@@ -88,7 +90,7 @@ pnpm test:authoring --project=webkit
 
 On Linux, install browser system dependencies with `pnpm exec playwright install --with-deps chromium firefox webkit`. The cross-browser fixture runner owns port 3105 and a separate build directory. Authoring projects share port 3101 and one disposable database locally, so run them sequentially. A plain `pnpm test:authoring` runs all three projects sequentially. Tests must not assume a pristine database beyond the seed.
 
-CI runs checks, each fixture engine, and each authoring engine in separate jobs. Each authoring job owns its database. Every job has a 20-minute cap and retries stay at zero. Monitor setup-inclusive durations in the first five hosted runs: if an engine exceeds 17 minutes twice, split that engine into two isolated shards first, preserving full coverage. A reduced routine `@core` suite requires an explicit documented change; the release gate always requires the full three-engine fixture and authoring runs. Traces and test results are not uploaded as public CI artifacts.
+CI runs source/database checks, each fixture engine, each authoring engine, and first-run setup in separate jobs. Each authoring job owns its database. The setup job runs all three engines sequentially with a fresh setup database per engine and no captured credentials or browser traces. Every job has a 20-minute cap and retries stay at zero. Monitor setup-inclusive durations in the first five hosted runs: if an engine exceeds 17 minutes twice, split that engine into two isolated shards first, preserving full coverage. A reduced routine `@core` suite requires an explicit documented change; the release gate always requires the full three-engine fixture and authoring runs. Traces and test results are not uploaded as public CI artifacts.
 
 ### Writing browser tests
 

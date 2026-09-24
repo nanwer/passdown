@@ -84,3 +84,25 @@ jobs:
           if [ -f .env.local ]; then
             docker compose --env-file .env.local -f compose.app.yaml down
           fi
+
+  setup:
+    name: First-run setup (three engines)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+      - run: npm install --global pnpm@10.33.0
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium firefox webkit
+      - run: pnpm local:setup
+      - run: pnpm test:setup
+      - if: always()
+        run: |
+          if [ -f .env.local ]; then
+            docker compose --env-file .env.local -f compose.app.yaml down
+          fi
