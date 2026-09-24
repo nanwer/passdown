@@ -153,25 +153,44 @@ for (const viewport of [
 test('forced colors retain visible control boundaries and reduced motion removes smooth scrolling', async ({
   page,
 }) => {
-  // The design workshop page used to supply a button and a spinner on a
-  // public URL. The sign-in form is now the only unauthenticated page with a
-  // real button, so the motion readings happen there and the forced-colour
-  // reading stays on the library, which is where the workspace control lives.
+  // Use motion the application actually has: smooth scrolling and the real
+  // pending sign-in indicator. Button color changes are deliberately instant.
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route('**/api/auth/sign-in/email', async (route) => {
+    await held;
+    await route.fulfill({
+      status: 401,
+      json: { error: { code: 'UNAUTHORIZED', message: 'Motion check finished.' } },
+    });
+  });
   await page.emulateMedia({ forcedColors: 'none', reducedMotion: 'no-preference' });
   await page.goto('/sign-in');
-  const normalMotion = await page.evaluate(
-    () => getComputedStyle(document.querySelector('form button')!).transitionDuration,
-  );
-  expect(normalMotion).not.toBe('0s');
+  await expect(page.locator('html')).toHaveCSS('scroll-behavior', 'smooth');
+  await page.getByRole('textbox', { name: 'Email', exact: true }).fill('motion@example.test');
+  await page.getByLabel('Password', { exact: true }).fill('Synthetic motion check');
+  const submit = page.getByRole('button', { name: 'Sign in', exact: true });
+  await submit.click();
+  const spinner = submit.locator('span');
+  try {
+    await expect(submit).toHaveAttribute('aria-busy', 'true');
+    await expect(spinner).toHaveCount(1);
+    await expect(spinner).not.toHaveCSS('animation-name', 'none');
+    await expect(spinner).not.toHaveCSS('animation-duration', '0s');
 
-  await page.emulateMedia({ forcedColors: 'active', reducedMotion: 'reduce' });
-  await page.reload();
-  const adapted = await page.evaluate(() => ({
-    buttonTransition: getComputedStyle(document.querySelector('form button')!).transitionDuration,
-    rootScroll: getComputedStyle(document.documentElement).scrollBehavior,
-  }));
-  expect(adapted.buttonTransition).toBe('0s');
-  expect(adapted.rootScroll).toBe('auto');
+    await page.emulateMedia({ forcedColors: 'active', reducedMotion: 'reduce' });
+    await expect(page.locator('html')).toHaveCSS('scroll-behavior', 'auto');
+    await expect(spinner).toHaveCSS('animation-name', 'none');
+    await expect(submit).toHaveCSS('transition-duration', '0s');
+    // Reducing motion must not conceal the pending state or permit resubmission.
+    await expect(submit).toHaveAttribute('aria-busy', 'true');
+    await expect(submit).toBeDisabled();
+  } finally {
+    release();
+  }
+  await expect(page.getByRole('alert').filter({ hasText: 'Motion check finished.' })).toBeVisible();
 
   await page.goto('/');
 
