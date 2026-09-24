@@ -182,12 +182,14 @@ function PictureAnnotations({
     <div className="mt-2.5 grid gap-2.5">
       {/* Keep controls stationary while the photograph decodes. The inner frame
           follows the photograph's fitted bounds, so marks never include letterboxing. */}
-      <div className="grid aspect-[4/3] place-items-center overflow-hidden rounded-[10px] border border-solid border-line bg-sunken">
+      <div className="relative aspect-[4/3] overflow-hidden rounded-[10px] border border-solid border-line bg-sunken">
         <div
-          className="studio-annotate-frame relative block max-h-full max-w-full cursor-crosshair [&&_img]:block [&&_img]:h-full [&&_img]:w-full [&&_img]:object-contain"
+          className="studio-annotate-frame absolute top-1/2 left-1/2 block max-h-full max-w-full -translate-x-1/2 -translate-y-1/2 cursor-crosshair [&&_img]:absolute [&&_img]:inset-0 [&&_img]:block [&&_img]:h-full [&&_img]:w-full [&&_img]:object-contain"
           style={{
             aspectRatio: imageRatio,
-            ...(imageRatio >= 4 / 3 ? { width: '100%' } : { height: '100%' }),
+            // Fit within the reserved 4:3 stage without letting intrinsic image
+            // dimensions expand a grid track or a percentage-height container.
+            width: `${Math.min(1, (3 / 4) * imageRatio) * 100}%`,
           }}
           ref={frame}
           onClick={(event) => {
