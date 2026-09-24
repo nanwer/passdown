@@ -145,7 +145,17 @@ for (const workspace of ['repair-collective', 'workshop']) {
     for (let level = 0; level < names.length; level++) {
       const dialog = page.getByRole('dialog').last();
       await dialog.getByRole('textbox', { name: 'Name', exact: true }).fill(names[level]!);
-      await dialog.getByRole('button', { name: 'Add thing', exact: true }).click();
+      // A create request can outlast the UI assertion window. Verify its exact
+      // response before checking the close; a lost click still fails this wait.
+      const [created] = await Promise.all([
+        page.waitForResponse(
+          (response) =>
+            new URL(response.url()).pathname === `/api/studio/${workspace}/categories` &&
+            response.request().method() === 'POST',
+        ),
+        dialog.getByRole('button', { name: 'Add thing', exact: true }).click(),
+      ]);
+      expect(created.status()).toBe(201);
       // Each new thing appears in the table, opened up to and focused, and its
       // row offers the next level down.
       await expect(page.getByRole('dialog')).toHaveCount(0);
