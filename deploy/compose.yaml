@@ -1,5 +1,5 @@
 # Development candidate: use init.sh --build until release images are published.
-name: passdown
+name: ${COMPOSE_PROJECT_NAME:?Run init.sh to choose an installation project}
 x-logging: &logging
   driver: json-file
   options: { max-size: '10m', max-file: '5' }
@@ -70,9 +70,9 @@ services:
       PASSDOWN_DOMAIN: ${PASSDOWN_DOMAIN:?Run init.sh}
       PASSDOWN_TLS: ${PASSDOWN_TLS:?Run init.sh}
       PASSDOWN_HSTS_MAX_AGE: ${PASSDOWN_HSTS_MAX_AGE:-31536000}
-      PASSDOWN_SIGN_IN_LIMIT: ${PASSDOWN_SIGN_IN_LIMIT:-30}
-      PASSDOWN_LINK_LIMIT: ${PASSDOWN_LINK_LIMIT:-30}
-      PASSDOWN_ADMIN_LIMIT: ${PASSDOWN_ADMIN_LIMIT:-60}
+      PASSDOWN_SIGN_IN_LIMIT: ${PASSDOWN_SIGN_IN_LIMIT:-300}
+      PASSDOWN_LINK_LIMIT: ${PASSDOWN_LINK_LIMIT:-300}
+      PASSDOWN_ADMIN_LIMIT: ${PASSDOWN_ADMIN_LIMIT:-300}
     ports: ['${PASSDOWN_HTTP_PORT:-80}:80', '${PASSDOWN_HTTPS_PORT:-443}:443']
     volumes: [proxy-data:/data, proxy-config:/config]
     networks: [frontend]

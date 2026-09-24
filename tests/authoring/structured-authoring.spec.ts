@@ -2627,3 +2627,68 @@ test('management tables sort text, number and status columns, remember their col
     .poll(async () => (await order()).map((text) => text.split(' ')[0]))
     .toEqual(['Outer', 'Single', 'Empty']);
 });
+
+test('a picture finishing loading does not steal the reuse control click', async ({ page }) => {
+  await login(page.request);
+  const workspace = 'repair-collective';
+  const suffix = randomUUID().slice(0, 8);
+  const section = await category(page.request, workspace, `Loading picture ${suffix}`);
+  const sharp = (await import('sharp')).default;
+  const bytes = await sharp({
+    create: { width: 320, height: 960, channels: 3, background: '#35506b' },
+  })
+    .jpeg()
+    .toBuffer();
+  const uploaded = await page.request.post(`/api/studio/${workspace}/assets`, {
+    headers,
+    multipart: { file: { name: 'portrait.jpg', mimeType: 'image/jpeg', buffer: bytes } },
+  });
+  expect(uploaded.status(), await uploaded.text()).toBe(201);
+  const assetId = (await uploaded.json()).asset.id as string;
+  const guide = await draft(page.request, workspace, section.id, `Loading guide ${suffix}`);
+  await api(page.request, `/api/studio/${workspace}/guides/${guide.id}`, 'PUT', {
+    expectedVersion: guide.version,
+    categoryId: section.id,
+    document: {
+      ...guide.document,
+      steps: guide.document.steps.map((step, index) =>
+        index === 0
+          ? { ...step, media: [{ assetId, alt: 'Portrait picture', annotations: [] }] }
+          : step,
+      ),
+    },
+  });
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route(`**/api/media/${workspace}/${assetId}*`, async (route) => {
+    await held;
+    await route.continue();
+  });
+  try {
+    await page.goto(`/studio/${workspace}/${guide.id}`, { waitUntil: 'domcontentloaded' });
+    const reuse = page.getByRole('button', { name: 'Use one already added' });
+    await reuse.scrollIntoViewIfNeeded();
+    const position = await reuse.boundingBox();
+    expect(position).not.toBeNull();
+    await page.mouse.move(position!.x + position!.width / 2, position!.y + position!.height / 2);
+    await page.mouse.down();
+    release();
+    await expect
+      .poll(() =>
+        page
+          .locator('.studio-annotate-frame img')
+          .evaluate(
+            (node) =>
+              (node as HTMLImageElement).complete && (node as HTMLImageElement).naturalWidth > 0,
+          ),
+      )
+      .toBe(true);
+    await page.mouse.up();
+    await expect(page.getByRole('dialog', { name: 'Use a picture again' })).toBeVisible();
+    await expect(page.locator('.studio-annotate-handle')).toHaveCount(0);
+  } finally {
+    release();
+  }
+});

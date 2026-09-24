@@ -78,6 +78,47 @@ test('internal guides can choose member-only catalog items in a public workspace
   ).toBeVisible();
 });
 
+test('switching a guide to public explains a private selection without losing it', async ({
+  page,
+}) => {
+  const category = {
+    id: '88888888-8888-4888-8888-888888888888',
+    workspaceId: workspace.id,
+    domain: 'guide',
+    parentId: null,
+    name: 'Workshop machinery',
+    description: '',
+    visibility: 'members',
+    archived: false,
+    version: 1,
+    sortOrder: 0,
+    path: [{ id: '88888888-8888-4888-8888-888888888888', name: 'Workshop machinery' }],
+  };
+  await page.route('**/api/studio/*/categories**', (route) =>
+    route.fulfill({ json: { categories: [category] } }),
+  );
+  await page.getByRole('radio', { name: /Internal/ }).check();
+  const picker = page.getByRole('button', { name: /What is this about/ });
+  await picker.click();
+  await page
+    .getByRole('dialog')
+    .getByRole('button', { name: /Workshop machinery/ })
+    .click();
+  await page.getByRole('radio', { name: /Public/ }).check();
+  const warning = page
+    .getByRole('status')
+    .filter({ hasText: 'Only workspace members can see Workshop machinery.' });
+  await expect(warning).toBeVisible();
+  await expect(picker).toHaveAttribute(
+    'aria-describedby',
+    (await warning.getAttribute('id')) ?? 'missing',
+  );
+  await expect(picker).toContainText('Workshop machinery');
+  await page.getByRole('radio', { name: /Internal/ }).check();
+  await expect(warning).toBeHidden();
+  await expect(picker).toContainText('Workshop machinery');
+});
+
 for (const width of [390, 1440]) {
   for (const initialRole of ['keep', 'use'] as const) {
     test(`${width}px: changing ${initialRole} usage keeps the item, focus and open notes in place`, async ({

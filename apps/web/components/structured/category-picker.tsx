@@ -56,6 +56,7 @@ export function CategoryPicker({
   const selected = categories.find((category) => category.id === value);
   const [created, setCreated] = useState<Category>();
   const display = selected ?? (created?.id === value ? created : undefined);
+  const privateSelection = visibility === 'public' && display?.visibility === 'members';
   return (
     <div className={S.picker}>
       <span id={`${id}-label`} className={S.fieldLabel}>
@@ -70,6 +71,7 @@ export function CategoryPicker({
             disabled={disabled}
             className={S.trigger}
             aria-labelledby={`${id}-label ${id}-value`}
+            aria-describedby={privateSelection ? `${id}-visibility` : undefined}
           >
             <FolderTree size={17} aria-hidden="true" />
             <span id={`${id}-value`}>
@@ -184,6 +186,12 @@ export function CategoryPicker({
           )}
         </div>
       </Dialog>
+      {privateSelection && (
+        <small id={`${id}-visibility`} className={S.warning} role="status">
+          Only workspace members can see {display.name}. Choose a public {words.thing} before
+          publishing, or keep this guide internal.
+        </small>
+      )}
       {display?.archived && (
         <small className={S.warning}>
           This category is archived. Choose an active category before publishing.

@@ -8,6 +8,12 @@ const image = process.env.PASSDOWN_PROXY_IMAGE || 'passdown-caddy:local';
 const token = 'proxy-check-secret-0123456789abcdef';
 const paths = [
   `/invite/${token}`,
+  `//invite/${token}`,
+  `/./invite/${token}`,
+  `https://localhost/invite/${token}`,
+  `//invite/${token}%41`,
+  `/./invite/${token}%41`,
+  `https://localhost/invite/${token}%41`,
   `/api/invitations/${token}`,
   `/reset/${token}`,
   `/api/password-resets/${token}`,
@@ -45,6 +51,17 @@ for (const [, pattern, replacement] of filters) {
     assert.equal(result, expected, 'Proxy URI filter must preserve only the safe route prefix.');
   }
 }
+assert.equal(
+  (config.match(/ipv6_prefix 64/g) || []).length,
+  3,
+  'All edge limits must group IPv6 by /64.',
+);
+for (const zone of ['SIGN_IN', 'LINK', 'ADMIN']) {
+  assert.ok(
+    config.includes(`PASSDOWN_${zone}_LIMIT:300`),
+    'Edge limits must leave room for shared-address traffic.',
+  );
+}
 if (!process.argv.includes('--live')) {
   console.log('Proxy log-redaction cases passed.');
 } else {
@@ -52,6 +69,10 @@ if (!process.argv.includes('--live')) {
   const network = `passdown-proxy-check-${suffix}`;
   const upstream = `${network}-web`;
   const proxy = `${network}-proxy`;
+  const ipv6Prefix = `fd00:7061:${(process.pid % 65536).toString(16)}`;
+  const proxyAddress = `${ipv6Prefix}:0::100`;
+  const nodeImage =
+    'node:22.22.2-alpine3.22@sha256:b77017c37f430e4466ff497058948a2f16e8b59779600d53711eeb7b999b0f4e';
   const docker = (...args) =>
     execFileSync('docker', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
   let port;
@@ -92,18 +113,24 @@ if (!process.argv.includes('--live')) {
       proxy,
       '--network',
       network,
+      '--ip6',
+      proxyAddress,
       '-p',
       '127.0.0.1::443',
       '-e',
       'PASSDOWN_DOMAIN=localhost',
       '-e',
       'PASSDOWN_TLS=internal',
-      '-e',
-      `PASSDOWN_LINK_LIMIT=${limit}`,
-      '-e',
-      `PASSDOWN_SIGN_IN_LIMIT=${limit}`,
-      '-e',
-      `PASSDOWN_ADMIN_LIMIT=${limit}`,
+      ...(limit === undefined
+        ? []
+        : [
+            '-e',
+            `PASSDOWN_LINK_LIMIT=${limit}`,
+            '-e',
+            `PASSDOWN_SIGN_IN_LIMIT=${limit}`,
+            '-e',
+            `PASSDOWN_ADMIN_LIMIT=${limit}`,
+          ]),
       ...(process.env.PASSDOWN_CADDYFILE
         ? ['-v', `${process.env.PASSDOWN_CADDYFILE}:/etc/caddy/Caddyfile:ro`]
         : []),
@@ -122,7 +149,7 @@ if (!process.argv.includes('--live')) {
     throw new Error('Proxy did not start.');
   }
   try {
-    docker('network', 'create', network);
+    docker('network', 'create', '--ipv6', '--subnet', `${ipv6Prefix}::/56`, network);
     docker(
       'run',
       '-d',
@@ -132,12 +159,20 @@ if (!process.argv.includes('--live')) {
       network,
       '--network-alias',
       'web',
-      'node:22.22.2-alpine3.22@sha256:b77017c37f430e4466ff497058948a2f16e8b59779600d53711eeb7b999b0f4e',
+      nodeImage,
       'node',
       '-e',
-      'require("http").createServer((q,s)=>{q.resume();q.on("end",()=>{s.setHeader("Location",q.url);s.setHeader("Set-Cookie","proxy-check-secret-0123456789abcdef");s.end("ok")})}).listen(3000,"0.0.0.0")',
+      'require("http").createServer((q,s)=>{q.resume();q.on("end",()=>{s.setHeader("X-Observed-Client",q.headers["x-forwarded-for"]||"missing");s.setHeader("Location",q.url);s.setHeader("Set-Cookie","proxy-check-secret-0123456789abcdef");s.end("ok")})}).listen(3000,"0.0.0.0")',
     );
-    await start(100);
+    await start();
+    // Successful traffic must not exhaust a classroom's shared edge bucket.
+    for (let attempt = 0; attempt < 31; attempt++) {
+      assert.equal(
+        (await request('/api/auth/sign-in/email', { body: Buffer.from('{}') })).status,
+        200,
+        'Normal shared-address sign-ins were throttled.',
+      );
+    }
     await assert.rejects(
       request('/', { ca: [] }),
       /certificate|self.signed|unable to verify/i,
@@ -146,6 +181,13 @@ if (!process.argv.includes('--live')) {
     for (const path of paths)
       assert.equal((await request(path)).status, 200, 'Proxy failed to forward a route.');
     const normal = await request('/');
+    assert.ok(
+      normal.headers['x-observed-client'],
+      'The proxy must forward the observed peer address.',
+    );
+    console.log(
+      `Published-port peer observed by Caddy: ${normal.headers['x-observed-client']}. Verify distinct external clients on the deployment host.`,
+    );
     assert.equal(
       normal.headers['strict-transport-security'],
       'max-age=31536000',
@@ -199,6 +241,51 @@ if (!process.argv.includes('--live')) {
         );
       }
     }
+    // Real IPv6 peers, not spoofed forwarding headers: adjacent addresses
+    // in one /64 share a bucket; another /64 remains independent.
+    const fromIPv6 = (address) =>
+      JSON.parse(
+        docker(
+          'run',
+          '--rm',
+          '--network',
+          network,
+          '--ip6',
+          address,
+          '-e',
+          `CHECK_CA=${certificate}`,
+          '-e',
+          `CHECK_HOST=${proxyAddress}`,
+          nodeImage,
+          'node',
+          '-e',
+          `
+      const https = require('https');
+      const q = https.request({hostname:process.env.CHECK_HOST, servername:'localhost', path:'/api/setup', ca:process.env.CHECK_CA, headers:{Host:'localhost','X-Forwarded-For':'192.0.2.99'}}, r=>{r.resume(); r.on('end',()=>process.stdout.write(JSON.stringify({status:r.statusCode,peer:r.headers['x-observed-client']})))});
+      q.on('error',()=>process.exit(1)); q.end();
+    `,
+        ),
+      );
+    const firstAddress = `${ipv6Prefix}:1::10`;
+    const secondAddress = `${ipv6Prefix}:1::11`;
+    const first = fromIPv6(firstAddress);
+    assert.deepEqual(
+      first,
+      { status: 200, peer: firstAddress },
+      'Caddy must observe the first real IPv6 peer.',
+    );
+    const second = fromIPv6(secondAddress);
+    assert.deepEqual(
+      second,
+      { status: 200, peer: secondAddress },
+      'Caddy must observe a distinct IPv6 peer.',
+    );
+    assert.equal(
+      fromIPv6(`${ipv6Prefix}:1::12`).status,
+      429,
+      'Cycling addresses in one /64 bypassed the limit.',
+    );
+    assert.equal(fromIPv6(`${ipv6Prefix}:2::10`).status, 200, 'An independent /64 was blocked.');
     console.log('Live proxy limits, forwarding, body caps, HTTPS headers and log privacy passed.');
   } finally {
     for (const container of [proxy, upstream]) {

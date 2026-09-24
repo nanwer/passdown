@@ -22,7 +22,17 @@ const config: NextConfig = {
    * path decided at runtime is not an application dependency.
    */
   outputFileTracingExcludes: {
-    '**': ['**/.media/**', '**/.media-authoring/**', '**/.media-*/**'],
+    '**': [
+      '**/.media/**',
+      '**/.media-authoring/**',
+      '**/.media-*/**',
+      // Application source is compiled into .next; it is never runtime data.
+      './**/*.md',
+      './**/*.ts',
+      './**/*.tsx',
+      '../../packages/**/*.ts',
+      '../../packages/**/*.tsx',
+    ],
   },
   transpilePackages: [
     '@guide/content',

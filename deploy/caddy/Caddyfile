@@ -1,18 +1,15 @@
 # Passdown default reverse proxy (Caddy). HTTPS for PASSDOWN_DOMAIN, request-size
-# limits, per-address limits on sign-in, links, setup and administration, and no
+# limits, broad per-network circuit breakers, and no
 # tokens or setup codes in its logs.
 {
 	order rate_limit before basic_auth
-	# With another proxy in front, list its addresses (otherwise X-Forwarded-For
-	# from clients is ignored for rate limiting):
-	# servers {
-	#	trusted_proxies static 10.0.0.0/8
-	# }
+	# Requires preserved peer addresses for per-client isolation. See the
+	# deployment guide before adding another proxy; never trust arbitrary XFF.
 	log {
 		output stderr
 		format filter {
 			wrap json
-			request>uri regexp "(?i)^(/(?:invite|reset|api/invitations|api/password-resets|api/admin|api/setup)(?:/|$|\?)).*$|^([^%?]*)%.*$|(\?).*$" "${1}${2}${3}[redacted]"
+			request>uri regexp "(?i)^(?:[^/]|//).*$|^.*(?:/\.{1,2}/|//).*$|^(/(?:invite|reset|api/invitations|api/password-resets|api/admin|api/setup)(?:/|$|\?)).*$|^([^%?]*)%.*$|(\?).*$" "${1}${2}${3}[redacted]"
 			request>headers delete
 			resp_headers delete
 		}
@@ -24,12 +21,12 @@
 
 	# By route, not by what a token looks like: a protected route keeps only its
 	# prefix; a URI with a percent-escape is cut at the first %; any other query
-	# string is replaced.
+	# string is replaced. Non-canonical paths and absolute targets are removed.
 	log {
 		output stderr
 		format filter {
 			wrap json
-			request>uri regexp "(?i)^(/(?:invite|reset|api/invitations|api/password-resets|api/admin|api/setup)(?:/|$|\?)).*$|^([^%?]*)%.*$|(\?).*$" "${1}${2}${3}[redacted]"
+			request>uri regexp "(?i)^(?:[^/]|//).*$|^.*(?:/\.{1,2}/|//).*$|^(/(?:invite|reset|api/invitations|api/password-resets|api/admin|api/setup)(?:/|$|\?)).*$|^([^%?]*)%.*$|(\?).*$" "${1}${2}${3}[redacted]"
 			request>headers delete
 			resp_headers delete
 		}
@@ -49,6 +46,8 @@
 		max_size 2MiB
 	}
 
+	# These count all requests, including successful sign-ins. Application
+	# failure counters remain responsible for password guessing protection.
 	rate_limit {
 		zone sign_in {
 			match {
@@ -56,7 +55,8 @@
 				path_regexp (?i)^/api/auth/sign-in/email$
 			}
 			key {client_ip}
-			events {$PASSDOWN_SIGN_IN_LIMIT:30}
+			ipv6_prefix 64
+			events {$PASSDOWN_SIGN_IN_LIMIT:300}
 			window 1m
 		}
 		zone links {
@@ -64,7 +64,8 @@
 				path_regexp (?i)^/(?:invite|reset|api/invitations|api/password-resets|api/setup|setup)(?:/|$)
 			}
 			key {client_ip}
-			events {$PASSDOWN_LINK_LIMIT:30}
+			ipv6_prefix 64
+			events {$PASSDOWN_LINK_LIMIT:300}
 			window 1m
 		}
 		zone admin {
@@ -72,7 +73,8 @@
 				path_regexp (?i)^/api/admin(?:/|$)
 			}
 			key {client_ip}
-			events {$PASSDOWN_ADMIN_LIMIT:60}
+			ipv6_prefix 64
+			events {$PASSDOWN_ADMIN_LIMIT:300}
 			window 1m
 		}
 	}

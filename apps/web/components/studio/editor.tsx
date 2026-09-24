@@ -106,6 +106,7 @@ function PictureAnnotations({
 }) {
   const [focused, setFocused] = useState<Handle | null>(null);
   const frame = useRef<HTMLDivElement>(null);
+  const [imageRatio, setImageRatio] = useState(4 / 3);
 
   const clamp = (value: number) => roundPosition(Math.min(Math.max(value, 0), 1));
   const replace = (index: number, changes: Partial<Annotation>) =>
@@ -179,55 +180,71 @@ function PictureAnnotations({
 
   return (
     <div className="mt-2.5 grid gap-2.5">
-      <div
-        className="studio-annotate-frame relative block cursor-crosshair overflow-hidden rounded-[10px] border border-solid border-line [&&_img]:block [&&_img]:h-auto [&&_img]:w-full"
-        ref={frame}
-        onClick={(event) => {
-          // Only a click on the image itself adds a mark; a click on an
-          // existing one is selecting it, not making another.
-          if (
-            event.target !== event.currentTarget &&
-            (event.target as HTMLElement).tagName !== 'IMG'
-          )
-            return;
-          const point = pointAt(event);
-          if (point) add('pin', point);
-        }}
-      >
-        <img src={src} alt="" />
-        <svg
-          className="pointer-events-none absolute inset-0 size-full [&_line]:stroke-action [&_line]:[stroke-linecap:round] [&_line]:[stroke-width:3]"
-          aria-hidden="true"
+      {/* Keep controls stationary while the photograph decodes. The inner frame
+          follows the photograph's fitted bounds, so marks never include letterboxing. */}
+      <div className="grid aspect-[4/3] place-items-center overflow-hidden rounded-[10px] border border-solid border-line bg-sunken">
+        <div
+          className="studio-annotate-frame relative block max-h-full max-w-full cursor-crosshair [&&_img]:block [&&_img]:h-full [&&_img]:w-full [&&_img]:object-contain"
+          style={{
+            aspectRatio: imageRatio,
+            ...(imageRatio >= 4 / 3 ? { width: '100%' } : { height: '100%' }),
+          }}
+          ref={frame}
+          onClick={(event) => {
+            // Only a click on the image itself adds a mark; a click on an
+            // existing one is selecting it, not making another.
+            if (
+              event.target !== event.currentTarget &&
+              (event.target as HTMLElement).tagName !== 'IMG'
+            )
+              return;
+            const point = pointAt(event);
+            if (point) add('pin', point);
+          }}
         >
-          {annotations.map((a, index) =>
-            a.type === 'arrow' ? (
-              <line
-                key={index}
-                x1={annotationPercent(a.x)}
-                y1={annotationPercent(a.y)}
-                x2={annotationPercent(a.toX)}
-                y2={annotationPercent(a.toY)}
-              />
-            ) : null,
-          )}
-        </svg>
-        {handles.map((handle) => (
-          <button
-            key={`${handle.index}-${handle.end}`}
-            type="button"
-            className={
-              focused && focused.index === handle.index && focused.end === handle.end
-                ? `${annotateHandle} selected [outline:2px_solid_var(--gp-semantic-focus-ring)] outline-offset-[2px]`
-                : annotateHandle
-            }
-            style={{ left: annotationPercent(handle.x), top: annotationPercent(handle.y) }}
-            aria-label={describe(handle)}
-            onFocus={() => setFocused({ index: handle.index, end: handle.end })}
-            onKeyDown={nudge({ index: handle.index, end: handle.end })}
+          <img
+            src={src}
+            alt=""
+            onLoad={(event) => {
+              const picture = event.currentTarget;
+              if (picture.naturalWidth && picture.naturalHeight)
+                setImageRatio(picture.naturalWidth / picture.naturalHeight);
+            }}
+          />
+          <svg
+            className="pointer-events-none absolute inset-0 size-full [&_line]:stroke-action [&_line]:[stroke-linecap:round] [&_line]:[stroke-width:3]"
+            aria-hidden="true"
           >
-            {handle.end === 'from' ? handle.label : ''}
-          </button>
-        ))}
+            {annotations.map((a, index) =>
+              a.type === 'arrow' ? (
+                <line
+                  key={index}
+                  x1={annotationPercent(a.x)}
+                  y1={annotationPercent(a.y)}
+                  x2={annotationPercent(a.toX)}
+                  y2={annotationPercent(a.toY)}
+                />
+              ) : null,
+            )}
+          </svg>
+          {handles.map((handle) => (
+            <button
+              key={`${handle.index}-${handle.end}`}
+              type="button"
+              className={
+                focused && focused.index === handle.index && focused.end === handle.end
+                  ? `${annotateHandle} selected [outline:2px_solid_var(--gp-semantic-focus-ring)] outline-offset-[2px]`
+                  : annotateHandle
+              }
+              style={{ left: annotationPercent(handle.x), top: annotationPercent(handle.y) }}
+              aria-label={describe(handle)}
+              onFocus={() => setFocused({ index: handle.index, end: handle.end })}
+              onKeyDown={nudge({ index: handle.index, end: handle.end })}
+            >
+              {handle.end === 'from' ? handle.label : ''}
+            </button>
+          ))}
+        </div>
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <Button

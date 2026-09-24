@@ -13,10 +13,26 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, describe, expect, it } from 'vitest';
 
 const script = resolve('deploy/init.sh');
 const directories: string[] = [];
+const defaultDockerDir = mkdtempSync(join(tmpdir(), 'passdown-init-docker-'));
+writeFileSync(
+  join(defaultDockerDir, 'docker'),
+  `#!/bin/sh
+if [ -n "$INIT_DOCKER_LOG" ]; then printf '%s\\n' "$@" >> "$INIT_DOCKER_LOG"; fi
+[ "$INIT_DOCKER_FAIL" != 1 ] || exit 1
+case "$1 $2" in
+  'volume ls') printf '%s\\n' "$INIT_VOLUME_NAMES" ;;
+  'container ls') printf '%s\\n' "$INIT_CONTAINER_IDS" ;;
+  *) exit 1 ;;
+esac
+`,
+  { mode: 0o700 },
+);
+const defaultPath = `${defaultDockerDir}:${process.env.PATH}`;
+afterAll(() => rmSync(defaultDockerDir, { recursive: true, force: true }));
 function directory() {
   const dir = realpathSync(mkdtempSync(join(tmpdir(), 'passdown-init-')));
   directories.push(dir);
@@ -25,7 +41,7 @@ function directory() {
 function run(dir: string, args: string[] = [], env: Partial<NodeJS.ProcessEnv> = {}) {
   return spawnSync('sh', [script, ...args], {
     cwd: dir,
-    env: { ...process.env, ...env },
+    env: { ...process.env, PATH: defaultPath, ...env },
     encoding: 'utf8',
   });
 }
@@ -61,6 +77,101 @@ afterEach(() => {
 });
 
 describe('installation settings', () => {
+  it('isolates directories and custom settings files while keeping a lost-file project identity stable', () => {
+    const first = directory();
+    const second = directory();
+    const project = (path: string) =>
+      readFileSync(path, 'utf8').match(/^COMPOSE_PROJECT_NAME=(.+)$/m)![1];
+    expect(run(first, ['--domain', 'localhost']).status).toBe(0);
+    expect(run(second, ['--domain', 'localhost']).status).toBe(0);
+    expect(run(first, ['--domain', 'localhost', '--output', 'second.env']).status).toBe(0);
+    const original = project(join(first, '.env'));
+    expect(
+      new Set([original, project(join(second, '.env')), project(join(first, 'second.env'))]).size,
+    ).toBe(3);
+    rmSync(join(first, '.env'));
+    expect(run(first, ['--domain', 'localhost']).status).toBe(0);
+    expect(project(join(first, '.env'))).toBe(original);
+  });
+
+  it('stores an explicit project and preserves it during renewal', () => {
+    const dir = directory();
+    expect(run(dir, ['--domain', 'localhost', '--project', 'passdown-evaluation']).status).toBe(0);
+    expect(settings(dir)).toContain('COMPOSE_PROJECT_NAME=passdown-evaluation\n');
+    const result = run(dir, ['--renew-setup-code'], docker(dir, 'required'));
+    expect(result.status).toBe(0);
+    expect(settings(dir)).toContain('COMPOSE_PROJECT_NAME=passdown-evaluation\n');
+    expect(readFileSync(join(dir, 'docker-arguments'), 'utf8')).toContain(
+      '--project-name\npassdown-evaluation\n',
+    );
+    expect(result.stdout).toContain("--project-name 'passdown-evaluation'");
+  });
+
+  it.each(['saved-project_database', 'saved-project_media', 'other-labelled-volume'])(
+    'refuses an existing project volume %s without replacing lost settings',
+    (volume) => {
+      const dir = directory();
+      const result = run(dir, ['--domain', 'localhost', '--project', 'saved-project'], {
+        INIT_VOLUME_NAMES: volume,
+      });
+      expect(result.status).toBe(4);
+      expect(readdirSync(dir)).toEqual([]);
+      expect(result.stdout).not.toContain('Setup code:');
+      expect(result.stderr).toContain('already has Docker resources');
+    },
+  );
+
+  it('refuses an existing project container even without volumes', () => {
+    const dir = directory();
+    expect(
+      run(dir, ['--domain', 'localhost', '--project', 'saved-project'], {
+        INIT_CONTAINER_IDS: 'fixture-container',
+      }).status,
+    ).toBe(4);
+    expect(readdirSync(dir)).toEqual([]);
+  });
+
+  it('checks Docker state for the derived default after the settings file is lost', () => {
+    const dir = directory();
+    expect(run(dir, ['--domain', 'localhost']).status).toBe(0);
+    const project = settings(dir).match(/^COMPOSE_PROJECT_NAME=(.+)$/m)![1];
+    rmSync(join(dir, '.env'));
+    const log = join(directory(), 'docker.log');
+    const result = run(dir, ['--domain', 'localhost'], {
+      INIT_VOLUME_NAMES: `${project}_database`,
+      INIT_DOCKER_LOG: log,
+    });
+    expect(result.status).toBe(4);
+    expect(readFileSync(log, 'utf8')).toContain(`label=com.docker.compose.project=${project}`);
+    expect(readdirSync(dir)).toEqual([]);
+  });
+
+  it('fails closed when the Docker inventory cannot be read', () => {
+    const dir = directory();
+    const result = run(dir, ['--domain', 'localhost'], { INIT_DOCKER_FAIL: '1' });
+    expect(result.status).toBe(1);
+    expect(readdirSync(dir)).toEqual([]);
+    expect(result.stdout).not.toContain('Setup code:');
+  });
+
+  it.each(['Uppercase', '../other', '-prefix', 'space name', 'x'.repeat(64)])(
+    'rejects invalid explicit project %s',
+    (project) => {
+      const dir = directory();
+      expect(run(dir, ['--domain', 'localhost', '--project', project]).status).toBe(2);
+      expect(readdirSync(dir)).toEqual([]);
+    },
+  );
+
+  it.each(['credentials.txt', '.env.example'])(
+    'requires an ignored settings filename instead of %s',
+    (output) => {
+      const dir = directory();
+      expect(run(dir, ['--domain', 'localhost', '--output', output]).status).toBe(2);
+      expect(readdirSync(dir)).toEqual([]);
+    },
+  );
+
   it('creates private settings with independent secrets and a printed-once, hash-only Crockford setup code', () => {
     const dir = directory();
     const result = run(dir, [
@@ -81,7 +192,7 @@ describe('installation settings', () => {
     }
     expect(value).toContain('BETTER_AUTH_URL=https://guides.example.org\n');
     expect(value).toContain('PASSDOWN_TLS=operator@example.org\n');
-    expect(value).toContain('COMPOSE_PROJECT_NAME=passdown\n');
+    expect(value).toMatch(/^COMPOSE_PROJECT_NAME=passdown-[0-9a-f]{20}$/m);
     const printed = code(result.stdout);
     const normal = printed.replaceAll('-', '');
     expect(value).toContain(
@@ -171,7 +282,7 @@ describe('installation settings', () => {
       'sh "$INIT_SCRIPT" --domain localhost >first.log 2>first.err & first=$!; sh "$INIT_SCRIPT" --domain localhost >second.log 2>second.err & second=$!; wait "$first"; a=$?; wait "$second"; b=$?; printf "%s %s" "$a" "$b"';
     const statuses = execFileSync('sh', ['-c', command], {
       cwd: dir,
-      env: { ...process.env, INIT_SCRIPT: script },
+      env: { ...process.env, PATH: defaultPath, INIT_SCRIPT: script },
       encoding: 'utf8',
     });
     expect(statuses.split(' ').sort()).toEqual(['0', '1']);
@@ -207,7 +318,7 @@ describe('installation settings', () => {
       '--env-file',
       join(dir, '.env'),
       '--project-name',
-      'passdown',
+      before.match(/^COMPOSE_PROJECT_NAME=(.+)$/m)![1],
       '-f',
       'compose.yaml',
       '-f',

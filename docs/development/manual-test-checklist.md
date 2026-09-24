@@ -2,6 +2,16 @@
 
 Start the local app and sign in at [Studio](http://127.0.0.1:3100/studio) using the generated credentials in your private LOCAL_ACCESS.md. Test both Repair collective and Workshop operations. These examples use local test data you create yourself.
 
+## Container isolation and authoring stability
+
+1. **Audience warning — Studio → public workspace → New guide:** select **Internal**, open **What is this about?**, and select a members-only thing (or add one there). Switch to **Public**. Expect a warning beside the picker explaining that the thing is members-only and must be changed before publication. Switch back to **Internal**: the warning clears and the same selection remains. Other guide fields stay intact.
+2. **Photo controls — open a saved draft with a portrait photograph:** enable slow network throttling in browser developer tools and reload. The preview reserves its space while the photograph loads; **Add a mark**, **Add an arrow** and **Use one already added** stay in place. Click the reuse button as the picture appears: the chooser opens on that click. Cancel it, add and move an annotation, save, then reload. Marks remain aligned to the photograph. Repeat with a landscape image.
+3. **Separate settings — from `deploy`, with Docker running:** run `sh init.sh --domain localhost --build --output first.env`, then repeat with `--output second.env`. Each prints its own project name. Run `rg '^COMPOSE_PROJECT_NAME=' first.env second.env`; the two project names differ. Keep these files private. For explicit names, add `--project passdown-evaluation-one`. Reinitializing an existing file refuses to overwrite it; a project with existing containers or volumes also refuses replacement credentials. Do not delete real settings or volumes to test this: `node scripts/check-image-privacy.mjs --context` and the initializer tests use disposable fixtures.
+4. **Image privacy — after rebuilding:** run `node scripts/check-image-privacy.mjs`, `node scripts/check-image-privacy.mjs --context`, and `sh scripts/check-image.sh passdown:local`. Expect all checks to pass. The context probe uses synthetic private notes/settings and proves they are excluded; the runtime check rejects source, tests and non-license Markdown while retaining license notices.
+5. **Proxy — after rebuilding:** run `node scripts/check-proxy.mjs --live`. Expect normal shared-address sign-ins, IPv6 /64 grouping, independent-network access and log privacy checks to pass. It prints the address seen through the host port; verify real external client addresses separately using the [network checklist](../self-hosting/development-stack.md#network-addresses-and-request-limits). A shared Docker gateway is an evaluation limitation, not proof of per-client protection.
+
+These changes do not publish an alpha release. The earlier intermittent Chromium API connection reset remains under investigation; a passing targeted journey alone does not establish its cause. Full hosted browser validation and the remaining operational/security release checks are still required.
+
 ## Guide creation and preparation layout
 
 Use **Studio → a workspace → New guide** (`/studio/{workspace}/new`), then the draft editor’s **Guide details**.

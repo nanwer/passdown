@@ -41,3 +41,8 @@ docs/development/published-formatting-examples.md
 
 # Generated operator command bundle
 apps/operator/dist/
+
+# Initializer settings, private snapshots and interrupted-renewal locks.
+*.env
+.passdown-settings.*
+*.renew-lock/

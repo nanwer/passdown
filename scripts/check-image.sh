@@ -22,6 +22,7 @@ else
     passdown help >/dev/null
     test -w /var/lib/passdown/media && test -w /app/apps/web/.next/cache
   '
+  check docker run --rm -i --entrypoint node "$image" --input-type=module - /app < "$(dirname "$0")/check-image-files.mjs"
   test "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.licenses"}}' "$image")" = AGPL-3.0-only
 fi
 printf '%s\n' 'Image verification passed.'

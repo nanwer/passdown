@@ -8,12 +8,13 @@ export LC_ALL
 fail() { printf '%s\n' "$2" >&2; exit "$1"; }
 usage() {
   printf '%s\n' 'Usage: sh init.sh --domain HOST [--acme-email EMAIL | --internal-tls]' \
-    '                  [--http-port PORT] [--https-port PORT] [--output FILE] [--build]' \
+    '                  [--http-port PORT] [--https-port PORT] [--output FILE.env] [--project NAME] [--build]' \
     '       sh init.sh --renew-setup-code [--output FILE]' \
     'Caddy is the supported proxy. localhost uses an internal certificate.'
 }
 need_value() { [ "$#" -ge 2 ] && [ -n "$2" ] || fail 2 'An option is missing its value.'; }
 output=./.env
+requested_project=
 domain=
 email=
 internal=false
@@ -25,6 +26,7 @@ creation_options=false
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --help|-h) usage; exit 0 ;;
+    --project) need_value "$@"; requested_project=$2; creation_options=true; shift 2 ;;
     --output) need_value "$@"; output=$2; shift 2 ;;
     --renew-setup-code) renew=true; shift ;;
     --domain) need_value "$@"; domain=$2; creation_options=true; shift 2 ;;
@@ -44,7 +46,7 @@ done
 case "$output" in /*) ;; *) output=$PWD/$output ;; esac
 install_dir=$(CDPATH= cd -- "$(dirname "$output")" 2>/dev/null && pwd -P) || fail 3 'The settings directory does not exist.'
 output=$install_dir/$(basename "$output")
-[ "$(basename "$output")" != . ] && [ "$(basename "$output")" != .. ] || fail 2 'Choose a settings filename.'
+case "$(basename "$output")" in .env.example) fail 2 'The public .env.example filename cannot hold private settings.' ;; .env|.env.*|*.env) ;; *) fail 2 'Settings filenames must be .env, .env.NAME, or NAME.env so source and image exclusions protect them.' ;; esac
 temporary=
 snapshot=
 lock=
@@ -61,23 +63,27 @@ random_hex() {
   [ "${#generated}" -eq "$(( $1 * 2 ))" ] || fail 1 'Could not obtain secure random bytes.'
   printf '%s' "$generated"
 }
+sha256_text() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    digest=$(printf '%s' "$1" | sha256sum | awk '{print $1}')
+  elif command -v shasum >/dev/null 2>&1; then
+    digest=$(printf '%s' "$1" | shasum -a 256 | awk '{print $1}')
+  elif command -v openssl >/dev/null 2>&1; then
+    digest=$(printf '%s' "$1" | openssl dgst -sha256 | awk '{print $NF}')
+  else
+    fail 3 'Install sha256sum, shasum, or openssl to compute a SHA-256 digest.'
+  fi
+  [ "${#digest}" -eq 64 ] || fail 1 'Could not compute a SHA-256 digest.'
+  case "$digest" in *[!0-9a-f]*) fail 1 'Could not compute a SHA-256 digest.' ;; esac
+  printf '%s' "$digest"
+}
 make_code() {
   # Reject the top 32 byte values; the remaining 224 map uniformly to 32 symbols.
   setup_code=$(od -An -v -N 64 -tu1 /dev/urandom | awk '
     BEGIN { alphabet="0123456789ABCDEFGHJKMNPQRSTVWXYZ"; count=0 }
     { for (i=1; i<=NF && count<20; i++) if ($i<224) { printf "%s", substr(alphabet, ($i%32)+1, 1); count++ } }')
   [ "${#setup_code}" -eq 20 ] || fail 1 'Could not obtain a secure setup code. Try again.'
-  if command -v sha256sum >/dev/null 2>&1; then
-    setup_hash=$(printf '%s' "$setup_code" | sha256sum | awk '{print $1}')
-  elif command -v shasum >/dev/null 2>&1; then
-    setup_hash=$(printf '%s' "$setup_code" | shasum -a 256 | awk '{print $1}')
-  elif command -v openssl >/dev/null 2>&1; then
-    setup_hash=$(printf '%s' "$setup_code" | openssl dgst -sha256 | awk '{print $NF}')
-  else
-    fail 3 'Install sha256sum, shasum, or openssl to hash the setup code.'
-  fi
-  [ "${#setup_hash}" -eq 64 ] || fail 1 'Could not hash the setup code.'
-  case "$setup_hash" in *[!0-9a-f]*) fail 1 'Could not hash the setup code.' ;; esac
+  setup_hash=$(sha256_text "$setup_code")
 }
 print_code() {
   printf '\n  Setup code:  '
@@ -102,7 +108,7 @@ if [ "$renew" = true ]; then
   [ "$creation_options" = false ] || fail 2 'Renewal accepts only --output; existing installation settings are preserved.'
   [ ! -L "$output" ] && [ -f "$output" ] || fail 4 'Renewal requires an existing regular settings file, not a symlink.'
   if mkdir "$output.renew-lock" 2>/dev/null; then lock=$output.renew-lock
-  else fail 4 'Another settings renewal is in progress; no settings were changed.'; fi
+  else fail 4 'A renewal lock exists; no settings were changed. If a previous process was interrupted, confirm no renewal is running before removing the empty .renew-lock directory beside the settings file.'; fi
   snapshot=$(mktemp "$install_dir/.passdown-settings.XXXXXXXX") || fail 1 'Could not create a private settings snapshot.'
   cat "$output" > "$snapshot"
   project=$(read_setting COMPOSE_PROJECT_NAME) || fail 3 'COMPOSE_PROJECT_NAME must appear exactly once in the settings file.'
@@ -165,7 +171,20 @@ elif [ -n "$email" ]; then tls=$email
 else fail 3 'Public domains require --acme-email EMAIL or explicit --internal-tls.'; fi
 origin=https://$domain
 [ "$https_port" = 443 ] || origin=$origin:$https_port
-project=passdown
+# The canonical settings path identifies the default installation, including
+# custom filenames. Losing .env must not silently select a fresh project.
+if [ -n "$requested_project" ]; then project=$requested_project
+else project=passdown-$(sha256_text "$output" | cut -c 1-20); fi
+case "$project" in ''|*[!a-z0-9_-]*|-*|_*) fail 2 'Project names must start with a lowercase letter or digit and contain only lowercase letters, digits, hyphens, or underscores.' ;; esac
+[ "${#project}" -le 63 ] || fail 2 'Project names must be 63 characters or fewer.'
+# Refuse both Compose-labelled resources and the conventional volume names;
+# the latter also catches preserved volumes whose labels were removed.
+if project_volumes=$(docker volume ls -q --filter "label=com.docker.compose.project=$project" 2>/dev/null) &&
+   volume_names=$(docker volume ls --format '{{.Name}}' 2>/dev/null) &&
+   project_containers=$(docker container ls -aq --filter "label=com.docker.compose.project=$project" 2>/dev/null); then :
+else fail 1 'Could not check Docker resources. Start Docker and retry; no settings were created.'; fi
+named_volumes=$(printf '%s\n' "$volume_names" | awk -v project="$project" '$0==project "_database" || $0==project "_media" || $0==project "_proxy-data" || $0==project "_proxy-config" {print}')
+[ -z "$project_volumes$named_volumes$project_containers" ] || fail 4 'This project already has Docker resources. Restore its original settings; do not create replacement credentials or delete its volumes. Use --project with a different name for a separate installation.'
 owner_password=$(random_hex 32)
 runtime_password=$(random_hex 32)
 auth_secret=$(random_hex 48)

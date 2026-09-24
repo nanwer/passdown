@@ -13,6 +13,7 @@ RUN --mount=type=cache,id=passdown-pnpm,target=/root/.local/share/pnpm/store pnp
 RUN --mount=type=cache,id=passdown-pnpm,target=/root/.local/share/pnpm/store pnpm migrations:check \
  && GUIDE_NEXT_OUTPUT=standalone pnpm build \
  && node scripts/check-production-bundle.mjs apps/web/.next \
+ && node scripts/check-image-files.mjs apps/web/.next/standalone --prune-metadata \
  && pnpm licenses list --prod --json > /src/third-party-licenses.json
 
 FROM ${NODE_IMAGE} AS runtime
