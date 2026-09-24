@@ -1,6 +1,6 @@
 'use client';
 import * as X from './studio-styles';
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type Ref } from 'react';
 import {
   ArrowRight,
   ArrowLeftRight,
@@ -348,6 +348,7 @@ export function MetadataFields({
   onDocument,
   onCategory,
   onTitleEdited,
+  titleInputRef,
   className,
 }: {
   document: GuideDocument;
@@ -362,6 +363,7 @@ export function MetadataFields({
    * with it — and that is only knowable here, where the keystroke lands.
    */
   onTitleEdited?: () => void;
+  titleInputRef?: Ref<HTMLInputElement>;
   /** Spacing the surrounding screen needs, such as the editor's canvas. */
   className?: string;
 }) {
@@ -377,6 +379,7 @@ export function MetadataFields({
           <label>
             Guide title
             <input
+              ref={titleInputRef}
               required
               maxLength={140}
               value={document.title}
@@ -465,6 +468,13 @@ function CreateGuide({ workspace }: { workspace: StudioWorkspace }) {
   // type asks. Together these compose the title, which is why the thing's name
   // is kept and not only its id.
   const [types, setTypes] = useState<GuideType[]>([]);
+  const [typesReady, setTypesReady] = useState(false);
+  const [typesError, setTypesError] = useState(false);
+  const [typesAttempt, setTypesAttempt] = useState(0);
+  const typesStatus = useRef<HTMLParagraphElement>(null);
+  const retryTypesButton = useRef<HTMLButtonElement>(null);
+  const titleInput = useRef<HTMLInputElement>(null);
+  const typesRetryOrigin = useRef<Element | null>(null);
   const [composeTitles, setComposeTitles] = useState(false);
   const [typeKey, setTypeKey] = useState<string | null>(null);
   const [subject, setSubject] = useState('');
@@ -489,13 +499,34 @@ function CreateGuide({ workspace }: { workspace: StudioWorkspace }) {
         setTypes(settings.types);
         setComposeTitles(settings.composeTitles);
       })
-      // A workspace that cannot say what it offers still lets someone write.
-      // Losing the picker is worse than losing the guide.
-      .catch(() => {});
+      // Optional type settings must settle before the form becomes interactive:
+      // inserting their panel above a pressed control can otherwise lose its click.
+      .catch(() => {
+        if (live) setTypesError(true);
+      })
+      .finally(() => {
+        if (live) setTypesReady(true);
+      });
     return () => {
       live = false;
     };
-  }, [workspace.id]);
+  }, [workspace.id, typesAttempt]);
+  useEffect(() => {
+    const origin = typesRetryOrigin.current;
+    // Activation origin is consumed once, even if the author has already moved.
+    typesRetryOrigin.current = null;
+    const focused = window.document.activeElement;
+    if (!typesAttempt || (focused !== window.document.body && focused !== origin)) return;
+    // A fast response can retain the old form, and some browsers do not focus
+    // clicked buttons. Restore from the activation origin or removed control,
+    // while respecting a deliberate move elsewhere during the request.
+    (!typesReady
+      ? typesStatus.current
+      : typesError
+        ? retryTypesButton.current
+        : titleInput.current
+    )?.focus();
+  }, [typesAttempt, typesReady, typesError]);
 
   const selectedType = types.find((type) => type.key === typeKey) ?? null;
   // Compose only while the author has left the title alone. The suggestion is
@@ -562,157 +593,177 @@ function CreateGuide({ workspace }: { workspace: StudioWorkspace }) {
       </div>
       {workspace.role !== 'manage' ? (
         <ErrorNotice error="Only workspace owners can create guides in this preview." />
+      ) : !document || !typesReady ? (
+        <p ref={typesStatus} role="status" tabIndex={-1}>
+          Loading guide options…
+        </p>
       ) : (
-        document && (
-          <form
-            className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_240px]"
-            onSubmit={submit}
-          >
-            <div className="grid min-w-0 gap-6">
-              {types.length > 0 && (
-                <fieldset className={cn(authoringPanel, 'm-0 min-w-0')}>
-                  <legend className="float-start mb-1 w-full text-[17px] font-semibold tracking-tight">
-                    What kind of work is this?
-                  </legend>
-                  <p className="clear-both mb-5 text-[13px] leading-5">
-                    Choose the purpose of your guide. Your workspace’s types help readers find the
-                    right instructions.
-                  </p>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {types.map((type) => {
-                      const Icon =
-                        (
-                          {
-                            repair: Wrench,
-                            replacement: ArrowLeftRight,
-                            disassembly: Layers3,
-                            teardown: PackageOpen,
-                            inspection: ClipboardCheck,
-                            maintenance: Settings2,
-                          } as Record<string, typeof Wrench>
-                        )[type.key] ?? PenLine;
-                      return (
-                        <ChoiceCard
-                          key={type.key}
-                          title={type.label}
-                          description={type.description}
-                          icon={<Icon size={18} />}
-                          name="guideType"
-                          value={type.key}
-                          checked={typeKey === type.key}
-                          onChange={() => {
-                            setTypeKey(type.key);
-                            if (!type.prompt) setSubject('');
-                          }}
-                        />
-                      );
-                    })}
-                  </div>
-                  {selectedType?.prompt && (
-                    <label className="mt-5 grid gap-2 border-t border-line pt-5 text-sm font-semibold text-ink [&_input]:font-normal">
-                      {selectedType.prompt}
-                      <input
-                        maxLength={140}
-                        value={subject}
-                        onChange={(e) => setSubject(e.target.value)}
-                      />
-                    </label>
-                  )}
-                </fieldset>
-              )}
-              <MetadataFields
-                audience={audience}
-                document={document}
-                workspace={workspace}
-                category={category}
-                onDocument={setDocument}
-                onCategory={(id, chosen) => {
-                  setCategory(id);
-                  setThingName(chosen?.name ?? '');
-                }}
-                onTitleEdited={() => {
-                  titleEdited.current = true;
-                }}
-              />
-              {workspace.audience === 'public' ? (
-                <fieldset className={cn(authoringPanel, 'm-0 min-w-0')}>
-                  <legend className="float-start mb-1 w-full text-[17px] font-semibold tracking-tight">
-                    Section
-                  </legend>
-                  <p className="clear-both mb-5 text-[13px] leading-5">
-                    Choose who can read it when published. You can move a guide between sections
-                    later, from Guide details.
-                  </p>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <ChoiceCard
-                      title="Public"
-                      description="Anyone can read it once published."
-                      icon={<Globe2 size={18} />}
-                      name="audience"
-                      value="public"
-                      checked={audience === 'public'}
-                      onChange={() => setAudience('public')}
-                    />
-                    <ChoiceCard
-                      title="Internal"
-                      description="Only active workspace members can read it."
-                      icon={<LockKeyhole size={18} />}
-                      name="audience"
-                      value="members"
-                      checked={audience === 'members'}
-                      onChange={() => setAudience('members')}
-                    />
-                  </div>
-                </fieldset>
-              ) : (
-                <p className="flex items-start gap-2 rounded-xl border border-line bg-panel p-4 text-[13px]">
-                  <LockKeyhole size={17} className="mt-0.5 shrink-0" aria-hidden="true" />
-                  Private workspace: published guides are only visible to active workspace members.
+        <form
+          className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_240px]"
+          onSubmit={submit}
+        >
+          <div className="grid min-w-0 gap-6">
+            {typesError && (
+              <div className="grid gap-3 rounded-xl border border-line bg-panel p-4">
+                <p role="alert" className="text-sm">
+                  Guide types could not be loaded. You can still write your guide, or try again.
                 </p>
-              )}
-              {error && <ErrorNotice error={error} />}
-              <div className="flex flex-wrap items-center justify-between gap-4 border-t border-line pt-6">
-                <a
-                  className={buttonVariants({ variant: 'ghost' })}
-                  href={`/studio/${workspace.id}`}
+                <button
+                  ref={retryTypesButton}
+                  type="button"
+                  className={buttonVariants({ variant: 'secondary' })}
+                  onClick={() => {
+                    typesRetryOrigin.current = window.document.activeElement;
+                    setTypesReady(false);
+                    setTypesError(false);
+                    setTypesAttempt((attempt) => attempt + 1);
+                  }}
                 >
-                  Cancel
-                </a>
-                <Button type="submit" loading={pending}>
-                  Create draft <ArrowRight size={17} />
-                </Button>
+                  Retry guide types
+                </button>
               </div>
-            </div>
-            <aside
-              className="rounded-2xl border border-line bg-panel p-5 hidden lg:sticky lg:top-28 lg:block"
-              aria-label="About your draft"
-            >
-              <div className="mb-3 flex items-center gap-2 text-[13px] font-semibold">
-                <span className="size-2 rounded-full bg-action" aria-hidden="true" /> New draft
-              </div>
-              <p className="text-[13px] leading-6">
-                Your guide belongs to{' '}
-                <strong className="font-semibold text-ink">{workspace.name}</strong>. It stays
-                unpublished until you choose to share a release.
+            )}
+            {types.length > 0 && (
+              <fieldset className={cn(authoringPanel, 'm-0 min-w-0')}>
+                <legend className="float-start mb-1 w-full text-[17px] font-semibold tracking-tight">
+                  What kind of work is this?
+                </legend>
+                <p className="clear-both mb-5 text-[13px] leading-5">
+                  Choose the purpose of your guide. Your workspace’s types help readers find the
+                  right instructions.
+                </p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {types.map((type) => {
+                    const Icon =
+                      (
+                        {
+                          repair: Wrench,
+                          replacement: ArrowLeftRight,
+                          disassembly: Layers3,
+                          teardown: PackageOpen,
+                          inspection: ClipboardCheck,
+                          maintenance: Settings2,
+                        } as Record<string, typeof Wrench>
+                      )[type.key] ?? PenLine;
+                    return (
+                      <ChoiceCard
+                        key={type.key}
+                        title={type.label}
+                        description={type.description}
+                        icon={<Icon size={18} />}
+                        name="guideType"
+                        value={type.key}
+                        checked={typeKey === type.key}
+                        onChange={() => {
+                          setTypeKey(type.key);
+                          if (!type.prompt) setSubject('');
+                        }}
+                      />
+                    );
+                  })}
+                </div>
+                {selectedType?.prompt && (
+                  <label className="mt-5 grid gap-2 border-t border-line pt-5 text-sm font-semibold text-ink [&_input]:font-normal">
+                    {selectedType.prompt}
+                    <input
+                      maxLength={140}
+                      value={subject}
+                      onChange={(e) => setSubject(e.target.value)}
+                    />
+                  </label>
+                )}
+              </fieldset>
+            )}
+            <MetadataFields
+              titleInputRef={titleInput}
+              audience={audience}
+              document={document}
+              workspace={workspace}
+              category={category}
+              onDocument={setDocument}
+              onCategory={(id, chosen) => {
+                setCategory(id);
+                setThingName(chosen?.name ?? '');
+              }}
+              onTitleEdited={() => {
+                titleEdited.current = true;
+              }}
+            />
+            {workspace.audience === 'public' ? (
+              <fieldset className={cn(authoringPanel, 'm-0 min-w-0')}>
+                <legend className="float-start mb-1 w-full text-[17px] font-semibold tracking-tight">
+                  Section
+                </legend>
+                <p className="clear-both mb-5 text-[13px] leading-5">
+                  Choose who can read it when published. You can move a guide between sections
+                  later, from Guide details.
+                </p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <ChoiceCard
+                    title="Public"
+                    description="Anyone can read it once published."
+                    icon={<Globe2 size={18} />}
+                    name="audience"
+                    value="public"
+                    checked={audience === 'public'}
+                    onChange={() => setAudience('public')}
+                  />
+                  <ChoiceCard
+                    title="Internal"
+                    description="Only active workspace members can read it."
+                    icon={<LockKeyhole size={18} />}
+                    name="audience"
+                    value="members"
+                    checked={audience === 'members'}
+                    onChange={() => setAudience('members')}
+                  />
+                </div>
+              </fieldset>
+            ) : (
+              <p className="flex items-start gap-2 rounded-xl border border-line bg-panel p-4 text-[13px]">
+                <LockKeyhole size={17} className="mt-0.5 shrink-0" aria-hidden="true" />
+                Private workspace: published guides are only visible to active workspace members.
               </p>
-              <div className="mt-5 border-t border-line pt-4 max-lg:hidden">
-                <p className="mb-3 text-[12px] font-semibold text-ink">Next, in the editor</p>
-                <ul className="m-0 grid list-none gap-3 p-0 text-[12px] text-muted">
-                  {[
-                    'Write and illustrate each step',
-                    'Assign tools and materials',
-                    'Preview, save and publish',
-                  ].map((text) => (
-                    <li key={text} className="flex items-center gap-2">
-                      <Check size={14} aria-hidden="true" />
-                      {text}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </aside>
-          </form>
-        )
+            )}
+            {error && <ErrorNotice error={error} />}
+            <div className="flex flex-wrap items-center justify-between gap-4 border-t border-line pt-6">
+              <a className={buttonVariants({ variant: 'ghost' })} href={`/studio/${workspace.id}`}>
+                Cancel
+              </a>
+              <Button type="submit" loading={pending}>
+                Create draft <ArrowRight size={17} />
+              </Button>
+            </div>
+          </div>
+          <aside
+            className="rounded-2xl border border-line bg-panel p-5 hidden lg:sticky lg:top-28 lg:block"
+            aria-label="About your draft"
+          >
+            <div className="mb-3 flex items-center gap-2 text-[13px] font-semibold">
+              <span className="size-2 rounded-full bg-action" aria-hidden="true" /> New draft
+            </div>
+            <p className="text-[13px] leading-6">
+              Your guide belongs to{' '}
+              <strong className="font-semibold text-ink">{workspace.name}</strong>. It stays
+              unpublished until you choose to share a release.
+            </p>
+            <div className="mt-5 border-t border-line pt-4 max-lg:hidden">
+              <p className="mb-3 text-[12px] font-semibold text-ink">Next, in the editor</p>
+              <ul className="m-0 grid list-none gap-3 p-0 text-[12px] text-muted">
+                {[
+                  'Write and illustrate each step',
+                  'Assign tools and materials',
+                  'Preview, save and publish',
+                ].map((text) => (
+                  <li key={text} className="flex items-center gap-2">
+                    <Check size={14} aria-hidden="true" />
+                    {text}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </aside>
+        </form>
       )}
     </main>
   );
