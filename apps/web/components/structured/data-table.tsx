@@ -255,12 +255,14 @@ export function Pager({
   total,
   noun,
   onPage,
+  loading = false,
 }: {
   page: number;
   pageSize: number;
   total: number;
   noun: [string, string];
   onPage: (page: number) => void;
+  loading?: boolean;
 }) {
   const pages = Math.max(1, Math.ceil(total / pageSize));
   if (pages === 1) return null;
@@ -269,6 +271,7 @@ export function Pager({
   return (
     <nav
       aria-label={`${noun[1][0]!.toUpperCase()}${noun[1].slice(1)} pages`}
+      aria-busy={loading}
       className="flex flex-wrap items-center justify-between gap-3 pt-4 text-[13px] text-[var(--gp-semantic-text-secondary)]"
     >
       <span>
@@ -278,7 +281,7 @@ export function Pager({
         <button
           type="button"
           className={buttonVariants({ variant: 'secondary', size: 'sm' })}
-          disabled={page <= 1}
+          disabled={loading || page <= 1}
           onClick={() => onPage(page - 1)}
         >
           Previous
@@ -286,7 +289,7 @@ export function Pager({
         <button
           type="button"
           className={buttonVariants({ variant: 'secondary', size: 'sm' })}
-          disabled={page >= pages}
+          disabled={loading || page >= pages}
           onClick={() => onPage(page + 1)}
         >
           Next

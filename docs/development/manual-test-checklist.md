@@ -10,6 +10,8 @@ Start the local app and sign in at [Studio](http://127.0.0.1:3100/studio) using 
 4. **Image privacy — after rebuilding:** run `node scripts/check-image-privacy.mjs`, `node scripts/check-image-privacy.mjs --context`, and `sh scripts/check-image.sh passdown:local`. Expect all checks to pass. The context probe uses synthetic private notes/settings and proves they are excluded; the runtime check rejects source, tests and non-license Markdown while retaining license notices.
 5. **Proxy — after rebuilding:** run `node scripts/check-proxy.mjs --live`. Expect normal shared-address sign-ins, IPv6 /64 grouping, independent-network access and log privacy checks to pass. It prints the address seen through the host port; verify real external client addresses separately using the [network checklist](../self-hosting/development-stack.md#network-addresses-and-request-limits). A shared Docker gateway is an evaluation limitation, not proof of per-client protection.
 
+6. **Pagination during updates — Studio → Manage → Catalog or Things:** use a list with more than 25 visible records. Enable slow network throttling, click a sortable column heading, and observe **Previous/Next** while the list updates. Both stay disabled until the current response arrives. Then click **Next** once: the next page appears. Open a record and close it; the page and filters remain intact.
+
 These changes do not publish an alpha release. The earlier intermittent Chromium API connection reset remains under investigation; a passing targeted journey alone does not establish its cause. Full hosted browser validation and the remaining operational/security release checks are still required.
 
 ## Guide creation and preparation layout

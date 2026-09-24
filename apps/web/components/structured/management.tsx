@@ -673,6 +673,7 @@ function ThingsManagement({ workspace }: { workspace: StudioWorkspace }) {
       )}
       {data && (
         <Pager
+          loading={loading}
           page={data.page}
           pageSize={data.pageSize}
           total={data.total}
@@ -1267,6 +1268,7 @@ function CatalogManagement({ workspace }: { workspace: StudioWorkspace }) {
             </table>
           </div>
           <Pager
+            loading={loading}
             page={data?.page ?? 1}
             pageSize={catalogPageSize}
             total={data?.total ?? 0}

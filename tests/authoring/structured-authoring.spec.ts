@@ -2525,8 +2525,29 @@ test('management tables sort text, number and status columns, remember their col
   await expect
     .poll(async () => (await firstNames()).slice(0, 13))
     .toEqual(names.filter((_, n) => n % 2));
-  await name.getByRole('button').click();
-  await expect(name).toHaveAttribute('aria-sort', 'ascending');
+  // The sort indicator changes immediately, but pagination must wait for the
+  // rows it acts on. Hold this response to exercise that overlap deterministically.
+  let finishSort!: () => void;
+  const heldSort = new Promise<void>((resolve) => {
+    finishSort = resolve;
+  });
+  const sortRoute = `**/api/studio/${workspace}/catalog?*`;
+  await page.route(sortRoute, async (route) => {
+    await heldSort;
+    await route.continue();
+  });
+  try {
+    await name.getByRole('button').click();
+    await expect(name).toHaveAttribute('aria-sort', 'ascending');
+    await expect(page.getByRole('button', { name: 'Next', exact: true })).toBeDisabled();
+  } finally {
+    finishSort();
+  }
+  await expect(page.getByRole('table', { name: 'Catalog items' }).locator('..')).toHaveAttribute(
+    'aria-busy',
+    'false',
+  );
+  await page.unroute(sortRoute);
 
   // Page two, then open a record and close it: the same page, search and sort
   // come back, and focus returns to the row it was opened from.
