@@ -38,3 +38,6 @@ docs/development/published-formatting-examples.md
 /claude-*.md
 /review-for-gpt-*.md
 /feedback-to-gpt-*.md
+
+# Generated operator command bundle
+apps/operator/dist/

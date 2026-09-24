@@ -1,0 +1,16 @@
+# Build the candidate locally; no registry publication is performed.
+x-build: &build
+  context: ..
+  dockerfile: Dockerfile
+  args:
+    PASSDOWN_REVISION: ${PASSDOWN_REVISION:-unknown}
+    PASSDOWN_VERSION: ${PASSDOWN_VERSION:-0.0.1}
+services:
+  web: { image: 'passdown:local', build: *build }
+  migrate: { image: 'passdown:local', pull_policy: never }
+  ops: { image: 'passdown:local', pull_policy: never }
+  proxy:
+    image: passdown-caddy:local
+    build:
+      context: ..
+      dockerfile: deploy/caddy/Dockerfile

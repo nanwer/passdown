@@ -1,6 +1,13 @@
 import type { NextConfig } from 'next';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const workspaceRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const config: NextConfig = {
   poweredByHeader: false,
+  output: process.env.GUIDE_NEXT_OUTPUT === 'standalone' ? 'standalone' : undefined,
+  outputFileTracingRoot: workspaceRoot,
+  turbopack: { root: workspaceRoot },
   distDir: process.env.GUIDE_NEXT_DIST_DIR || '.next',
   serverExternalPackages: ['better-auth', 'pg'],
   /**

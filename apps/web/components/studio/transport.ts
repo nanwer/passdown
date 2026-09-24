@@ -23,7 +23,7 @@ export async function studioFetch<T>(path: string, init?: RequestInit): Promise<
     throw new StudioError(
       detail?.message ||
         (response.status === 503
-          ? 'Local storage is not configured. Ask the local operator to run setup and use LOCAL_ACCESS.md.'
+          ? 'The service is unavailable. Please try again.'
           : 'The request could not be completed. Try again.'),
       response.status,
       detail?.code || 'REQUEST_FAILED',

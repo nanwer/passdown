@@ -1,0 +1,217 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { execFileSync, spawnSync } from 'node:child_process';
+import https from 'node:https';
+
+// Never print request data or container logs. Failures identify the contract only.
+const image = process.env.PASSDOWN_PROXY_IMAGE || 'passdown-caddy:local';
+const token = 'proxy-check-secret-0123456789abcdef';
+const paths = [
+  `/invite/${token}`,
+  `/api/invitations/${token}`,
+  `/reset/${token}`,
+  `/api/password-resets/${token}`,
+  `/api/admin/accounts/${token}/password-reset`,
+  `/setup?code=${token}`,
+  `/API/Invitations/${token}`,
+  `/%69nvite/${token}`,
+  `/sign-in?next=%2Finvite%2F${token}`,
+  `/api/invitations/${token}/x?y=${token}`,
+  `/api/invitations/${token.slice(0, 16)}%41${token.slice(16)}`,
+];
+const config = readFileSync(process.env.PASSDOWN_CADDYFILE || 'deploy/caddy/Caddyfile', 'utf8');
+const filters = [...config.matchAll(/request>uri regexp "([^"]+)" "([^"]+)"/g)];
+assert.equal(filters.length, 2, 'Access and error logs must both filter request URIs.');
+for (const [, pattern, replacement] of filters) {
+  const expression = new RegExp(pattern.replace('(?i)', ''), 'i');
+  for (const path of paths) {
+    const redacted = path.replace(expression, (...args) =>
+      replacement.replace(/\$\{(\d+)\}/g, (_, group) => args[Number(group)] || ''),
+    );
+    assert.ok(!redacted.includes(token.slice(0, 16)), 'Proxy URI filter leaked a token fragment.');
+    assert.ok(redacted.includes('[redacted]'), 'Sensitive route was not redacted.');
+  }
+  for (const [path, expected] of [
+    ['/admin/accounts', '/admin/accounts'],
+    [`/invite/${token}`, '/invite/[redacted]'],
+    [`/API/Invitations/${token}`, '/API/Invitations/[redacted]'],
+    [`/%69nvite/${token}`, '/[redacted]'],
+    [`/setup?code=${token}`, '/setup?[redacted]'],
+    [`/sign-in?next=%2Finvite%2F${token}`, '/sign-in?[redacted]'],
+  ]) {
+    const result = path.replace(expression, (...args) =>
+      replacement.replace(/\$\{(\d+)\}/g, (_, group) => args[Number(group)] || ''),
+    );
+    assert.equal(result, expected, 'Proxy URI filter must preserve only the safe route prefix.');
+  }
+}
+if (!process.argv.includes('--live')) {
+  console.log('Proxy log-redaction cases passed.');
+} else {
+  const suffix = `${process.pid}-${Date.now()}`;
+  const network = `passdown-proxy-check-${suffix}`;
+  const upstream = `${network}-web`;
+  const proxy = `${network}-proxy`;
+  const docker = (...args) =>
+    execFileSync('docker', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+  let port;
+  let certificate;
+  function request(path, options = {}) {
+    return new Promise((resolve, reject) => {
+      const req = https.request(
+        {
+          hostname: '127.0.0.1',
+          servername: 'localhost',
+          port,
+          path,
+          ca: options.ca ?? certificate,
+          method: options.body ? 'POST' : 'GET',
+          headers: {
+            Host: 'localhost',
+            Referer: token,
+            Cookie: token,
+            Authorization: token,
+            ...options.headers,
+          },
+        },
+        (res) => {
+          res.resume();
+          res.on('end', () => resolve({ status: res.statusCode, headers: res.headers }));
+        },
+      );
+      req.setTimeout(10000, () => req.destroy(new Error('Proxy request timed out.')));
+      req.on('error', reject);
+      req.end(options.body);
+    });
+  }
+  async function start(limit) {
+    docker(
+      'run',
+      '-d',
+      '--name',
+      proxy,
+      '--network',
+      network,
+      '-p',
+      '127.0.0.1::443',
+      '-e',
+      'PASSDOWN_DOMAIN=localhost',
+      '-e',
+      'PASSDOWN_TLS=internal',
+      '-e',
+      `PASSDOWN_LINK_LIMIT=${limit}`,
+      '-e',
+      `PASSDOWN_SIGN_IN_LIMIT=${limit}`,
+      '-e',
+      `PASSDOWN_ADMIN_LIMIT=${limit}`,
+      ...(process.env.PASSDOWN_CADDYFILE
+        ? ['-v', `${process.env.PASSDOWN_CADDYFILE}:/etc/caddy/Caddyfile:ro`]
+        : []),
+      image,
+    );
+    port = Number(docker('port', proxy, '443/tcp').split(':').at(-1));
+    for (let attempt = 0; attempt < 60; attempt++) {
+      try {
+        certificate = docker('exec', proxy, 'cat', '/data/caddy/pki/authorities/local/root.crt');
+        await request('/');
+        return;
+      } catch {
+        await new Promise((r) => setTimeout(r, 250));
+      }
+    }
+    throw new Error('Proxy did not start.');
+  }
+  try {
+    docker('network', 'create', network);
+    docker(
+      'run',
+      '-d',
+      '--name',
+      upstream,
+      '--network',
+      network,
+      '--network-alias',
+      'web',
+      'node:22.22.2-alpine3.22@sha256:b77017c37f430e4466ff497058948a2f16e8b59779600d53711eeb7b999b0f4e',
+      'node',
+      '-e',
+      'require("http").createServer((q,s)=>{q.resume();q.on("end",()=>{s.setHeader("Location",q.url);s.setHeader("Set-Cookie","proxy-check-secret-0123456789abcdef");s.end("ok")})}).listen(3000,"0.0.0.0")',
+    );
+    await start(100);
+    await assert.rejects(
+      request('/', { ca: [] }),
+      /certificate|self.signed|unable to verify/i,
+      'HTTPS must reject a certificate when its issuer is not trusted.',
+    );
+    for (const path of paths)
+      assert.equal((await request(path)).status, 200, 'Proxy failed to forward a route.');
+    const normal = await request('/');
+    assert.equal(
+      normal.headers['strict-transport-security'],
+      'max-age=31536000',
+      'HTTPS requires HSTS.',
+    );
+    assert.equal(normal.headers.server, undefined, 'Proxy must hide its Server header.');
+    assert.equal(
+      (await request('/api/setup', { body: Buffer.alloc(2 * 1024 * 1024 + 1) })).status,
+      413,
+      'Non-upload body cap failed.',
+    );
+    assert.equal(
+      (await request('/api/studio/workshop/assets', { body: Buffer.alloc(3 * 1024 * 1024) }))
+        .status,
+      200,
+      'Upload must allow a normal photograph.',
+    );
+    assert.equal(
+      (await request('/api/studio/workshop/assets', { body: Buffer.alloc(22 * 1024 * 1024 + 1) }))
+        .status,
+      413,
+      'Upload body cap failed.',
+    );
+    docker('stop', upstream);
+    for (const path of paths)
+      assert.equal((await request(path)).status, 502, 'Unreachable upstream should return 502.');
+    // Capture both streams without printing request-bearing log records.
+    const result = spawnSync('docker', ['logs', proxy], { encoding: 'utf8' });
+    assert.equal(result.status, 0);
+    assert.ok(
+      !(result.stdout + result.stderr).includes(token.slice(0, 16)),
+      'Proxy logs leaked a token fragment.',
+    );
+    docker('rm', '-f', proxy);
+    docker('start', upstream);
+    await start(2);
+    for (const routes of [
+      ['/api/setup', '/API/Invitations/example', '/%69nvite/example'],
+      ['/api/admin/accounts', '/API/ADMIN/accounts', '/%61pi/admin/accounts'],
+      ['/api/auth/sign-in/email', '/API/AUTH/SIGN-IN/EMAIL', '/%61pi/auth/sign-in/email'],
+    ]) {
+      for (let index = 0; index < routes.length; index++) {
+        const response = await request(routes[index], {
+          body: Buffer.from('{}'),
+          headers: { 'X-Forwarded-For': `192.0.2.${index}` },
+        });
+        assert.equal(
+          response.status,
+          index < 2 ? 200 : 429,
+          'Encoded or uppercase route bypassed per-address limits.',
+        );
+      }
+    }
+    console.log('Live proxy limits, forwarding, body caps, HTTPS headers and log privacy passed.');
+  } finally {
+    for (const container of [proxy, upstream]) {
+      try {
+        docker('rm', '-f', container);
+      } catch {
+        /* Already removed. */
+      }
+    }
+    try {
+      docker('network', 'rm', network);
+    } catch {
+      /* No network was created. */
+    }
+  }
+}

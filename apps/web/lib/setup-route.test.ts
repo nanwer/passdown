@@ -169,3 +169,13 @@ it('keeps a committed account when automatic sign-in fails', async () => {
   expect(response.status).toBe(201);
   expect(await response.json()).toEqual({ signIn: 'manual' });
 });
+
+it('explains a workspace without accounts without signing in or reporting success', async () => {
+  state.completeSetup.mockResolvedValue({ outcome: 'workspace-exists' });
+  const response = await POST(request());
+  expect({
+    status: response.status,
+    code: (await response.json()).error?.code,
+    signIns: state.signIn.mock.calls.length,
+  }).toEqual({ status: 503, code: 'SETUP_WORKSPACE_EXISTS', signIns: 0 });
+});

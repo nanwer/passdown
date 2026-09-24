@@ -17,6 +17,7 @@ import type { Actor } from '@guide/core';
 import { structuredChecks } from './structured-integration';
 import { verifyStructuredMigration } from './migration-integration';
 import { verifySetup } from './setup-integration';
+import { verifyMigrator } from './migrator-integration';
 import {
   editorDocumentToBody,
   parseStepMarkdown,
@@ -1330,6 +1331,7 @@ try {
     verifyStructuredMigration,
   );
   await verifySetup(check);
+  await verifyMigrator(config.GUIDE_OWNER_DATABASE_URL, config.GUIDE_DATABASE_URL, check);
   await structuredChecks({ store, owner, runtime, check, scoped, actor, anonymous, doc });
   await check(
     'library listing is bounded and counted in the database, and sections only narrow',

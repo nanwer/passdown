@@ -41,7 +41,7 @@ Use a dedicated empty, migrated evaluation database and the hash-only setup-code
 | Production without settings | Start a production build without database/sign-in settings. Open `/` and request `/api/health`.                                                                                                                                                                 | Installation configuration page; no sample guides or studio navigation; health is 503 `not-configured`.                          |
 | Production preview guard    | Set `GUIDE_DEMO_PREVIEW=1` on a configured production build and open the preview path.                                                                                                                                                                          | No preview identity or sample library is available.                                                                              |
 
-Automated setup browser checks: `pnpm test:setup` runs Chromium, Firefox and WebKit sequentially, each with a new disposable database and server on port 3106. Setup traces/screenshots are disabled to avoid recording entered credentials. Container installation, setup-code renewal tooling, installation-wide account recovery and deployment certification remain unfinished.
+Automated setup browser checks: `pnpm test:setup` runs Chromium, Firefox and WebKit sequentially, each with a new disposable database and server on port 3106. Setup traces/screenshots are disabled to avoid recording entered credentials. The source-built container and setup-code renewal checks are below. Installation-wide account recovery, backup/restore, upgrade tooling and deployment certification remain unfinished.
 
 ## Keeping an unfinished form open
 
@@ -255,3 +255,16 @@ This documentation update changes no application behavior. Commands were checked
 3. Follow the README, development-status, and contribution links. Each should resolve. Upcoming milestones should state a reader or author outcome and a completion criterion without promising release dates.
 
 This is a documentation update. It does not implement the roadmap milestones or resolve application findings from a review.
+
+## Container evaluation and operator tools
+
+Use the [container evaluation guide](../self-hosting/development-stack.md) and a separate installation; never reset an existing database to test these flows.
+
+1. From `deploy`, run `sh init.sh --domain localhost --http-port 18080 --https-port 18443 --build`. Expect a new 0600 `.env` and one printed setup code. Repeat: expect refusal with the original settings preserved.
+2. Build/start as documented. Trust the test stack's certificate, open `https://localhost:18443/setup`, and complete the form. Expect your workspace to open and subsequent `/setup` requests to return 404.
+3. Run `docker compose run --rm -T ops setup-state`: expect `complete`. Run `ops migrate`: expect no new migrations. Run `ops help`: expect the supported commands. An unknown command should return exit 2; an absent required database setting should return exit 3 without printing secrets.
+4. Create a guide, upload a photo, save it, stop with `docker compose down` (no `-v`) and start again. Expect the guide/photo to remain and setup to stay closed. Open the private photo signed out: expect no access.
+5. In another fresh evaluation, renew the setup code before completing setup and follow the printed web-recreation command. Expect the old code to fail and the new one to work. After setup, renewal must refuse without changing settings.
+6. Run `node scripts/check-proxy.mjs --live` and `PASSDOWN_SKIP_BUILD=1 sh scripts/deployment-boot-check.sh` from the repository root. Expect both to pass and remove their own disposable Docker resources. They must not replace or remove the existing local development stack.
+
+No published images, recovery UI, nginx stack, backup/restore or upgrade command are delivered by this milestone. Public-domain clean-host and physical-browser release checks remain outstanding.

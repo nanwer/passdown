@@ -4,6 +4,9 @@ Passdown is an early, working application for public community guides and privat
 
 ## Working now
 
+- A source-built Docker evaluation stack with private first-run settings, an explicit migration job, a non-root web image and a Caddy HTTPS proxy. Setup codes can be renewed only before setup completes. The operator command provides `help`, `migrate` and `setup-state`; its migration path shares the local runner and checks runtime-role safety. See the [container evaluation guide](../self-hosting/development-stack.md). Published images and the complete backup/restore/upgrade workflow remain upcoming.
+- Setup waits at most five seconds for its transaction lock and uses explicit transaction isolation. A workspace with no accounts produces actionable operator guidance without changing that data. Database clients use explicit startup settings rather than ambient PostgreSQL options.
+
 - Browser first-run setup on an empty configured database: a hash-verified setup code, an administrator-chosen password, and one account and workspace created together. Incorrect-code attempts are throttled without blocking a correct code. Setup closes once an account exists; uncertain commit results direct the person to reload or sign in. The separate installation-administrator capability and installer are upcoming.
 - Production builds refuse sample guides and preview identities, validate runtime database and identity settings, and use the same unsafe-role check for transactions and health. Development database connections remain loopback-only.
 - A private workspace has no public catalog: an item labelled public inside one is refused on write and unreadable to nonmembers, matching the rule guides have always followed.

@@ -9,7 +9,7 @@
   },
   "scripts": {
     "dev": "pnpm tokens:generate && pnpm local:migrate && pnpm --filter @guide/web dev",
-    "build": "pnpm tokens:generate && pnpm --filter @guide/web build",
+    "build": "pnpm tokens:generate && pnpm --filter @guide/web build && pnpm operator:build",
     "start": "pnpm --filter @guide/web start",
     "tokens:generate": "node packages/design-tokens/generate.mjs",
     "tokens:check": "node packages/design-tokens/generate.mjs --check",
@@ -24,14 +24,16 @@
     "local:setup": "tsx scripts/local-setup.ts",
     "local:up": "docker compose --env-file .env.local -f compose.app.yaml up -d --wait",
     "local:down": "docker compose --env-file .env.local -f compose.app.yaml down",
-    "local:migrate": "node scripts/migrate-local.mjs",
+    "local:migrate": "tsx scripts/migrate-local.mjs",
     "test:database": "tsx packages/database/test/integration.ts",
     "test:authoring": "playwright test --config playwright.authoring.config.ts",
     "local:verify": "tsx scripts/verify-schema.mjs",
     "migrations:manifest": "node scripts/migration-manifest.mjs",
     "migrations:check": "node scripts/migration-manifest.mjs --check",
     "seed:showcase": "tsx scripts/seed-showcase.ts",
-    "test:setup": "node scripts/test-setup.mjs"
+    "test:setup": "node scripts/test-setup.mjs",
+    "operator": "node --env-file=.env.local --import tsx apps/operator/src/main.ts",
+    "operator:build": "node apps/operator/build.mjs"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.13.0",

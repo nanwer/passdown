@@ -47,7 +47,7 @@ it('rolls back a failing final step without any out-of-transaction deletion', as
   );
   expect(outcome.outcome).toBe('rolled-back');
   expect(query.mock.calls.some(([sql]) => sql === 'ROLLBACK')).toBe(true);
-  expect(query.mock.calls.some(([sql]) => /DELETE|COMMIT/.test(sql))).toBe(false);
+  expect(query.mock.calls.some(([sql]) => /^(?:DELETE|COMMIT)\b/.test(sql))).toBe(false);
   expect(JSON.stringify(outcome)).not.toContain('private');
   expect(release).toHaveBeenCalled();
 });
@@ -85,8 +85,44 @@ it('waits for the setup lock before reconciling a lost commit and queries the su
       'Owner@Example.org',
     ),
   ).toBe('complete');
-  expect(calls[0]).toBe('BEGIN');
+  expect(calls[0]).toBe('BEGIN ISOLATION LEVEL READ COMMITTED');
   expect(calls[2]).toContain('pg_advisory_xact_lock(719821009)');
   expect(calls[3]).toContain('WHERE email=$1');
   expect(calls.at(-1)).toBe('COMMIT');
+});
+
+it('bounds the setup lock wait and uses an explicit read committed transaction before any snapshot', async () => {
+  const calls: string[] = [];
+  const query = vi.fn(async (sql: string) => {
+    calls.push(sql);
+    if (sql.includes('pg_advisory_xact_lock')) throw Error('lock timeout');
+    return { rows: [{ safe: true }] };
+  });
+  const outcome = await completeSetup(
+    { connect: async () => ({ query, release: vi.fn() }) } as never,
+    input,
+  );
+  expect(calls).toEqual([
+    'BEGIN ISOLATION LEVEL READ COMMITTED',
+    "SET LOCAL lock_timeout = '5s'",
+    'SELECT pg_advisory_xact_lock(719821009)',
+    'ROLLBACK',
+  ]);
+  expect(outcome).toEqual({
+    outcome: 'rolled-back',
+    reason: 'Setup did not finish and nothing was created.',
+  });
+});
+it('distinguishes an existing workspace from a retryable setup failure', async () => {
+  const query = vi.fn(async (sql: string) => ({
+    rows: sql.includes(' AS present')
+      ? [{ present: false }]
+      : sql.includes(' AS claimed')
+        ? [{ claimed: false }]
+        : [{ safe: true }],
+  }));
+  expect(
+    await completeSetup({ connect: async () => ({ query, release: vi.fn() }) } as never, input),
+  ).toEqual({ outcome: 'workspace-exists' });
+  expect(query.mock.calls.at(-1)?.[0]).toBe('ROLLBACK');
 });

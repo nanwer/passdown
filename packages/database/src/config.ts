@@ -83,7 +83,18 @@ export function ownerDatabaseTarget(
   return target;
 }
 export function pgClientConfig(target: DatabaseTarget) {
-  return { ...target, ssl: false as const };
+  // pg ignores empty-string overrides and otherwise falls back to PG* variables.
+  // A whitespace-only options string is a neutral, truthy startup value.
+  return {
+    ...target,
+    ssl: false as const,
+    options: ' ',
+    application_name: 'passdown',
+    client_encoding: 'UTF8',
+    replication: 'false',
+    sslnegotiation: 'postgres' as const,
+    connectionTimeoutMillis: 10_000,
+  };
 }
 /** Use as the complete set of PG variables, never merge ambient PG options. */
 export function libpqEnvironment(t: DatabaseTarget): Record<string, string> {

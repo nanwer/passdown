@@ -105,7 +105,7 @@ export async function verifySetup(check: (name: string, fn: () => Promise<void>)
         await db.query(
           "INSERT INTO app.workspace(id,name,audience) VALUES('existing','Existing','public')",
         );
-        assert.equal((await completeSetup(pool, input)).outcome, 'rolled-back');
+        assert.equal((await completeSetup(pool, input)).outcome, 'workspace-exists');
         assert.deepEqual(await counts(), { users: 0, accounts: 0, workspaces: 1 });
       },
     );

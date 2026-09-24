@@ -40,6 +40,12 @@ export function POST(request: Request) {
         "Setup didn't finish and nothing was created. Try again.",
         503,
       );
+    if (outcome.outcome === 'workspace-exists')
+      throw new ApplicationError(
+        'SETUP_WORKSPACE_EXISTS',
+        'This database contains a workspace but no accounts. Restore a complete backup or use a new empty database. Existing data has not been changed.',
+        503,
+      );
     if (outcome.outcome === 'rolled-back') throw failed();
     if (outcome.outcome === 'uncertain') {
       let state;

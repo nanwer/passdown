@@ -30,7 +30,7 @@ See the [README](README.md) to try the app and the [development status](docs/dev
 - Withdraw a published guide and reinstate it when it is ready to be read again.
 - Back up and restore guides and pictures together, and rehearse upgrades before distributing them.
 
-**Ready when:** A fresh installation, account recovery, guide withdrawal, backup, restore and upgrade all work through documented journeys. Browser setup is available now; the complete installation and recovery workflow is still being built.
+**Ready when:** A fresh installation, account recovery, guide withdrawal, backup, restore and upgrade all work through documented journeys. Browser setup and a source-built Docker evaluation stack are available now; published images, backup/restore, upgrades and the complete recovery workflow are still being built.
 
 ### 2. Make authoring and management dependable
 

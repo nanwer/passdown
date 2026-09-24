@@ -12,3 +12,5 @@ export {
 
 export * from './config';
 export * from './runtime-role';
+
+export * from './migrator';

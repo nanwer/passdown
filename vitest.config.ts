@@ -17,6 +17,8 @@ export default defineConfig({
   test: {
     include: [
       'packages/**/*.test.{ts,tsx}',
+      'apps/operator/**/*.test.ts',
+      'deploy/**/*.test.ts',
       'apps/web/lib/**/*.test.ts',
       'apps/web/components/**/*.test.{ts,tsx}',
     ],

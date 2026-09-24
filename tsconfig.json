@@ -31,7 +31,9 @@
     "tests/**/*.ts",
     "vitest.config.ts",
     "playwright.config.ts",
-    "playwright.authoring.config.ts"
+    "playwright.authoring.config.ts",
+    "apps/operator/**/*.ts",
+    "deploy/**/*.test.ts"
   ],
   "exclude": ["node_modules", "apps/web/.next", "apps/web/.next-*"]
 }

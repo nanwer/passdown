@@ -1,0 +1,82 @@
+# Passdown default reverse proxy (Caddy). HTTPS for PASSDOWN_DOMAIN, request-size
+# limits, per-address limits on sign-in, links, setup and administration, and no
+# tokens or setup codes in its logs.
+{
+	order rate_limit before basic_auth
+	# With another proxy in front, list its addresses (otherwise X-Forwarded-For
+	# from clients is ignored for rate limiting):
+	# servers {
+	#	trusted_proxies static 10.0.0.0/8
+	# }
+	log {
+		output stderr
+		format filter {
+			wrap json
+			request>uri regexp "(?i)^(/(?:invite|reset|api/invitations|api/password-resets|api/admin|api/setup)(?:/|$|\?)).*$|^([^%?]*)%.*$|(\?).*$" "${1}${2}${3}[redacted]"
+			request>headers delete
+			resp_headers delete
+		}
+	}
+}
+
+{$PASSDOWN_DOMAIN} {
+	tls {$PASSDOWN_TLS}
+
+	# By route, not by what a token looks like: a protected route keeps only its
+	# prefix; a URI with a percent-escape is cut at the first %; any other query
+	# string is replaced.
+	log {
+		output stderr
+		format filter {
+			wrap json
+			request>uri regexp "(?i)^(/(?:invite|reset|api/invitations|api/password-resets|api/admin|api/setup)(?:/|$|\?)).*$|^([^%?]*)%.*$|(\?).*$" "${1}${2}${3}[redacted]"
+			request>headers delete
+			resp_headers delete
+		}
+	}
+
+	header {
+		Strict-Transport-Security "max-age={$PASSDOWN_HSTS_MAX_AGE:31536000}"
+		-Server
+	}
+
+	@upload path_regexp ^/api/studio/[a-z0-9][a-z0-9-]*/assets$
+	@other not path_regexp ^/api/studio/[a-z0-9][a-z0-9-]*/assets$
+	request_body @upload {
+		max_size 22MiB
+	}
+	request_body @other {
+		max_size 2MiB
+	}
+
+	rate_limit {
+		zone sign_in {
+			match {
+				method POST
+				path_regexp (?i)^/api/auth/sign-in/email$
+			}
+			key {client_ip}
+			events {$PASSDOWN_SIGN_IN_LIMIT:30}
+			window 1m
+		}
+		zone links {
+			match {
+				path_regexp (?i)^/(?:invite|reset|api/invitations|api/password-resets|api/setup|setup)(?:/|$)
+			}
+			key {client_ip}
+			events {$PASSDOWN_LINK_LIMIT:30}
+			window 1m
+		}
+		zone admin {
+			match {
+				path_regexp (?i)^/api/admin(?:/|$)
+			}
+			key {client_ip}
+			events {$PASSDOWN_ADMIN_LIMIT:60}
+			window 1m
+		}
+	}
+
+	encode zstd gzip
+	reverse_proxy web:3000
+}

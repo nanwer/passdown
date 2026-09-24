@@ -1,0 +1,5 @@
+Passdown proxy configuration is licensed AGPL-3.0-only; see LICENSE.
+Caddy (https://github.com/caddyserver/caddy) and caddy-ratelimit
+(https://github.com/mholt/caddy-ratelimit) are licensed Apache-2.0.
+Copyright 2015 Matthew Holt and The Caddy Authors.
+The Apache-2.0 license is retained alongside this notice as LICENSE-APACHE-2.0.

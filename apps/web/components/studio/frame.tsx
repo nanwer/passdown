@@ -212,7 +212,7 @@ export function SessionGate({
               >
                 Try again
               </Button>
-              <p>Local account details are provided by the operator in LOCAL_ACCESS.md.</p>
+              <p>If this keeps happening, ask an administrator of this installation.</p>
             </>
           ) : (
             <p role="status">Loading your workspace…</p>

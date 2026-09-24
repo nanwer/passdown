@@ -21,6 +21,7 @@ const allowed = {
   ui: ['design-tokens'],
   'guide-ui': ['content', 'ui', 'design-tokens'],
   web: Object.values(owners),
+  operator: ['content', 'core', 'contracts', 'database'],
 };
 function walk(dir) {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {

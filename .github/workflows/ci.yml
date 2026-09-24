@@ -106,3 +106,26 @@ jobs:
           if [ -f .env.local ]; then
             docker compose --env-file .env.local -f compose.app.yaml down
           fi
+
+  container:
+    name: Container stack (Linux amd64)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+      - name: Build local candidate images
+        run: |
+          docker build --build-arg PASSDOWN_REVISION="$GITHUB_SHA" --build-arg PASSDOWN_VERSION=0.0.1 -t passdown:local .
+          docker build -f deploy/caddy/Dockerfile --build-arg PASSDOWN_REVISION="$GITHUB_SHA" --build-arg PASSDOWN_VERSION=0.0.1 -t passdown-caddy:local .
+      - name: Check image contents and proxy protections
+        run: |
+          sh scripts/check-image.sh passdown:local
+          node scripts/check-proxy.mjs --live
+      - name: Prove setup and picture persistence through HTTPS
+        run: PASSDOWN_SKIP_BUILD=1 sh scripts/deployment-boot-check.sh

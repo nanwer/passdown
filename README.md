@@ -62,6 +62,8 @@ A larger, optional example library is available. Read the [showcase instructions
 
 ## Development
 
+A separate [source-built container stack](docs/self-hosting/development-stack.md) is available for evaluation with HTTPS, browser setup and persistent storage. Published images and production operating procedures are still in development.
+
 ```sh
 pnpm check
 pnpm build

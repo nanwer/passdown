@@ -21,7 +21,16 @@ describe('connection policy', () => {
       user: 'guide_runtime',
       password: 'p@ss',
     });
-    expect(pgClientConfig(target)).toEqual({ ...target, ssl: false });
+    expect(pgClientConfig(target)).toEqual({
+      ...target,
+      ssl: false,
+      options: ' ',
+      application_name: 'passdown',
+      client_encoding: 'UTF8',
+      replication: 'false',
+      sslnegotiation: 'postgres',
+      connectionTimeoutMillis: 10_000,
+    });
     expect(libpqEnvironment(target)).toMatchObject({
       PGHOST: '::1',
       PGPORT: '5433',
@@ -64,4 +73,42 @@ describe('connection policy', () => {
       expect(() => identityOrigin(value, 'deployment')).toThrow();
     expect(() => authSecret('short')).toThrow(/secret/);
   });
+});
+
+it('does not inherit ambient PostgreSQL startup settings', async () => {
+  const { default: pg } = await import('pg');
+  const keys = {
+    PGOPTIONS: '-c default_transaction_isolation=serializable',
+    PGAPPNAME: 'ambient-name',
+    PGCLIENT_ENCODING: 'LATIN1',
+    PGREPLICATION: 'database',
+    PGSSLNEGOTIATION: 'direct',
+  };
+  const saved = Object.fromEntries(Object.keys(keys).map((key) => [key, process.env[key]]));
+  Object.assign(process.env, keys);
+  try {
+    const client = new pg.Client(
+      pgClientConfig(parseDatabaseURL('postgres://owner:password@localhost/app', 'DB', 'loopback')),
+    );
+    const parameters = (client as unknown as { connectionParameters: Record<string, unknown> })
+      .connectionParameters;
+    expect({
+      options: parameters.options,
+      application_name: parameters.application_name,
+      client_encoding: parameters.client_encoding,
+      replication: parameters.replication,
+      sslnegotiation: parameters.sslnegotiation,
+    }).toEqual({
+      options: ' ',
+      application_name: 'passdown',
+      client_encoding: 'UTF8',
+      replication: 'false',
+      sslnegotiation: 'postgres',
+    });
+  } finally {
+    for (const [key, value] of Object.entries(saved)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
 });

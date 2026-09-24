@@ -84,10 +84,7 @@ export function SignIn() {
           <Button type="submit" loading={pending}>
             Sign in <ArrowRight size={17} />
           </Button>
-          <p className={X.hint}>
-            This local preview has no open registration or password reset. Account details and setup
-            instructions are in LOCAL_ACCESS.md.
-          </p>
+          <p className={X.hint}>Need access? Ask an administrator of this installation.</p>
         </form>
       </main>
     </Frame>
