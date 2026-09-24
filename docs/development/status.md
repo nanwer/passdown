@@ -29,7 +29,7 @@ Passdown is an early, working application for public community guides and privat
 
 ## Authoring interface
 
-Guide creation uses compact, keyboard-operable choice cards, separate essentials/preparation/section panels, and draft guidance beside the form on desktop. The same essentials and preparation components appear in **Guide details**. Preparation cards keep quantity and usage controls visible while optional notes expand on demand; saved notes open expanded. Radios and checkboxes retain their own dimensions rather than inheriting text-input sizing. Internal drafts in public workspaces pass their selected audience to category and catalog pickers.
+Guide creation uses compact, keyboard-operable choice cards, separate essentials/preparation/section panels, and draft guidance beside the form on desktop. The same essentials and preparation components appear in **Guide details**. Preparation cards keep quantity and usage controls visible while optional notes expand on demand; saved notes open expanded. Changing **After this guide** updates usage in place, preserving item order, keyboard focus and the notes disclosure. Radios and checkboxes retain their own dimensions rather than inheriting text-input sizing. Internal drafts in public workspaces pass their selected audience to category and catalog pickers.
 
 See [authoring UI patterns](authoring-ui.md) for the reusable components and [manual test steps](manual-test-checklist.md#guide-creation-and-preparation-layout) for the complete create/save journey.
 

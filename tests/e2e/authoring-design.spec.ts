@@ -77,3 +77,49 @@ test('internal guides can choose member-only catalog items in a public workspace
     page.getByRole('dialog').getByRole('button', { name: /Precision driver/ }),
   ).toBeVisible();
 });
+
+for (const width of [390, 1440]) {
+  for (const initialRole of ['keep', 'use'] as const) {
+    test(`${width}px: changing ${initialRole} usage keeps the item, focus and open notes in place`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width, height: 1000 });
+      await page.emulateMedia({ reducedMotion: 'reduce' });
+      await page
+        .getByRole('button', {
+          name: initialRole === 'keep' ? 'Add something you keep' : 'Add something you use up',
+          exact: true,
+        })
+        .click();
+      await page
+        .getByRole('dialog')
+        .getByRole('button', { name: /Precision driver/ })
+        .click();
+      await page.getByRole('button', { name: 'Guide-specific notes', exact: true }).click();
+      const role = page.getByRole('combobox', {
+        name: 'Precision driver: After this guide',
+        exact: true,
+      });
+      await role.scrollIntoViewIfNeeded();
+      await role.focus();
+      const before = (await role.boundingBox())!;
+      await role.selectOption(initialRole === 'keep' ? 'use' : 'keep');
+      const after = (await role.boundingBox())!;
+      // Regrouping on change remounts the select, loses disclosure state and
+      // shifts the control. This checks the visible experience, not CSS names.
+      expect({
+        value: await role.inputValue(),
+        focused: await role.evaluate((element) => element === document.activeElement),
+        notesOpen: await page
+          .getByRole('textbox', { name: 'Guide-specific notes', exact: true })
+          .isVisible(),
+        verticalMovement: Math.round(after.y - before.y),
+      }).toEqual({
+        value: initialRole === 'keep' ? 'use' : 'keep',
+        focused: true,
+        notesOpen: true,
+        verticalMovement: 0,
+      });
+    });
+  }
+}

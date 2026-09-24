@@ -12,7 +12,6 @@ import {
 } from '@guide/content';
 import { Dialog, buttonVariants, iconButton } from '@guide/ui';
 import {
-  addActions,
   cardDetail,
   cardHeader,
   cardTitle,
@@ -297,257 +296,260 @@ export function GuideRequirements({
           ))}
         </div>
       )}
-      {(['keep', 'use'] as const).map((group) => {
-        const selected = document.requirements.filter((entry) => entry.role === group);
-        const Icon = group === 'keep' ? Wrench : Package;
-        return (
-          <div className="[&+&]:mt-6 [&+&]:border-t [&+&]:border-line [&+&]:pt-6" key={group}>
-            <h3 className="mb-3 flex items-center gap-2 text-[14px] font-semibold">
-              <Icon size={17} aria-hidden="true" />
-              {group === 'keep' ? 'Reusable items' : 'Used up or fitted'}
-              <span className="ms-auto rounded-md bg-panel px-2 py-0.5 text-[12px] font-medium text-muted">
-                {selected.length}
-              </span>
-            </h3>
-            {selected.length === 0 && (
-              <p className="mx-0 mt-[7px] mb-4 text-[13px] leading-[1.6]">
+      {document.requirements.length > 0 && (
+        <h3 className="mb-3 flex items-center gap-2 text-[14px] font-semibold">
+          Preparation items
+          <span className="ms-auto rounded-md bg-panel px-2 py-0.5 text-[12px] font-medium text-muted">
+            {document.requirements.length}
+          </span>
+        </h3>
+      )}
+      {/* Preserve list order and component identity while usage changes. Moving
+          an item between groups remounts its controls and jumps the viewport. */}
+      <div>
+        {document.requirements.map((entry) => {
+          const latest = items.find((item) => item.id === entry.itemId);
+          const usedIn = document.steps.flatMap((step, index) =>
+            step.requirements.some((usage) => usage.requirementId === entry.id) ? [index + 1] : [],
+          );
+          const allocated = allocatedRequirementQuantity(document, entry.id);
+          return (
+            <article
+              className="requirement-card my-3 min-w-0 scroll-mt-[120px] scroll-mb-[120px] rounded-xl border border-line bg-panel p-4 focus:[outline:2px_solid_var(--gp-semantic-focus-ring)] focus:outline-offset-[3px] sm:p-5"
+              id={`edit-requirement-${entry.id}`}
+              tabIndex={-1}
+              key={entry.id}
+            >
+              <div className={`${cardHeader} mb-4 border-b border-control pb-4`}>
+                <div className="min-w-0">
+                  <h4 className={cardTitle}>{entry.name}</h4>
+                  {entry.specification && <p className={cardDetail}>{entry.specification}</p>}
+                  {[entry.manufacturer, entry.model, entry.partNumber].some(Boolean) && (
+                    <small className={cardDetail}>
+                      {[entry.manufacturer, entry.model, entry.partNumber]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </small>
+                  )}
+                </div>
+                <Dialog
+                  trigger={
+                    <button
+                      type="button"
+                      className={`${iconButton} shrink-0`}
+                      aria-label={`Remove ${entry.name} from guide`}
+                      disabled={disabled}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  }
+                  title={`Remove ${entry.name}?`}
+                  description={
+                    usedIn.length
+                      ? `This also removes its assignments in steps ${usedIn.join(', ')}. Published releases stay unchanged.`
+                      : 'This removes the preparation requirement from this draft. Published releases stay unchanged.'
+                  }
+                >
+                  <button
+                    type="button"
+                    className={buttonVariants()}
+                    onClick={() => remove(entry.id)}
+                  >
+                    Remove from guide
+                  </button>
+                </Dialog>
+              </div>
+              {latest?.archived && (
+                <p className={feedback}>
+                  Archived in the catalog. Existing selections remain readable; select a replacement
+                  if this item is no longer suitable.
+                </p>
+              )}
+              {latest && latest.visibility === 'members' && guideAudience === 'public' && (
+                <p className={feedback}>
+                  This catalog item is private. Select a public item before publishing this public
+                  guide.
+                </p>
+              )}
+              {catalogState === 'ready' && !latest && (
+                <p className={feedback}>
+                  Catalog item unavailable. Your selected details are retained; replace or remove it
+                  before publishing.
+                </p>
+              )}
+              {latest && !latest.archived && latest.version !== entry.itemVersion && (
+                <Dialog
+                  open={review === entry.id}
+                  onOpenChange={(open) => setReview(open ? entry.id : null)}
+                  trigger={
+                    <button
+                      type="button"
+                      className="cursor-pointer border-0 [background:none] px-0 py-2 text-start text-[12px] text-ink underline [font:inherit]"
+                      disabled={disabled}
+                    >
+                      Catalog update available · Review changes
+                    </button>
+                  }
+                  title="Review catalog changes"
+                  description="Applying this update changes only this draft’s item details. Your confirmed quantity, unit, notes and published releases stay unchanged."
+                >
+                  <div className="[&_p]:text-[13px] [&_p]:wrap-anywhere [&_p]:whitespace-pre-wrap [&_span]:font-[650] [&_strong]:capitalize [&>div]:border-b [&>div]:border-solid [&>div]:border-b-line [&>div]:py-3">
+                    {(
+                      [
+                        'name',
+                        'specification',
+                        'description',
+                        'manufacturer',
+                        'model',
+                        'partNumber',
+                      ] as const
+                    )
+                      .filter((field) => entry[field] !== latest[field])
+                      .map((field) => (
+                        <div key={field}>
+                          <strong>{field === 'partNumber' ? 'Part number' : field}</strong>
+                          <p>
+                            <span>Selected:</span> {entry[field] || '—'}
+                          </p>
+                          <p>
+                            <span>Latest:</span> {latest[field] || '—'}
+                          </p>
+                        </div>
+                      ))}
+                    {latest.defaultUnit !== entry.unit && (
+                      <p>
+                        Catalog default is now {latest.defaultUnit}; this guide keeps {entry.unit}.
+                        Review quantities separately if you need to change units.
+                      </p>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    className={buttonVariants()}
+                    onClick={() => {
+                      const next = requirementFromCatalog(latest, entry.role);
+                      patch(entry.id, {
+                        ...next,
+                        id: entry.id,
+                        quantity: entry.quantity,
+                        unit: entry.unit,
+                        optional: entry.optional,
+                        notes: entry.notes,
+                      });
+                      setReview(null);
+                    }}
+                  >
+                    Apply item details to draft
+                  </button>
+                </Dialog>
+              )}
+              <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
+                <RequirementQuantity
+                  quantity={entry.quantity}
+                  unit={entry.unit}
+                  role={entry.role}
+                  label={entry.name}
+                  disabled={disabled}
+                  onChange={(next) => patch(entry.id, next)}
+                />
+                {/* The role is the one thing about a requirement that has no
+                      right answer until an author gives one, so it has to be
+                      changeable after the fact. Updating it also fixes up the
+                      step usages, because a thing you keep is reused. */}
+                <label className={fieldLabel}>
+                  After this guide
+                  <select
+                    className={fieldControl}
+                    aria-label={`${entry.name}: After this guide`}
+                    value={entry.role}
+                    disabled={disabled}
+                    onChange={(event) => {
+                      const role = event.target.value as GuideRequirement['role'];
+                      onChange({
+                        ...document,
+                        requirements: document.requirements.map((candidate) =>
+                          candidate.id === entry.id ? { ...candidate, role } : candidate,
+                        ),
+                        steps: document.steps.map((step) => ({
+                          ...step,
+                          requirements: step.requirements.map((usage) =>
+                            usage.requirementId === entry.id && role === 'keep'
+                              ? { ...usage, mode: 'reuse' as const }
+                              : usage,
+                          ),
+                        })),
+                      });
+                    }}
+                  >
+                    <option value="keep">Kept for reuse</option>
+                    <option value="use">Used up or fitted</option>
+                  </select>
+                </label>
+              </div>
+              <div className="mt-3">
+                <label className={checkboxLabel}>
+                  <input
+                    className={checkbox}
+                    type="checkbox"
+                    checked={entry.optional}
+                    disabled={disabled}
+                    onChange={(event) => patch(entry.id, { optional: event.target.checked })}
+                  />
+                  Optional for this guide
+                </label>
+                <RequirementNotes
+                  value={entry.notes}
+                  disabled={disabled}
+                  onChange={(notes) => patch(entry.id, { notes })}
+                />
+              </div>
+              <div className="flex flex-col gap-[5px] pt-3.5 text-[11px] leading-[1.5] text-muted">
+                <span>
+                  {usedIn.length
+                    ? `Used in steps ${usedIn.join(', ')}`
+                    : 'Preparation only · no step assignments yet'}
+                </span>
+                {entry.role === 'use' && allocated > 0 && (
+                  <span>
+                    {formatRequirementQuantity(allocated, entry.unit)} allocated for consumption
+                  </span>
+                )}
+                {entry.role === 'keep' && usedIn.length > 1 && (
+                  <span>Reused between steps · counts are not added together</span>
+                )}
+              </div>
+            </article>
+          );
+        })}
+      </div>
+      <div className="mt-5 grid gap-5 border-t border-line pt-5 sm:grid-cols-2">
+        {(['keep', 'use'] as const).map((group) => {
+          const Icon = group === 'keep' ? Wrench : Package;
+          return (
+            <div key={group} className="flex min-w-0 flex-col items-start">
+              <h3 className="mb-2 flex items-center gap-2 text-[14px] font-semibold">
+                <Icon size={17} aria-hidden="true" />
+                {group === 'keep' ? 'Reusable items' : 'Used up or fitted'}
+              </h3>
+              <p className="mb-3 text-[13px] leading-5">
                 {group === 'keep'
                   ? 'Tools and equipment the reader keeps, such as a driver or a jig.'
                   : 'Consumables and parts, such as adhesive or a replacement screen.'}
               </p>
-            )}
-            {selected.map((entry) => {
-              const latest = items.find((item) => item.id === entry.itemId);
-              const usedIn = document.steps.flatMap((step, index) =>
-                step.requirements.some((usage) => usage.requirementId === entry.id)
-                  ? [index + 1]
-                  : [],
-              );
-              const allocated = allocatedRequirementQuantity(document, entry.id);
-              return (
-                <article
-                  className="requirement-card my-3 min-w-0 scroll-mt-[120px] scroll-mb-[120px] rounded-xl border border-line bg-panel p-4 focus:[outline:2px_solid_var(--gp-semantic-focus-ring)] focus:outline-offset-[3px] sm:p-5"
-                  id={`edit-requirement-${entry.id}`}
-                  tabIndex={-1}
-                  key={entry.id}
-                >
-                  <div className={`${cardHeader} mb-4 border-b border-control pb-4`}>
-                    <div className="min-w-0">
-                      <h4 className={cardTitle}>{entry.name}</h4>
-                      {entry.specification && <p className={cardDetail}>{entry.specification}</p>}
-                      {[entry.manufacturer, entry.model, entry.partNumber].some(Boolean) && (
-                        <small className={cardDetail}>
-                          {[entry.manufacturer, entry.model, entry.partNumber]
-                            .filter(Boolean)
-                            .join(' · ')}
-                        </small>
-                      )}
-                    </div>
-                    <Dialog
-                      trigger={
-                        <button
-                          type="button"
-                          className={`${iconButton} shrink-0`}
-                          aria-label={`Remove ${entry.name} from guide`}
-                          disabled={disabled}
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      }
-                      title={`Remove ${entry.name}?`}
-                      description={
-                        usedIn.length
-                          ? `This also removes its assignments in steps ${usedIn.join(', ')}. Published releases stay unchanged.`
-                          : 'This removes the preparation requirement from this draft. Published releases stay unchanged.'
-                      }
-                    >
-                      <button
-                        type="button"
-                        className={buttonVariants()}
-                        onClick={() => remove(entry.id)}
-                      >
-                        Remove from guide
-                      </button>
-                    </Dialog>
-                  </div>
-                  {latest?.archived && (
-                    <p className={feedback}>
-                      Archived in the catalog. Existing selections remain readable; select a
-                      replacement if this item is no longer suitable.
-                    </p>
-                  )}
-                  {latest && latest.visibility === 'members' && guideAudience === 'public' && (
-                    <p className={feedback}>
-                      This catalog item is private. Select a public item before publishing this
-                      public guide.
-                    </p>
-                  )}
-                  {catalogState === 'ready' && !latest && (
-                    <p className={feedback}>
-                      Catalog item unavailable. Your selected details are retained; replace or
-                      remove it before publishing.
-                    </p>
-                  )}
-                  {latest && !latest.archived && latest.version !== entry.itemVersion && (
-                    <Dialog
-                      open={review === entry.id}
-                      onOpenChange={(open) => setReview(open ? entry.id : null)}
-                      trigger={
-                        <button
-                          type="button"
-                          className="cursor-pointer border-0 [background:none] px-0 py-2 text-start text-[12px] text-ink underline [font:inherit]"
-                          disabled={disabled}
-                        >
-                          Catalog update available · Review changes
-                        </button>
-                      }
-                      title="Review catalog changes"
-                      description="Applying this update changes only this draft’s item details. Your confirmed quantity, unit, notes and published releases stay unchanged."
-                    >
-                      <div className="[&_p]:text-[13px] [&_p]:wrap-anywhere [&_p]:whitespace-pre-wrap [&_span]:font-[650] [&_strong]:capitalize [&>div]:border-b [&>div]:border-solid [&>div]:border-b-line [&>div]:py-3">
-                        {(
-                          [
-                            'name',
-                            'specification',
-                            'description',
-                            'manufacturer',
-                            'model',
-                            'partNumber',
-                          ] as const
-                        )
-                          .filter((field) => entry[field] !== latest[field])
-                          .map((field) => (
-                            <div key={field}>
-                              <strong>{field === 'partNumber' ? 'Part number' : field}</strong>
-                              <p>
-                                <span>Selected:</span> {entry[field] || '—'}
-                              </p>
-                              <p>
-                                <span>Latest:</span> {latest[field] || '—'}
-                              </p>
-                            </div>
-                          ))}
-                        {latest.defaultUnit !== entry.unit && (
-                          <p>
-                            Catalog default is now {latest.defaultUnit}; this guide keeps{' '}
-                            {entry.unit}. Review quantities separately if you need to change units.
-                          </p>
-                        )}
-                      </div>
-                      <button
-                        type="button"
-                        className={buttonVariants()}
-                        onClick={() => {
-                          const next = requirementFromCatalog(latest, entry.role);
-                          patch(entry.id, {
-                            ...next,
-                            id: entry.id,
-                            quantity: entry.quantity,
-                            unit: entry.unit,
-                            optional: entry.optional,
-                            notes: entry.notes,
-                          });
-                          setReview(null);
-                        }}
-                      >
-                        Apply item details to draft
-                      </button>
-                    </Dialog>
-                  )}
-                  <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
-                    <RequirementQuantity
-                      quantity={entry.quantity}
-                      unit={entry.unit}
-                      role={entry.role}
-                      label={entry.name}
-                      disabled={disabled}
-                      onChange={(next) => patch(entry.id, next)}
-                    />
-                    {/* The role is the one thing about a requirement that has no
-                      right answer until an author gives one, so it has to be
-                      changeable after the fact. Moving it also fixes up the
-                      step usages, because a thing you keep is reused. */}
-                    <label className={fieldLabel}>
-                      After this guide
-                      <select
-                        className={fieldControl}
-                        aria-label={`${entry.name}: After this guide`}
-                        value={entry.role}
-                        disabled={disabled}
-                        onChange={(event) => {
-                          const role = event.target.value as GuideRequirement['role'];
-                          onChange({
-                            ...document,
-                            requirements: document.requirements.map((candidate) =>
-                              candidate.id === entry.id ? { ...candidate, role } : candidate,
-                            ),
-                            steps: document.steps.map((step) => ({
-                              ...step,
-                              requirements: step.requirements.map((usage) =>
-                                usage.requirementId === entry.id && role === 'keep'
-                                  ? { ...usage, mode: 'reuse' as const }
-                                  : usage,
-                              ),
-                            })),
-                          });
-                        }}
-                      >
-                        <option value="keep">Kept for reuse</option>
-                        <option value="use">Used up or fitted</option>
-                      </select>
-                    </label>
-                  </div>
-                  <div className="mt-3">
-                    <label className={checkboxLabel}>
-                      <input
-                        className={checkbox}
-                        type="checkbox"
-                        checked={entry.optional}
-                        disabled={disabled}
-                        onChange={(event) => patch(entry.id, { optional: event.target.checked })}
-                      />
-                      Optional for this guide
-                    </label>
-                    <RequirementNotes
-                      value={entry.notes}
-                      disabled={disabled}
-                      onChange={(notes) => patch(entry.id, { notes })}
-                    />
-                  </div>
-                  <div className="flex flex-col gap-[5px] pt-3.5 text-[11px] leading-[1.5] text-muted">
-                    <span>
-                      {usedIn.length
-                        ? `Used in steps ${usedIn.join(', ')}`
-                        : 'Preparation only · no step assignments yet'}
-                    </span>
-                    {entry.role === 'use' && allocated > 0 && (
-                      <span>
-                        {formatRequirementQuantity(allocated, entry.unit)} allocated for consumption
-                      </span>
-                    )}
-                    {entry.role === 'keep' && usedIn.length > 1 && (
-                      <span>Reused between steps · counts are not added together</span>
-                    )}
-                  </div>
-                </article>
-              );
-            })}
-            <div className={addActions}>
-              {/* One picker per group, because the group is the answer. Three
-                  buttons used to ask which permanent kind an item was, which
-                  is a question the catalog no longer has an opinion about. */}
-              <CatalogPicker
-                disabled={disabled}
-                workspace={workspace}
-                label={group === 'keep' ? 'Add something you keep' : 'Add something you use up'}
-                selectedIds={document.requirements.map((entry) => entry.itemId)}
-                visibility={guideAudience}
-                onSelect={(item) => select(item, group)}
-              />
+              <div className="mt-auto">
+                <CatalogPicker
+                  disabled={disabled}
+                  workspace={workspace}
+                  label={group === 'keep' ? 'Add something you keep' : 'Add something you use up'}
+                  selectedIds={document.requirements.map((entry) => entry.itemId)}
+                  visibility={guideAudience}
+                  onSelect={(item) => select(item, group)}
+                />
+              </div>
             </div>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
       {issues.length > 0 && (
         <div className={feedback} role="status">
           <strong>Before publishing</strong>
