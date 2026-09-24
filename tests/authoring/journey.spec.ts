@@ -1,3 +1,4 @@
+import { browserContextOptions } from '../support/browser';
 import { test, expect, type APIRequestContext } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
 import { prepareFormattingExample } from '../../examples/formatting-catalog';
@@ -78,7 +79,7 @@ async function create(request: APIRequestContext, workspace: string, title: stri
   expect(response.status()).toBe(201);
   return (await response.json()).guide;
 }
-test('real public create, step editing, save, reload, immutable publication, and live discovery', async ({
+test('@core real public create, step editing, save, reload, immutable publication, and live discovery', async ({
   page,
   context,
 }) => {
@@ -178,7 +179,7 @@ test('real public create, step editing, save, reload, immutable publication, and
       .filter({ has: reader.getByRole('heading', { name: title, exact: true }) }),
   ).toBeVisible();
 });
-test('real private release remains concealed from anonymous and public scopes', async ({
+test('@core real private release remains concealed from anonymous and public scopes', async ({
   page,
   request,
   browser,
@@ -195,7 +196,7 @@ test('real private release remains concealed from anonymous and public scopes', 
   await page.goto(`/w/workshop/guides/${guide.id}`);
   await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();
   await expect(page).toHaveTitle(new RegExp(title));
-  const anonymous = await browser.newContext();
+  const anonymous = await browser.newContext(browserContextOptions);
   for (const path of [
     `/w/workshop/guides/${guide.id}`,
     `/guides/${guide.id}`,
@@ -214,7 +215,7 @@ test('real private release remains concealed from anonymous and public scopes', 
   ).toBe(404);
   await anonymous.close();
 });
-test('stale save and stale publication preserve the winning draft', async ({ request }) => {
+test('@api stale save and stale publication preserve the winning draft', async ({ request }) => {
   await login(request);
   const guide = await create(request, 'repair-collective', `Conflict ${randomUUID().slice(0, 8)}`);
   const path = `/api/studio/repair-collective/guides/${guide.id}`;
@@ -243,29 +244,25 @@ test('stale save and stale publication preserve the winning draft', async ({ req
   expect((await (await request.get(path)).json()).guide.document.title).toBe(updated.title);
   expect((await request.get(`/guides/${guide.id}`)).status()).toBe(404);
 });
-test('real HTTP boundaries reject forgery, excessive payloads, private identifiers and open registration', async ({
+test('@api real HTTP boundaries reject forgery, excessive payloads, private identifiers and open registration', async ({
   request,
-  browser,
+  playwright,
 }) => {
-  const anonymous = await browser.newContext();
-  const publicList = await anonymous.request.get(
-    origin + '/api/v1/workspaces/repair-collective/guides',
-  );
+  const anonymous = await playwright.request.newContext();
+  const publicList = await anonymous.get(origin + '/api/v1/workspaces/repair-collective/guides');
   expect(publicList.status()).toBe(200);
   expect(publicList.headers()['cache-control']).toContain('no-store');
   expect(publicList.headers()['x-request-id']).toBeTruthy();
-  expect((await anonymous.request.get(origin + '/api/studio/session')).status()).toBe(401);
+  expect((await anonymous.get(origin + '/api/studio/session')).status()).toBe(401);
   expect(
-    (
-      await anonymous.request.post(origin + '/api/auth/sign-up/email', { headers, data: {} })
-    ).status(),
+    (await anonymous.post(origin + '/api/auth/sign-up/email', { headers, data: {} })).status(),
   ).toBe(404);
   expect(
-    (await anonymous.request.get(origin + '/api/v1/workspaces/Repair-collective/guides')).status(),
+    (await anonymous.get(origin + '/api/v1/workspaces/Repair-collective/guides')).status(),
   ).toBe(404);
   expect(
     (
-      await anonymous.request.get(
+      await anonymous.get(
         origin + '/api/v1/workspaces/repair-collective/guides?q=' + 'x'.repeat(201),
       )
     ).status(),
@@ -303,9 +300,9 @@ test('real HTTP boundaries reject forgery, excessive payloads, private identifie
   const logout = await request.post('/api/auth/sign-out', { headers, data: {} });
   expect(logout.status()).toBe(200);
   expect((await request.get('/api/studio/session')).status()).toBe(401);
-  await anonymous.close();
+  await anonymous.dispose();
 });
-test('two real editor tabs show a save conflict without losing either author’s text', async ({
+test('@core two real editor tabs show a save conflict without losing either author’s text', async ({
   page,
   context,
 }) => {
@@ -346,7 +343,7 @@ test('two real editor tabs show a save conflict without losing either author’s
     'Saved from the first tab.',
   );
 });
-test('sign-in attempts are bounded and errors retain their request identifier', async ({
+test('@api sign-in attempts are bounded and errors retain their request identifier', async ({
   request,
 }) => {
   const email = `attempt-${randomUUID()}@test.local`;
@@ -366,7 +363,7 @@ test('sign-in attempts are bounded and errors retain their request identifier', 
   expect(limited.status()).toBe(429);
   expect(limited.headers()['retry-after']).toBe('60');
 });
-test('persistent library and editor remain usable on a small screen in both themes', async ({
+test('@core persistent library and editor remain usable on a small screen in both themes', async ({
   page,
 }) => {
   await login(page.request);
@@ -584,7 +581,7 @@ test('complete formatting examples publish with every supported style and readab
   }
 });
 
-test('signing in correctly many times does not lock the account out', async ({ request }) => {
+test('@api signing in correctly many times does not lock the account out', async ({ request }) => {
   // The per-address limit exists to bound credential guessing. Charging a
   // correct sign-in against it would lock out anyone who legitimately signs in
   // often, which is a real cost for no security gain.
@@ -607,7 +604,7 @@ test('signing in correctly many times does not lock the account out', async ({ r
   }
 });
 
-test('a correct sign-in clears earlier failed attempts', async ({ request }) => {
+test('@api a correct sign-in clears earlier failed attempts', async ({ request }) => {
   const email = credentials.GUIDE_LOCAL_OWNER_EMAIL;
   for (let attempt = 0; attempt < 8; attempt++) {
     const failed = await request.post('/api/auth/sign-in/email', {

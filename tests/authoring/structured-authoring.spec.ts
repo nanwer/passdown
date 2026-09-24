@@ -1,3 +1,4 @@
+import { browserContextOptions, pressTab } from '../support/browser';
 import { test, expect, type APIRequestContext, type Page } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
 import pg from 'pg';
@@ -269,7 +270,7 @@ for (const workspace of ['repair-collective', 'workshop']) {
     ).toContainText(`Renamed ${suffix}`);
     await expect(reader.getByRole('heading', { name: title, exact: true })).toBeVisible();
     if (workspace === 'workshop') {
-      const anonymous = await browser.newContext();
+      const anonymous = await browser.newContext(browserContextOptions);
       const response = await anonymous.request.get(origin + `/w/workshop/categories/${root.id}`);
       expect(response.status()).toBe(404);
       expect(await response.text()).not.toContain(root.name);
@@ -512,7 +513,7 @@ test('private legacy preparation links to an inline-created catalog item without
   await reader.goto(`/w/workshop/guides/${guide.id}`);
   await expect(reader.getByRole('region', { name: 'Guide preparation' })).toContainText(legacy);
   await expect(reader.locator('.reader-step').first()).toContainText(itemName);
-  const anonymous = await browser.newContext();
+  const anonymous = await browser.newContext(browserContextOptions);
   const denied = await anonymous.request.get(origin + `/w/workshop/guides/${guide.id}`);
   expect(denied.status()).toBe(404);
   expect(await denied.text()).not.toContain(itemName);
@@ -545,6 +546,7 @@ test('deactivation explains what still uses a category and only unblocks once th
   const guide = await draft(page.request, workspace, target.id, 'Assigned while archiving');
 
   await page.goto(`/studio/${workspace}/categories`);
+  await page.getByRole('searchbox', { name: 'Search things' }).fill(target.name);
   const row = page.getByRole('button', { name: target.name, exact: true });
   await expect(row).toBeVisible();
   await row.click();
@@ -573,6 +575,7 @@ test('deactivation explains what still uses a category and only unblocks once th
   });
 
   await page.reload();
+  await page.getByRole('searchbox', { name: 'Search things' }).fill(target.name);
   await page.getByRole('button', { name: target.name, exact: true }).click();
   await page.getByRole('button', { name: 'Deactivate', exact: true }).click();
   await expect(confirm.getByRole('status')).toHaveCount(0);
@@ -716,7 +719,7 @@ test('libraries are tabs: a member switches between them, a visitor gets only th
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 
   // A visitor gets one tab, and no hint that the other library exists.
-  const anonymous = await browser.newContext();
+  const anonymous = await browser.newContext(browserContextOptions);
   const visitor = await anonymous.newPage();
   await visitor.goto('/');
   const theirs = visitor.getByRole('navigation', { name: 'Libraries' });
@@ -744,7 +747,7 @@ test('creating a guide offers a section only where the workspace has both', asyn
   await expect(page.getByText('only visible to active workspace members')).toBeVisible();
 });
 
-test('a picture is re-encoded, shown to readers of the guide, and hidden from everyone else', async ({
+test('@core a picture is re-encoded, shown to readers of the guide, and hidden from everyone else', async ({
   page,
   browser,
 }) => {
@@ -770,7 +773,7 @@ test('a picture is re-encoded, shown to readers of the guide, and hidden from ev
   const assetId = (await uploaded.json()).asset.id as string;
 
   // Nothing references it yet, so even its owner's readers cannot fetch it.
-  const anonymous = await browser.newContext();
+  const anonymous = await browser.newContext(browserContextOptions);
   const visitor = await anonymous.newPage();
   expect((await visitor.request.get(`/api/media/${workspace}/${assetId}`)).status()).toBe(404);
 
@@ -904,7 +907,7 @@ test('a guide family lets readers narrow to a model without exposing relatives t
   await expect(page.getByLabel('Part of a broader guide')).toHaveValue(range.id);
 
   // A reader on the range can narrow into the model, and back again.
-  const anonymous = await browser.newContext();
+  const anonymous = await browser.newContext(browserContextOptions);
   const visitor = await anonymous.newPage();
   await visitor.goto(`/guides/${range.id}`);
   await expect(visitor.getByRole('heading', { name: 'Choose your version' })).toBeVisible();
@@ -1005,7 +1008,7 @@ test('a guide moves between the public and internal sections, and says what it c
     license: 'all-rights-reserved',
   });
 
-  const anonymous = await browser.newContext();
+  const anonymous = await browser.newContext(browserContextOptions);
   const visitor = await anonymous.newPage();
   await visitor.goto(`/guides/${internal.id}`);
   await expect(visitor.getByRole('heading', { name: `Team only ${suffix}` })).toHaveCount(0);
@@ -1171,7 +1174,7 @@ test('an author marks up a photograph, and the marks reach the reader with their
   await publish(page);
 
   // What the reader gets: the drawing, and every label in a list beside it.
-  const anonymous = await browser.newContext();
+  const anonymous = await browser.newContext(browserContextOptions);
   const visitor = await anonymous.newPage();
   await visitor.goto(`/guides/${guide.id}`);
   await expect(visitor.getByAltText('The underside of the case')).toBeVisible();
@@ -1257,7 +1260,7 @@ test('pictures carry captions and can be put in order', async ({ page, browser }
 
   await publish(page);
 
-  const anonymous = await browser.newContext();
+  const anonymous = await browser.newContext(browserContextOptions);
   const visitor = await anonymous.newPage();
   await visitor.goto(`/guides/${guide.id}`);
   // The reader sees them in the order the author left them, each with its own
@@ -1315,7 +1318,7 @@ test('a picture is offered at several widths, and a narrow screen takes a small 
     license: 'all-rights-reserved',
   });
 
-  const anonymous = await browser.newContext();
+  const anonymous = await browser.newContext(browserContextOptions);
   const visitor = await anonymous.newPage();
   const base = `/api/media/${workspace}/${assetId}`;
   const sizeOf = async (query: string) => {
@@ -1404,10 +1407,13 @@ test('a picture already in the workspace can be used again on another step', asy
   await page.getByRole('button', { name: /^02/ }).click();
   await page.getByRole('button', { name: 'Use one already added' }).click();
   const chooser = page.getByRole('dialog');
-  await expect(chooser.getByRole('button', { name: /320 × 240/ })).toBeVisible();
+  const picture = chooser
+    .getByRole('button', { name: /320 × 240/ })
+    .filter({ has: page.locator(`img[src*="${assetId}"]`) });
+  await expect(picture).toBeVisible();
   // The grid asks for the smallest rendering, not the full-size picture.
-  await expect(chooser.locator('img').first()).toHaveAttribute('src', /w=400$/);
-  await chooser.getByRole('button', { name: /320 × 240/ }).click();
+  await expect(picture.locator('img')).toHaveAttribute('src', /w=400$/);
+  await picture.click();
   await expect(chooser).toHaveCount(0);
 
   // It still needs its own description: the same photograph shows a different
@@ -1419,7 +1425,7 @@ test('a picture already in the workspace can be used again on another step', asy
 
   await publish(page);
 
-  const anonymous = await browser.newContext();
+  const anonymous = await browser.newContext(browserContextOptions);
   const visitor = await anonymous.newPage();
   await visitor.goto(`/guides/${guide.id}`);
   // One stored picture, two steps, two descriptions.
@@ -1548,6 +1554,7 @@ test('a thing is added inside another from the row itself, and shows up there', 
   const parent = await category(page.request, workspace, `Home ${suffix}`);
 
   await page.goto(`/studio/${workspace}/categories`);
+  await page.getByRole('searchbox', { name: 'Search things' }).fill(parent.name);
   const row = page.getByRole('row').filter({ hasText: `Home ${suffix}` });
   await expect(row).toBeVisible();
 
@@ -1556,46 +1563,46 @@ test('a thing is added inside another from the row itself, and shows up there', 
   const dialog = page.getByRole('dialog');
   await expect(dialog).toBeVisible();
   await expect(dialog.getByText(`Inside Home ${suffix}`)).toBeVisible();
-  await dialog.getByRole('textbox', { name: 'Name', exact: true }).fill('Kitchen');
+  await dialog.getByRole('textbox', { name: 'Name', exact: true }).fill(`Kitchen ${suffix}`);
   await dialog.getByRole('button', { name: 'Add thing', exact: true }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
 
   // It is filed underneath, and visible without hunting for it.
-  await expect(page.getByRole('button', { name: 'Kitchen', exact: true })).toBeFocused();
+  await expect(page.getByRole('button', { name: `Kitchen ${suffix}`, exact: true })).toBeFocused();
   const tree = await api<{ categories: Category[] }>(
     page.request,
     `/api/studio/${workspace}/categories`,
   );
   const child = tree.categories.find(
-    (item) => item.name === 'Kitchen' && item.parentId === parent.id,
+    (item) => item.name === `Kitchen ${suffix}` && item.parentId === parent.id,
   );
   expect(child, 'the new thing should be filed inside the one it was added from').toBeTruthy();
 
   // Go deeper, from the child's own row.
-  const childRow = page.getByRole('row').filter({ hasText: 'Kitchen' });
-  await childRow.getByRole('button', { name: 'Add a thing inside Kitchen' }).click();
+  const childRow = page.getByRole('row').filter({ hasText: `Kitchen ${suffix}` });
+  await childRow.getByRole('button', { name: `Add a thing inside Kitchen ${suffix}` }).click();
   await page
     .getByRole('dialog')
     .getByRole('textbox', { name: 'Name', exact: true })
-    .fill('Fridges');
+    .fill(`Fridges ${suffix}`);
   await page.getByRole('dialog').getByRole('button', { name: 'Add thing', exact: true }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
-  await expect(page.getByRole('row').filter({ hasText: 'Fridges' })).toBeVisible();
+  await expect(page.getByRole('row').filter({ hasText: `Fridges ${suffix}` })).toBeVisible();
 
   // Fold the branch away, then add into it. A new thing created inside
   // something currently folded used to stay hidden, which reads as the
   // creation having silently failed.
   await page.getByRole('button', { name: `Hide what is inside Home ${suffix}` }).click();
-  await expect(page.getByRole('row').filter({ hasText: 'Kitchen' })).toHaveCount(0);
+  await expect(page.getByRole('row').filter({ hasText: `Kitchen ${suffix}` })).toHaveCount(0);
   const topRow = page.getByRole('row').filter({ hasText: `Home ${suffix}` });
   await topRow.getByRole('button', { name: `Add a thing inside Home ${suffix}` }).click();
   await page
     .getByRole('dialog')
     .getByRole('textbox', { name: 'Name', exact: true })
-    .fill('Bathroom');
+    .fill(`Bathroom ${suffix}`);
   await page.getByRole('dialog').getByRole('button', { name: 'Add thing', exact: true }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
-  await expect(page.getByRole('row').filter({ hasText: 'Bathroom' })).toBeVisible();
+  await expect(page.getByRole('row').filter({ hasText: `Bathroom ${suffix}` })).toBeVisible();
 
   // And each row carries its support code without anybody asking for it.
   await expect(page.getByRole('columnheader', { name: /Code/ })).toBeVisible();
@@ -1747,7 +1754,7 @@ test('a thing gets a picture, and it reaches exactly the readers the thing does'
   // A visitor browsing sees the picture in the row of things, not a folder mark.
   // It used to be a card in a 407px grid on the front page; that grid is gone
   // and the picture rides on the chip that filters by this thing.
-  const anonymous = await browser.newContext();
+  const anonymous = await browser.newContext(browserContextOptions);
   const visitor = await anonymous.newPage();
   await visitor.goto('/');
   const chips = visitor.getByRole('navigation', { name: /Guide/ });
@@ -1876,7 +1883,7 @@ test('a guide is given a cover, and it is what the library shows', async ({ page
 
   // The card shows the cover somebody chose, not the illustration every card
   // used to share and not a guess at one.
-  const anonymous = await browser.newContext();
+  const anonymous = await browser.newContext(browserContextOptions);
   const visitor = await anonymous.newPage();
   await visitor.goto('/');
   await visitor.getByRole('searchbox').fill(`Cover guide ${suffix}`);
@@ -1963,22 +1970,20 @@ test('a dialog traps focus, closes on Escape and hands focus back', async ({ pag
   const dialog = page.getByRole('dialog').last();
   await expect(dialog).toBeVisible();
 
-  // Tab past the end of the dialog's own controls. A fixed count proves
-  // nothing — it only shows the dialog holds that many focusable things — so
-  // count them and go round twice. The trap is what stops the tab after the
-  // last control landing on the page behind.
-  const focusable = await dialog.evaluate(
-    (node) =>
-      node.querySelectorAll('a[href],button,input,select,textarea,[tabindex]:not([tabindex="-1"])')
-        .length,
-  );
-  expect(focusable).toBeGreaterThan(1);
-  for (let i = 0; i < focusable * 2 + 2; i++) {
-    await page.keyboard.press('Tab');
-    expect(
-      await dialog.evaluate((node) => node.contains(document.activeElement)),
-      `focus left the dialog on tab ${i + 1} of ${focusable * 2 + 2}`,
-    ).toBe(true);
+  // Search away variable fixture records, then prove native traversal reaches
+  // both actions and wraps back to the search in both directions.
+  const search = dialog.getByRole('textbox', { name: 'Search things' });
+  await search.fill(`No matching category ${randomUUID()}`);
+  await expect(dialog.getByText('Nothing matches that. Try another name.')).toBeVisible();
+  const add = dialog.getByRole('button', { name: 'Add a thing', exact: true });
+  const close = dialog.getByRole('button', { name: 'Close dialog' });
+  for (const control of [add, close, search, add, close, search]) {
+    await pressTab(page);
+    await expect(control).toBeFocused();
+  }
+  for (const control of [close, add, search]) {
+    await pressTab(page, { shift: true });
+    await expect(control).toBeFocused();
   }
 
   await page.keyboard.press('Escape');
@@ -2005,7 +2010,7 @@ test('a dialog stays inside a narrow viewport', async ({ page }) => {
   );
 });
 
-test('an account created for someone cannot do anything until it picks a password', async ({
+test('@core an account created for someone cannot do anything until it picks a password', async ({
   page,
 }) => {
   await login(page.request);
@@ -2061,7 +2066,7 @@ test('an account created for someone cannot do anything until it picks a passwor
   }
 });
 
-test('somebody is invited, joins from the link, and the link then does nothing', async ({
+test('@core somebody is invited, joins from the link, and the link then does nothing', async ({
   page,
   browser,
 }) => {
@@ -2085,7 +2090,7 @@ test('somebody is invited, joins from the link, and the link then does nothing',
   await expect(page.locator('.invite-issued')).toContainText(invitee);
 
   // A stranger opens it — no account, no session.
-  const stranger = await browser.newContext();
+  const stranger = await browser.newContext(browserContextOptions);
   const guest = await stranger.newPage();
   await guest.goto(link);
   await expect(guest.getByRole('heading', { name: /Join Workshop operations/ })).toBeVisible();
@@ -2104,7 +2109,7 @@ test('somebody is invited, joins from the link, and the link then does nothing',
 
   // The same link is spent. A copyable link that keeps working after
   // acceptance is a known failure; this is the assertion that says ours does not.
-  const second = await browser.newContext();
+  const second = await browser.newContext(browserContextOptions);
   const late = await second.newPage();
   await late.goto(link);
   await expect(
@@ -2113,8 +2118,12 @@ test('somebody is invited, joins from the link, and the link then does nothing',
 
   // And the manager's list now shows a member rather than a pending invitation.
   await page.reload();
-  await expect(page.locator('.people-who strong').filter({ hasText: 'Sam Joiner' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Waiting to be accepted' })).toHaveCount(0);
+  const member = page.locator('.people-who').filter({ hasText: invitee });
+  await expect(member.locator('strong')).toHaveText('Sam Joiner');
+  const pending = page.locator('section').filter({
+    has: page.getByRole('heading', { name: 'Waiting to be accepted' }),
+  });
+  await expect(pending.getByText(invitee, { exact: true })).toHaveCount(0);
 
   await stranger.close();
   await second.close();
@@ -2164,7 +2173,7 @@ test('somebody who already has an account can be invited into another workspace'
     email: invitee,
     role: 'view',
   });
-  const stranger = await browser.newContext();
+  const stranger = await browser.newContext(browserContextOptions);
   const guest = await stranger.newPage();
   await guest.goto(first.link);
   await guest.getByRole('textbox', { name: 'Your name', exact: true }).fill('Robin Returning');
@@ -2183,7 +2192,7 @@ test('somebody who already has an account can be invited into another workspace'
 
   // Nobody signed in: the link says what to do rather than offering a sign-up
   // form that cannot succeed, and the API refuses outright.
-  const anonymous = await browser.newContext();
+  const anonymous = await browser.newContext(browserContextOptions);
   const visitor = await anonymous.newPage();
   await visitor.goto(second.link);
   await expect(visitor.getByText(/already has an account/)).toBeVisible();
@@ -2259,7 +2268,7 @@ test('the library has a way into the studio that names where it goes', async ({
   // A visitor has no studio to open. The same button offered it to everybody,
   // because it asked whether the installation had a database rather than
   // whether anybody was signed in.
-  const anonymous = await browser.newContext();
+  const anonymous = await browser.newContext(browserContextOptions);
   const visitor = await anonymous.newPage();
   await visitor.goto('/');
   await expect(visitor.getByRole('link', { name: /Open studio/ })).toHaveCount(0);
@@ -2319,7 +2328,7 @@ test('a guide is edited from the page you read it on, by whoever may', async ({
 
   // An anonymous visitor is not offered an editor. The workspace is private, so
   // they cannot see the page at all — which is the stronger statement.
-  const stranger = await browser.newContext();
+  const stranger = await browser.newContext(browserContextOptions);
   const guest = await stranger.newPage();
   const seen = await guest.goto(`/w/workshop/guides/${created.id}`);
   expect(seen?.status()).toBe(404);
@@ -2353,7 +2362,7 @@ test('managing a workspace is one place, and closed to someone who only views', 
     email: invitee,
     role: 'view',
   });
-  const theirs = await browser.newContext();
+  const theirs = await browser.newContext(browserContextOptions);
   const them = await theirs.newPage();
   await them.goto(invite.link);
   await them.getByRole('textbox', { name: 'Your name', exact: true }).fill('Only A Viewer');
@@ -2458,7 +2467,7 @@ test('management tables sort text, number and status columns, remember their col
       description: '',
       manufacturer: n % 2 ? 'Even' : 'Odd',
       model: '',
-      partNumber: `P-${String(n).padStart(3, '0')}`,
+      partNumber: `P-${suffix}-${String(n).padStart(3, '0')}`,
       defaultUnit: 'each',
       visibility: 'public',
     });

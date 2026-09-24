@@ -1,3 +1,4 @@
+import { browserContextOptions } from '../support/browser';
 import { test, expect, type APIRequestContext, type Page } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
 import pg from 'pg';
@@ -213,7 +214,7 @@ for (const kind of ['catalog', 'categories'] as const)
 test('paged management data and counts remain unavailable to an anonymous reader', async ({
   browser,
 }) => {
-  const visitor = await browser.newContext();
+  const visitor = await browser.newContext(browserContextOptions);
   try {
     for (const workspaceId of [workspace, 'workshop'])
       for (const resource of ['categories', 'catalog']) {

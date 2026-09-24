@@ -23,7 +23,7 @@ Passdown is an early, working application for public community guides and privat
 - A front page that opens on the search and the guides: a heading, the search field, one row of category chips carrying each thing's picture, then the library. A category has one address — its own page, carrying its picture, its description, whatever sits inside it, and the same chips so choosing one is not a dead end.
 - A front page that branches on who is looking: a visitor reads the public library, somebody signed in gets a tab per library they can read. A library is named for what it is rather than for the workspace behind it, and an empty members-only one waits until it has something in it.
 - Guide preparation, per-step requirements and consumption/reuse allocations, preconditions and earlier-step dependencies.
-- Shared reader, live search, keyboard navigation, responsive layouts and light/dark themes verified for contrast in both.
+- Shared reader, live search, keyboard navigation, responsive layouts and light/dark themes verified for contrast in both. Nested dialogs keep the unfinished parent form open when Escape closes its picker, and native Option-Tab traversal stays inside the dialog on macOS WebKit.
 - Library listings that read one bounded page from the database, filtered and counted there.
 - Versioned migrations with a checksummed manifest, a health endpoint that refuses a database this build does not match, and a warning when the running process is older than the schema.
 
@@ -34,5 +34,7 @@ Saves are manual. Management lists use 25-row pages; Things may additionally sho
 An installation serves one organisation and gets one workspace, which carries a public library and an internal section; creating further workspaces is deliberately out of scope. Every screen is built from Tailwind utilities on the project's design tokens; the only stylesheets left hold element defaults and the typography of rendered guide content and the editor canvas. One vocabulary runs through the studio: things, the catalog, and Active or Inactive.
 
 A showcase library is available for evaluation — `pnpm seed:showcase` — written through the API rather than into tables, so it exercises the same validation and publication rules as hand-written content.
+
+Automated fixture and persistent authoring suites cover Chromium, Firefox and Playwright WebKit, including keyboard dialogs, live search, editing and publishing. These checks do not replace release checks in physical Safari, iPhone or a simulator, with VoiceOver, or with operating-system input methods. Browser commands and the CI timing policy are in [CONTRIBUTING](../../CONTRIBUTING.md).
 
 See the [roadmap](../../ROADMAP.md) for upcoming outcomes and the [manual checklist](manual-test-checklist.md) for testable behavior. The repository license covers code, not a blanket license for user-authored guide content.
