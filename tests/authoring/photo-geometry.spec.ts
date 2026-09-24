@@ -1,4 +1,4 @@
-import { test, expect, type Locator } from '@playwright/test';
+import { test, expect, type Locator, type Page } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
 import sharp from 'sharp';
 import { readConfig } from '../../scripts/local-config.mjs';
@@ -16,14 +16,18 @@ const photos = [
 ];
 
 async function fittedBounds(frame: Locator, ratio: number) {
-  await expect
-    .poll(() =>
-      frame.evaluate((node) => {
-        const image = node.querySelector('img')!;
-        return image.complete && image.naturalWidth > 0;
-      }),
-    )
-    .toBe(true);
+  await frame.scrollIntoViewIfNeeded();
+  // Decode follows the image's actual loading lifecycle, bounded by the test
+  // timeout, rather than giving network delivery a geometry assertion's 5s.
+  await frame.locator('img').evaluate(async (image: HTMLImageElement) => {
+    try {
+      await image.decode();
+    } catch {
+      throw new Error('Photograph failed to load or decode');
+    }
+    if (!image.naturalWidth || !image.naturalHeight)
+      throw new Error('Photograph decoded without usable dimensions');
+  });
   await expect
     .poll(
       async () => {
@@ -58,80 +62,85 @@ async function fittedBounds(frame: Locator, ratio: number) {
   expect(bounds.imageHeightDifference).toBeLessThanOrEqual(1);
 }
 
+async function createPhotoGuide(page: Page, photo: (typeof photos)[number]) {
+  const login = await page.request.post('/api/auth/sign-in/email', {
+    headers,
+    data: {
+      email: credentials.GUIDE_LOCAL_OWNER_EMAIL,
+      password: credentials.GUIDE_LOCAL_OWNER_PASSWORD,
+    },
+  });
+  expect(login.status()).toBe(200);
+  const categoryResponse = await page.request.post(`/api/studio/${workspace}/categories`, {
+    headers,
+    data: {
+      domain: 'guide',
+      parentId: null,
+      name: `Photo geometry ${photo.name} ${randomUUID().slice(0, 8)}`,
+      description: 'Photograph fitting regression.',
+      visibility: 'public',
+      sortOrder: 0,
+    },
+  });
+  expect(categoryResponse.status()).toBe(201);
+  const categoryId = (await categoryResponse.json()).category.id as string;
+  const bytes = await sharp({
+    create: { width: photo.width, height: photo.height, channels: 3, background: '#35506b' },
+  })
+    .jpeg()
+    .toBuffer();
+  const uploaded = await page.request.post(`/api/studio/${workspace}/assets`, {
+    headers,
+    multipart: { file: { name: `${photo.name}.jpg`, mimeType: 'image/jpeg', buffer: bytes } },
+  });
+  expect(uploaded.status()).toBe(201);
+  const assetId = (await uploaded.json()).asset.id as string;
+  const document = toStructuredDocument(
+    {
+      schemaVersion: 3,
+      title: `${photo.name} geometry`,
+      summary: 'Keep the whole photograph available for annotation.',
+      locale: 'en',
+      difficulty: 'easy',
+      durationMinutes: 5,
+      tools: [],
+      steps: [
+        {
+          id: randomUUID(),
+          title: 'Mark the bottom edge',
+          body: [
+            {
+              type: 'paragraph',
+              children: [
+                {
+                  type: 'text',
+                  text: 'Select a detail near the bottom of the photograph.',
+                  marks: [],
+                },
+              ],
+            },
+          ],
+          media: [{ assetId, alt: `${photo.name} photograph`, caption: '', annotations: [] }],
+          callouts: [],
+        },
+      ],
+    },
+    randomUUID,
+  );
+  const created = await page.request.post(`/api/studio/${workspace}/guides`, {
+    headers,
+    data: { document, categoryId, audience: 'public' },
+  });
+  expect(created.status()).toBe(201);
+  const guide = (await created.json()).guide as DraftGuide;
+  return { guide, assetId };
+}
+
 for (const photo of photos) {
   test(`${photo.name} photo stays proportional and its bottom-edge mark is clickable`, async ({
     page,
   }) => {
-    const login = await page.request.post('/api/auth/sign-in/email', {
-      headers,
-      data: {
-        email: credentials.GUIDE_LOCAL_OWNER_EMAIL,
-        password: credentials.GUIDE_LOCAL_OWNER_PASSWORD,
-      },
-    });
-    expect(login.status()).toBe(200);
-    const categoryResponse = await page.request.post(`/api/studio/${workspace}/categories`, {
-      headers,
-      data: {
-        domain: 'guide',
-        parentId: null,
-        name: `Photo geometry ${photo.name} ${randomUUID().slice(0, 8)}`,
-        description: 'Photograph fitting regression.',
-        visibility: 'public',
-        sortOrder: 0,
-      },
-    });
-    expect(categoryResponse.status()).toBe(201);
-    const categoryId = (await categoryResponse.json()).category.id as string;
-    const bytes = await sharp({
-      create: { width: photo.width, height: photo.height, channels: 3, background: '#35506b' },
-    })
-      .jpeg()
-      .toBuffer();
-    const uploaded = await page.request.post(`/api/studio/${workspace}/assets`, {
-      headers,
-      multipart: { file: { name: `${photo.name}.jpg`, mimeType: 'image/jpeg', buffer: bytes } },
-    });
-    expect(uploaded.status()).toBe(201);
-    const assetId = (await uploaded.json()).asset.id as string;
-    const document = toStructuredDocument(
-      {
-        schemaVersion: 3,
-        title: `${photo.name} geometry`,
-        summary: 'Keep the whole photograph available for annotation.',
-        locale: 'en',
-        difficulty: 'easy',
-        durationMinutes: 5,
-        tools: [],
-        steps: [
-          {
-            id: randomUUID(),
-            title: 'Mark the bottom edge',
-            body: [
-              {
-                type: 'paragraph',
-                children: [
-                  {
-                    type: 'text',
-                    text: 'Select a detail near the bottom of the photograph.',
-                    marks: [],
-                  },
-                ],
-              },
-            ],
-            media: [{ assetId, alt: `${photo.name} photograph`, caption: '', annotations: [] }],
-            callouts: [],
-          },
-        ],
-      },
-      randomUUID,
-    );
-    const created = await page.request.post(`/api/studio/${workspace}/guides`, {
-      headers,
-      data: { document, categoryId, audience: 'public' },
-    });
-    expect(created.status()).toBe(201);
-    const guide = (await created.json()).guide as DraftGuide;
+    const { guide } = await createPhotoGuide(page, photo);
     await page.goto(`/studio/${workspace}/${guide.id}`);
     const frame = page.locator('.studio-annotate-frame');
     await fittedBounds(frame, photo.width / photo.height);
@@ -182,5 +191,65 @@ for (const photo of photos) {
         label: 'Bottom edge detail',
       },
     ]);
+  });
+}
+
+test('photo geometry waits for the held image response before checking bounds', async ({
+  page,
+}) => {
+  const photo = photos[0]!;
+  const { guide, assetId } = await createPhotoGuide(page, photo);
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let requested!: () => void;
+  const requestStarted = new Promise<void>((resolve) => {
+    requested = resolve;
+  });
+  await page.route(`**/api/media/${guide.workspaceId}/${assetId}*`, async (route) => {
+    requested();
+    await held;
+    await route.continue();
+  });
+  await page.goto(`/studio/${workspace}/${guide.id}`, { waitUntil: 'domcontentloaded' });
+  const frame = page.locator('.studio-annotate-frame');
+  await frame.scrollIntoViewIfNeeded();
+  await requestStarted;
+  let settled = false;
+  const fitting = fittedBounds(frame, photo.width / photo.height).finally(() => {
+    settled = true;
+  });
+  try {
+    expect(
+      await frame.locator('img').evaluate((image: HTMLImageElement) => ({
+        complete: image.complete,
+        width: image.naturalWidth,
+      })),
+    ).toEqual({ complete: false, width: 0 });
+    expect(settled, 'Geometry must remain pending while the photograph response is held').toBe(
+      false,
+    );
+  } finally {
+    release();
+  }
+  await fitting;
+});
+
+for (const failure of ['missing', 'invalid'] as const) {
+  test(`photo geometry reports ${failure} image failure explicitly`, async ({ page }) => {
+    const photo = photos[0]!;
+    const { guide, assetId } = await createPhotoGuide(page, photo);
+    await page.route(`**/api/media/${guide.workspaceId}/${assetId}*`, (route) =>
+      route.fulfill({
+        status: failure === 'missing' ? 404 : 200,
+        contentType: 'image/jpeg',
+        body: 'This is not a photograph.',
+      }),
+    );
+    await page.goto(`/studio/${workspace}/${guide.id}`);
+    await expect(
+      fittedBounds(page.locator('.studio-annotate-frame'), photo.width / photo.height),
+    ).rejects.toThrow('Photograph failed to load or decode');
   });
 }
