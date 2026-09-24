@@ -17,6 +17,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:e2e": "playwright test",
+    "test:cross-browser": "playwright test --config playwright.cross-browser.config.ts",
     "check": "pnpm tokens:check && pnpm migrations:check && pnpm lint && pnpm typecheck && pnpm test",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

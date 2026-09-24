@@ -9,11 +9,13 @@ import './studio.css';
 export function Frame({
   children,
   workspace,
+  workspaceCount = 0,
   user,
   onSignOut,
 }: {
   children: ReactNode;
   workspace?: StudioWorkspace;
+  workspaceCount?: number;
   user?: string;
   onSignOut?: () => void;
 }) {
@@ -63,7 +65,7 @@ export function Frame({
         utilities={
           <>
             <a className={headerLink} href="/studio">
-              Workspaces
+              {workspaceCount > 1 ? 'Workspaces' : 'Studio'}
             </a>
             <ThemeToggle />
             {user && <span className={`text-[13px] text-muted max-[1000px]:hidden`}>{user}</span>}
@@ -186,6 +188,7 @@ export function SessionGate({
   return (
     <Frame
       workspace={workspace}
+      workspaceCount={session?.workspaces.length}
       user={session?.user.name}
       onSignOut={session ? () => void signOut() : undefined}
     >

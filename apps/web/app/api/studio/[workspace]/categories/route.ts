@@ -1,4 +1,8 @@
-import { createCategorySchema, categoryDomainSchema } from '@guide/contracts';
+import {
+  categoryManagementQuerySchema,
+  createCategorySchema,
+  categoryDomainSchema,
+} from '@guide/contracts';
 import { getApplication, mutationContext, requireSession } from '../../../../../lib/application';
 import { apiResponse, assertIdentifier, parseInput, readJSON } from '../../../../../lib/http';
 export const dynamic = 'force-dynamic';
@@ -10,6 +14,10 @@ export function GET(request: Request, context: Context) {
     assertIdentifier(workspace);
     const url = new URL(request.url);
     const store = getApplication().store;
+    if (url.searchParams.has('page')) {
+      const query = parseInput(categoryManagementQuerySchema, Object.fromEntries(url.searchParams));
+      return Response.json(await store.listCategoryPage(actor, workspace, query));
+    }
     const categories = await store.listCategories(actor, workspace, {
       domain: url.searchParams.has('domain')
         ? parseInput(categoryDomainSchema, url.searchParams.get('domain'))

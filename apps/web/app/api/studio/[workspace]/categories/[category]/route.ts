@@ -12,13 +12,15 @@ export function GET(request: Request, context: Context) {
     const store = getApplication().store;
     const result = await store.getCategory(actor, workspace, category);
     if (!result) throw new ApplicationError('NOT_FOUND', 'Record not found.', 404);
-    if (new URL(request.url).searchParams.get('blockers') !== 'true')
-      return Response.json({ category: result });
-    // Lets the interface explain why deactivation is unavailable, and what to
-    // move first, instead of surfacing a raised database exception.
+    const params = new URL(request.url).searchParams;
     return Response.json({
       category: result,
-      blockers: await store.categoryBlockers(actor, workspace, category),
+      ...(params.get('blockers') === 'true'
+        ? { blockers: await store.categoryBlockers(actor, workspace, category) }
+        : {}),
+      ...(params.get('counts') === 'true'
+        ? { counts: await store.listCategoryCount(actor, workspace, category) }
+        : {}),
     });
   });
 }

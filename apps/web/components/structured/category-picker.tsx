@@ -195,7 +195,7 @@ export function CategoryPicker({
 export function CategoryForm({
   workspace,
   domain,
-  categories,
+  categories: provided,
   initial,
   initialParent = null,
   initialName = '',
@@ -205,7 +205,7 @@ export function CategoryForm({
 }: {
   workspace: StudioWorkspace;
   domain: Category['domain'];
-  categories: Category[];
+  categories?: Category[];
   initial?: Category;
   initialParent?: string | null;
   initialName?: string;
@@ -213,6 +213,12 @@ export function CategoryForm({
   onSaved: (category: Category) => void;
   onCancel: () => void;
 }) {
+  const {
+    categories,
+    error: categoriesError,
+    loading: categoriesLoading,
+    refresh: refreshCategories,
+  } = useCategories(workspace.id, provided);
   const [name, setName] = useState(initial?.name ?? initialName);
   const [description, setDescription] = useState(initial?.description ?? '');
   const [parentId, setParent] = useState<string | null>(initial?.parentId ?? initialParent);
@@ -225,7 +231,7 @@ export function CategoryForm({
   const request = useFormRequest();
   const parent = categories.find((category) => category.id === parentId);
   async function save() {
-    if (pending) return;
+    if (pending || categoriesLoading || categoriesError) return;
     if (!name.trim()) {
       setError(`Give this ${words.thing} a name.`);
       return;
@@ -363,7 +369,12 @@ export function CategoryForm({
           ? ' Moving it also moves its descendants. Guide and item identities stay the same.'
           : ''}
       </p>
-      {error && <ErrorNotice error={error} />}
+      {(error || categoriesError) && <ErrorNotice error={error || categoriesError} />}
+      {categoriesError && (
+        <Button type="button" variant="secondary" onClick={refreshCategories}>
+          Retry loading options
+        </Button>
+      )}
       <div className={S.formActions}>
         <Button
           type="button"
@@ -375,7 +386,11 @@ export function CategoryForm({
         >
           Cancel
         </Button>
-        <Button type="button" onClick={() => void save()} disabled={pending}>
+        <Button
+          type="button"
+          onClick={() => void save()}
+          disabled={pending || categoriesLoading || Boolean(categoriesError)}
+        >
           {pending ? 'Saving…' : initial ? 'Save' : `Add ${nounFor(domain).thing}`}
         </Button>
       </div>
@@ -395,7 +410,7 @@ export function CategoryDialog({
 }: {
   workspace: StudioWorkspace;
   domain: Category['domain'];
-  categories: Category[];
+  categories?: Category[];
   initial?: Category;
   initialParent?: string | null;
   /** Omitted when the dialog is driven by `open` rather than by a control. */

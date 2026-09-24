@@ -189,6 +189,7 @@ test('real table cells support typing, row/column edits and an editable panel in
   }
   const cell = table.locator('tr').nth(1).locator('td').first();
   await cell.click();
+  await expect(field).toBeFocused();
   await page.keyboard.insertText('Seal');
   await expect(cell).toHaveText('Seal');
   await page.keyboard.press('Tab');
@@ -250,6 +251,12 @@ test('real table cells support typing, row/column edits and an editable panel in
     .toBeGreaterThan(0);
   await scrollRegion.evaluate((element) => (element.scrollLeft = 0));
   await page.getByRole('button', { name: 'Switch to dark theme' }).click();
+  await expect(scrollRegion).toHaveAttribute('tabindex', '0');
+  await scrollRegion.focus();
+  await page.keyboard.press('ArrowRight');
+  await expect
+    .poll(() => scrollRegion.evaluate((element) => element.scrollLeft))
+    .toBeGreaterThan(0);
   await expect(table.locator('td [data-type="panel"]')).toBeVisible();
   expect(
     (await new AxeBuilder({ page }).include('.studio-editor-canvas').analyze()).violations,
@@ -301,9 +308,11 @@ test('links are visual and validated, rich paste is editable, and unsupported pa
   await field.evaluate((element) => {
     const clipboardData = new DataTransfer();
     clipboardData.setData('text/html', '<p><strong>Pasted bold</strong> and <em>italic</em></p>');
-    element.dispatchEvent(
-      new ClipboardEvent('paste', { clipboardData, bubbles: true, cancelable: true }),
-    );
+    const event = new ClipboardEvent('paste', { bubbles: true, cancelable: true });
+    // Firefox drops DataTransfer passed to the constructor of an untrusted
+    // clipboard event. Supply the fixture payload explicitly for every engine.
+    Object.defineProperty(event, 'clipboardData', { value: clipboardData });
+    element.dispatchEvent(event);
   });
   await expect(field.locator('strong')).toContainText('Pasted bold');
   await expect(field.locator('em')).toContainText('italic');
@@ -314,9 +323,9 @@ test('links are visual and validated, rich paste is editable, and unsupported pa
       'text/html',
       '<img src="missing" onerror="alert(1)"><p>Unsupported paste</p>',
     );
-    element.dispatchEvent(
-      new ClipboardEvent('paste', { clipboardData, bubbles: true, cancelable: true }),
-    );
+    const event = new ClipboardEvent('paste', { bubbles: true, cancelable: true });
+    Object.defineProperty(event, 'clipboardData', { value: clipboardData });
+    element.dispatchEvent(event);
   });
   await expect(page.getByText(/This paste contains active or embedded content/)).toBeVisible();
   await expect(field).toHaveText(before!);

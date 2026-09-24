@@ -12,7 +12,7 @@ The current application supports local evaluation and development:
 - A visual step editor with rich text, tables, contextual panels, and annotated photographs.
 - Shared categories and catalog items, guide preparation lists, and per-step requirements.
 - Manual draft saves, preview, and published releases that preserve their instructions and item details.
-- Invitation links, view/manage permissions, and sortable management tables with column preferences.
+- Invitation links, view/manage permissions, and sortable management tables with server-side paging, combined filters, and column preferences.
 
 Photo upload progress and retry controls are already implemented. Non-image attachments, cross-guide prerequisites, account recovery, approvals, and community contributions are still upcoming.
 
@@ -26,7 +26,7 @@ See the [README](README.md) to try the app and the [development status](docs/dev
 
 - Improve recovery after a session expires or a save fails, and make conflicting edits easier to resolve.
 - Strengthen protection for unsaved work when navigating away or closing a tab.
-- Complete management-table behavior for large libraries: bounded category browsing, useful filters, and predictable state and focus after creating, editing, or deactivating a record.
+- Measure and improve management performance on large libraries, including deep trees and large catalogs, while preserving filters, hierarchy and keyboard focus.
 - Verify editor controls, dialogs, and tables across keyboard use, narrow screens, themes, and upload failure states.
 
 **Ready when:** An author can recover from a failed save, return from a record to the same list context, and complete the workflow with a keyboard or on a small screen.

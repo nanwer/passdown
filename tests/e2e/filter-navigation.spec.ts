@@ -118,3 +118,40 @@ test('search, no-results recovery and Back/Forward preserve the document and fil
   await expect(page.getByRole('searchbox')).toHaveValue('no-such-guide');
   expect(await page.evaluate(() => performance.timeOrigin)).toBe(before.origin);
 });
+
+test('a delayed workshop category response updates in place when it arrives', async ({ page }) => {
+  let release!: () => void;
+  const responseGate = new Promise<void>((resolve) => (release = resolve));
+  let markRequested!: () => void;
+  const requested = new Promise<void>((resolve) => (markRequested = resolve));
+  await page.route('**/preview/workshop/categories/inspection*', async (route) => {
+    markRequested();
+    await responseGate;
+    await route.continue();
+  });
+  await page.addInitScript(() => localStorage.setItem('guide-theme', 'light'));
+  await page.goto('/preview/workshop');
+  await page.getByRole('button', { name: 'Switch to dark theme' }).click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  const before = await scrollToFilters(page);
+  const inspection = page
+    .getByRole('navigation', { name: 'Guide things' })
+    .getByRole('link', { name: 'Inspection', exact: true });
+
+  try {
+    await inspection.click();
+    await requested;
+    // Results from the previous route remain usable until the new response is
+    // ready. An unchanged count during this interval is not a failed filter.
+    await expect(page.locator('.guide-card')).toHaveCount(2);
+    release();
+    await expect(page).toHaveURL(/\/preview\/workshop\/categories\/inspection$/);
+    await expect(page.locator('.guide-card')).toHaveCount(1);
+    await expect(inspection).toHaveAttribute('aria-current', 'true');
+    await expect(page.getByRole('status')).toHaveText('1 guide found.');
+    expect(await page.evaluate(() => performance.timeOrigin)).toBe(before.origin);
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeCloseTo(before.scroll, 0);
+  } finally {
+    release();
+  }
+});

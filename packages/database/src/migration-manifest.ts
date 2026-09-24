@@ -29,4 +29,6 @@ export const migrationManifest: { name: string; checksum: string }[] = [
   { name: '026_catalog_respects_workspace.sql', checksum: 'b979021a671311c7b67c3919d867eaa556399fb665f0c99c8d7b1151b0bc2cf6' },
   { name: '027_catalog_usage_distinct.sql', checksum: '0cf4c5355e14f8deef515df692c4e9cc936e13d643b327ace73f664a3bcc5a64' },
   { name: '028_drop_guide_artwork.sql', checksum: 'bc793851360e79a3227f94e31506d190a8b241b8518a4ce8eecbe5dd617ef236' },
+  { name: '029_management_sort.sql', checksum: '530048e335f02b5e1b4e8dc2e5ee864d1583f6d1174edbd316883966b03fa3ad' },
+  { name: '030_management_usage_scope.sql', checksum: '0152705e98fb565ff12af441d9bcdfe833eea816d289b1d259db87de3b067ce0' },
 ];

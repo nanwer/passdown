@@ -1,3 +1,4 @@
+import { managementStore } from './management-store';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import pg from 'pg';
 import { readSchemaState } from './schema-state';
@@ -380,6 +381,7 @@ export function createApplicationStore(options: { connectionString: string }) {
   }
   return {
     ...structuredStore(transaction, owner),
+    ...managementStore(transaction),
     async listWorkspaces(actor: Actor): Promise<StudioWorkspace[]> {
       return transaction(
         actor,

@@ -238,6 +238,7 @@ export function TableSearch({
       <input
         id={id}
         type="search"
+        maxLength={200}
         aria-label={label}
         placeholder={placeholder}
         value={value}
@@ -405,4 +406,60 @@ export function useRowFocus(
       setPendingVersion((version) => version + 1);
     },
   };
+}
+
+/** Filters combine with search and status; clearing them keeps the chosen sort. */
+export function ManagementFilters({
+  visibility,
+  usage,
+  onVisibility,
+  onUsage,
+  onClear,
+  active,
+}: {
+  visibility: 'all' | 'public' | 'members';
+  usage: 'all' | 'used' | 'unused';
+  onVisibility: (value: 'all' | 'public' | 'members') => void;
+  onUsage: (value: 'all' | 'used' | 'unused') => void;
+  onClear: () => void;
+  active: boolean;
+}) {
+  const field = 'rounded-control border border-control bg-panel px-3 py-2 text-sm text-ink';
+  return (
+    <div className="mb-4 flex flex-wrap items-end gap-3" aria-label="Table filters" role="group">
+      <label className="grid gap-1 text-xs text-muted">
+        Visibility
+        <select
+          className={field}
+          value={visibility}
+          onChange={(e) => onVisibility(e.target.value as typeof visibility)}
+        >
+          <option value="all">All visibility</option>
+          <option value="public">Public</option>
+          <option value="members">Members only</option>
+        </select>
+      </label>
+      <label className="grid gap-1 text-xs text-muted">
+        Guide usage
+        <select
+          className={field}
+          value={usage}
+          onChange={(e) => onUsage(e.target.value as typeof usage)}
+        >
+          <option value="all">Any usage</option>
+          <option value="used">Used in guides</option>
+          <option value="unused">Not used in guides</option>
+        </select>
+      </label>
+      {active && (
+        <button
+          type="button"
+          className={buttonVariants({ variant: 'secondary', size: 'sm' })}
+          onClick={onClear}
+        >
+          Clear filters
+        </button>
+      )}
+    </div>
+  );
 }

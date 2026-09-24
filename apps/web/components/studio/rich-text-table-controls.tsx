@@ -111,7 +111,11 @@ export function RichTextTableControls({
       });
     };
     const tableFor = (element: Element | null) => {
-      const table = element?.closest<HTMLTableElement>('table');
+      // Overlay scrollbars can report the wrapper as the pointer target even
+      // when the pointer is over a visible cell boundary (notably in WebKit).
+      const table = element?.matches('.tableWrapper')
+        ? element.querySelector<HTMLTableElement>(':scope > table')
+        : element?.closest<HTMLTableElement>('table');
       return table && dom.contains(table) ? table : null;
     };
     const pointer = (event: PointerEvent) => {

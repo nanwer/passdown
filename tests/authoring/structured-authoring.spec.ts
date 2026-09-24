@@ -2473,26 +2473,27 @@ test('management tables sort text, number and status columns, remember their col
     'Showing 1–25 of 27 items',
   );
 
+  // Sorting now comes from the server; wait for the ordered rows, not just the header state.
   // Sorted by name on arrival, and a header reverses it.
   const name = table.getByRole('columnheader', { name: /Name/ });
   await expect(name).toHaveAttribute('aria-sort', 'ascending');
-  expect((await firstNames())[0]).toBe(names[0]);
+  await expect.poll(async () => (await firstNames())[0]).toBe(names[0]);
   await name.getByRole('button').click();
   await expect(name).toHaveAttribute('aria-sort', 'descending');
-  expect((await firstNames())[0]).toBe(names[26]);
+  await expect.poll(async () => (await firstNames())[0]).toBe(names[26]);
 
   // Every other column sorts too. Specification counts down as names count up.
   const specification = table.getByRole('columnheader', { name: /Specification/ });
   await specification.getByRole('button').click();
   await expect(specification).toHaveAttribute('aria-sort', 'ascending');
   await expect(name).toHaveAttribute('aria-sort', 'none');
-  expect((await firstNames())[0]).toBe(names[26]);
+  await expect.poll(async () => (await firstNames())[0]).toBe(names[26]);
 
   // The sort holds through a status change and a narrower search.
   await page.getByRole('group', { name: 'Status' }).getByRole('button', { name: /^All/ }).click();
   await page.getByRole('searchbox', { name: 'Search catalog' }).fill(`Sorter ${suffix} 0`);
   await expect(specification).toHaveAttribute('aria-sort', 'ascending');
-  expect(await firstNames()).toEqual(names.slice(0, 10).reverse());
+  await expect.poll(firstNames).toEqual(names.slice(0, 10).reverse());
 
   // A hidden column can be shown, and the choice outlives a reload. The name
   // column cannot be hidden, so a row can always be opened.
@@ -2512,7 +2513,9 @@ test('management tables sort text, number and status columns, remember their col
   const manufacturer = table.getByRole('columnheader', { name: /Manufacturer/ });
   await manufacturer.getByRole('button').click();
   await expect(manufacturer).toHaveAttribute('aria-sort', 'ascending');
-  expect((await firstNames()).slice(0, 13)).toEqual(names.filter((_, n) => n % 2));
+  await expect
+    .poll(async () => (await firstNames()).slice(0, 13))
+    .toEqual(names.filter((_, n) => n % 2));
   await name.getByRole('button').click();
   await expect(name).toHaveAttribute('aria-sort', 'ascending');
 
@@ -2556,10 +2559,14 @@ test('management tables sort text, number and status columns, remember their col
   const status = table.getByRole('columnheader', { name: /Status/ });
   await status.getByRole('button').click();
   await expect(status).toHaveAttribute('aria-sort', 'ascending');
-  expect((await firstNames()).slice(-2).sort()).toEqual([names[3], names[5]]);
+  await expect
+    .poll(async () => (await firstNames()).slice(-2).sort())
+    .toEqual([names[3], names[5]]);
   await status.getByRole('button').click();
   await expect(status).toHaveAttribute('aria-sort', 'descending');
-  expect((await firstNames()).slice(0, 2).sort()).toEqual([names[3], names[5]]);
+  await expect
+    .poll(async () => (await firstNames()).slice(0, 2).sort())
+    .toEqual([names[3], names[5]]);
 
   // Things: an opened branch stays open across a record's sheet, and the
   // guide total says where its guides are.
@@ -2568,6 +2575,8 @@ test('management tables sort text, number and status columns, remember their col
   await draft(page.request, workspace, root.id, `Filed outside ${suffix}`);
   await draft(page.request, workspace, inner.id, `Filed inside ${suffix}`);
   await page.goto(`/studio/${workspace}/categories`);
+  await page.getByRole('searchbox', { name: 'Search things' }).fill(suffix);
+  await page.getByRole('button', { name: `Hide what is inside Outer ${suffix}` }).click();
   await page.getByRole('button', { name: `Show what is inside Outer ${suffix}` }).click();
   await expect(page.getByRole('button', { name: `Inner ${suffix}`, exact: true })).toBeVisible();
   const outerRow = page.getByRole('row').filter({ hasText: `Outer ${suffix}` });
@@ -2600,8 +2609,12 @@ test('management tables sort text, number and status columns, remember their col
     (await things.getByRole('rowheader').allTextContents()).filter((text) =>
       /^(Empty|Single|Outer)/.test(text),
     );
-  expect((await order()).map((text) => text.split(' ')[0])).toEqual(['Empty', 'Single', 'Outer']);
+  await expect
+    .poll(async () => (await order()).map((text) => text.split(' ')[0]))
+    .toEqual(['Empty', 'Single', 'Outer']);
   await guides.getByRole('button').click();
   await expect(guides).toHaveAttribute('aria-sort', 'descending');
-  expect((await order()).map((text) => text.split(' ')[0])).toEqual(['Outer', 'Single', 'Empty']);
+  await expect
+    .poll(async () => (await order()).map((text) => text.split(' ')[0]))
+    .toEqual(['Outer', 'Single', 'Empty']);
 });

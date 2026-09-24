@@ -1,4 +1,4 @@
-import { createCatalogItemSchema } from '@guide/contracts';
+import { catalogManagementQuerySchema, createCatalogItemSchema } from '@guide/contracts';
 import { getApplication, mutationContext, requireSession } from '../../../../../lib/application';
 import { apiResponse, assertIdentifier, parseInput, readJSON } from '../../../../../lib/http';
 export const dynamic = 'force-dynamic';
@@ -10,6 +10,10 @@ export function GET(request: Request, context: Context) {
     assertIdentifier(workspace);
     const url = new URL(request.url);
     const store = getApplication().store;
+    if (url.searchParams.has('page')) {
+      const query = parseInput(catalogManagementQuerySchema, Object.fromEntries(url.searchParams));
+      return Response.json(await store.listCatalogPage(actor, workspace, query));
+    }
     const items = await store.listCatalogItems(actor, workspace, {
       includeArchived: url.searchParams.get('includeArchived') === 'true',
       search: url.searchParams.get('search') ?? undefined,

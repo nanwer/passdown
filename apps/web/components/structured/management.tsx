@@ -22,22 +22,25 @@ import type {
   CatalogItem,
   CatalogUsageCounts,
   StudioWorkspace,
+  CategoryManagementPage as CategoryPage,
+  CatalogManagementPage as CatalogPage,
 } from '@guide/contracts';
 import { SessionGate, ErrorNotice, StudioTrail } from '../studio/frame';
 import { ManageTabs } from '../studio/manage';
 import { studioFetch, studioUpload } from '../studio/transport';
-import { useCategories, useCatalog, announceStructuredChange } from './data';
+import { announceStructuredChange } from './data';
+import { useManagementPage, useManagementRecord } from './management-data';
 import { CategoryDialog } from './category-picker';
 import { CatalogDialog, unitLabels } from './catalog-picker';
-import { categoryPath, filterCatalog, searchCategories, thingRows } from './tree-model';
+import { categoryPath, filterCatalog, searchCategories } from './tree-model';
 import {
   ColumnMenu,
+  ManagementFilters,
   Pager,
   SortableHeader,
   StatusTabs,
   TableSearch,
   cellClass,
-  compareBy,
   nextSort,
   tableClass,
   useColumnChoice,
@@ -365,48 +368,58 @@ const thingColumns = (counts: Map<string, CategoryCounts>): Column<Category>[] =
 ];
 
 function ThingsManagement({ workspace }: { workspace: StudioWorkspace }) {
-  const { categories, counts, error, loading, refresh } = useCategories(workspace.id, undefined, {
-    withCounts: true,
-  });
-  // One tree remains. The domain stays so the picker and the counts keep their
-  // shape until the column itself is retired.
   const domain: Category['domain'] = 'guide';
-  const countsById = useMemo(
-    () => new Map(counts.map((entry) => [entry.categoryId, entry])),
-    [counts],
-  );
-  const columns = useMemo(() => thingColumns(countsById), [countsById]);
-  const { shown, visible, toggle } = useColumnChoice('things', columns);
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState<Status>('active');
+  const [visibility, setVisibility] = useState<'all' | 'public' | 'members'>('all');
+  const [usageFilter, setUsageFilter] = useState<'all' | 'used' | 'unused'>('all');
   const [sort, setSort] = useState<Sort>(null);
+  const [page, setPage] = useState(1);
+  const [placing, setPlacing] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  // Rows closed by hand during a search, which otherwise opens every match.
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
-  const [selectedId, setSelected] = useState<string | null>(null);
+  const [selectedRecord, setSelected] = useState<Category | null>(null);
   const [addingInside, setAddingInside] = useState<Category | null>(null);
   const [notice, setNotice] = useState('');
   const owner = workspace.role === 'manage';
   const searching = query.trim() !== '';
-  useEffect(() => setCollapsed(new Set()), [query]);
-
-  const inTree = categories.filter((category) => category.domain === domain);
-  // Status counts describe what the search matches before the status narrows
-  // it, so All is always Active plus Inactive.
-  const found = new Set(searchCategories(inTree, query).map((category) => category.id));
-  const statusCounts = {
-    all: found.size,
-    active: inTree.filter((c) => found.has(c.id) && !c.archived).length,
-    inactive: inTree.filter((c) => found.has(c.id) && c.archived).length,
-  };
-  const rows = thingRows(inTree, {
-    matches: (c) => found.has(c.id) && (status === 'all' || (status === 'active') === !c.archived),
-    expanded,
-    compare: compareBy(columns, sort),
-    searching,
-    collapsed,
-  });
-  const selected = categories.find((category) => category.id === selectedId);
+  const { data, error, loading, refresh } = useManagementPage<CategoryPage>(
+    workspace.id,
+    'categories',
+    {
+      search: query,
+      status,
+      visibility,
+      usage: usageFilter,
+      sort,
+      page,
+      expanded,
+      collapsed,
+      reveal: placing,
+    },
+  );
+  const categories = data?.categories ?? [];
+  const countsById = useMemo(
+    () => new Map(data?.counts.map((entry) => [entry.categoryId, entry]) ?? []),
+    [data],
+  );
+  const columns = useMemo(() => thingColumns(countsById), [countsById]);
+  const { shown, visible, toggle } = useColumnChoice('things', columns);
+  const rows = data?.rows ?? [];
+  const statusCounts = data?.statusCounts ?? { all: 0, active: 0, inactive: 0 };
+  const selected = useManagementRecord(workspace.id, 'categories', selectedRecord);
+  const selectedId = selected?.id;
+  useEffect(() => {
+    if (!loading && !error && data) {
+      setPage(data.page);
+      setPlacing(null);
+    }
+  }, [data, loading, error]);
+  function changeQuestion(change: () => void) {
+    setPage(1);
+    setPlacing(null);
+    change();
+  }
   const focus = useRowFocus(
     rows.map((row) => row.category.id),
     {
@@ -417,7 +430,7 @@ function ThingsManagement({ workspace }: { workspace: StudioWorkspace }) {
 
   function open(category: Category) {
     focus.opened(category.id);
-    setSelected(category.id);
+    setSelected(category);
   }
   /**
    * Show a thing that was just added, and move to it.
@@ -434,6 +447,9 @@ function ThingsManagement({ workspace }: { workspace: StudioWorkspace }) {
     setCollapsed((current) => new Set([...current].filter((id) => !ancestors.includes(id))));
     if (searching && !searchCategories([category], query).length) setQuery('');
     if (status === 'inactive') setStatus('active');
+    if (visibility !== 'all' && visibility !== category.visibility) setVisibility('all');
+    if (usageFilter === 'used') setUsageFilter('all');
+    setPlacing(category.id);
     focus.focusWhenShown(category.id);
   }
   function toggleRow(category: Category) {
@@ -443,6 +459,7 @@ function ThingsManagement({ workspace }: { workspace: StudioWorkspace }) {
       else next.add(category.id);
       return next;
     };
+    setPlacing(null);
     if (searching) setCollapsed(flip);
     else setExpanded(flip);
   }
@@ -461,16 +478,25 @@ function ThingsManagement({ workspace }: { workspace: StudioWorkspace }) {
           label={`Search ${words.things}`}
           placeholder={`Find a ${words.thing} or path…`}
           value={query}
-          onChange={setQuery}
+          onChange={(value) =>
+            changeQuestion(() => {
+              setQuery(value);
+              setCollapsed(new Set());
+            })
+          }
         />
-        <StatusTabs label="Status" value={status} counts={statusCounts} onChange={setStatus} />
+        <StatusTabs
+          label="Status"
+          value={status}
+          counts={statusCounts}
+          onChange={(value) => changeQuestion(() => setStatus(value))}
+        />
         <ColumnMenu columns={columns} visible={visible} onToggle={toggle} />
         {owner && (
           <CategoryDialog
             key={`new-${domain}`}
             workspace={workspace}
             domain={domain}
-            categories={categories}
             trigger={
               <Button type="button">
                 <FolderPlus size={17} />
@@ -484,6 +510,27 @@ function ThingsManagement({ workspace }: { workspace: StudioWorkspace }) {
           />
         )}
       </div>
+      <ManagementFilters
+        visibility={visibility}
+        usage={usageFilter}
+        onVisibility={(value) => changeQuestion(() => setVisibility(value))}
+        onUsage={(value) => changeQuestion(() => setUsageFilter(value))}
+        onClear={() =>
+          changeQuestion(() => {
+            setQuery('');
+            setStatus('active');
+            setVisibility('all');
+            setUsageFilter('all');
+            setCollapsed(new Set());
+          })
+        }
+        active={Boolean(
+          query || status !== 'active' || visibility !== 'all' || usageFilter !== 'all',
+        )}
+      />
+      <p role="status" className={S.count}>
+        {loading ? 'Updating things…' : `${statusCounts[status]} matching things`}
+      </p>
       {notice && (
         <p className={noticeClass} role="status">
           {notice}
@@ -506,7 +553,7 @@ function ThingsManagement({ workspace }: { workspace: StudioWorkspace }) {
       ) : !rows.length ? (
         <div className={S.empty}>
           <FolderTree size={36} />
-          {inTree.length === 0 ? (
+          {!query && status === 'active' && visibility === 'all' && usageFilter === 'all' ? (
             <>
               <h2>Nothing here yet</h2>
               <p>Add the first {words.thing} your guides are about.</p>
@@ -519,7 +566,7 @@ function ThingsManagement({ workspace }: { workspace: StudioWorkspace }) {
           )}
         </div>
       ) : (
-        <div className={panelClass}>
+        <div className={panelClass} aria-busy={loading}>
           <table className={tableClass} aria-label={words.Things}>
             <thead>
               <tr>
@@ -528,7 +575,7 @@ function ThingsManagement({ workspace }: { workspace: StudioWorkspace }) {
                     key={column.key}
                     column={column}
                     sort={sort}
-                    onSort={(key) => setSort(nextSort(sort, key))}
+                    onSort={(key) => changeQuestion(() => setSort(nextSort(sort, key)))}
                   />
                 ))}
               </tr>
@@ -624,6 +671,23 @@ function ThingsManagement({ workspace }: { workspace: StudioWorkspace }) {
           </table>
         </div>
       )}
+      {data && (
+        <Pager
+          page={data.page}
+          pageSize={data.pageSize}
+          total={data.total}
+          noun={['row', 'rows']}
+          onPage={(next) => {
+            setPlacing(null);
+            setPage(next);
+          }}
+        />
+      )}
+      {data && data.total > data.pageSize && (
+        <p className="mt-2 text-xs text-muted">
+          Pages follow the visible tree. Ancestors may repeat to show where a branch belongs.
+        </p>
+      )}
       {/* Driven by the row that was pressed, so nothing asks where the new one
           should go. */}
       {addingInside && (
@@ -631,7 +695,6 @@ function ThingsManagement({ workspace }: { workspace: StudioWorkspace }) {
           key={`inside-${addingInside.id}`}
           workspace={workspace}
           domain={domain}
-          categories={categories}
           initialParent={addingInside.id}
           open
           onOpenChange={(next) => {
@@ -659,9 +722,8 @@ function ThingsManagement({ workspace }: { workspace: StudioWorkspace }) {
             key={`${selected.id}-${selected.version}`}
             workspace={workspace}
             category={selected}
-            categories={categories}
             counts={countsById.get(selected.id)}
-            onRefresh={refresh}
+            onRefresh={() => announceStructuredChange(workspace.id)}
             onAdded={(category) => {
               setNotice(`${category.name} added inside ${selected.name}.`);
               reveal(category);
@@ -680,7 +742,6 @@ function ThingsManagement({ workspace }: { workspace: StudioWorkspace }) {
 function ThingDetail({
   workspace,
   category,
-  categories,
   counts,
   onRefresh,
   onAdded,
@@ -688,7 +749,6 @@ function ThingDetail({
 }: {
   workspace: StudioWorkspace;
   category: Category;
-  categories: Category[];
   counts?: CategoryCounts;
   onRefresh: () => void;
   onAdded: (category: Category) => void;
@@ -698,24 +758,29 @@ function ThingDetail({
   const [pending, setPending] = useState(false);
   const [actionError, setActionError] = useState('');
   const [blockers, setBlockers] = useState<CategoryBlockers | null>(null);
+  const [recordCounts, setRecordCounts] = useState(counts);
+  const [countsError, setCountsError] = useState(false);
   const [blockersLoading, setBlockersLoading] = useState(false);
   const owner = workspace.role === 'manage';
   useEffect(() => {
-    if (!confirming || category.archived) {
-      setBlockers(null);
-      return;
-    }
     let active = true;
     setBlockersLoading(true);
-    studioFetch<{ blockers: CategoryBlockers }>(
-      `/api/studio/${workspace.id}/categories/${category.id}?blockers=true`,
+    setCountsError(false);
+    studioFetch<{ blockers: CategoryBlockers; counts: CategoryCounts }>(
+      `/api/studio/${workspace.id}/categories/${category.id}?blockers=true&counts=true`,
     )
       .then((result) => {
-        if (active) setBlockers(result.blockers);
+        if (active) {
+          setBlockers(result.blockers);
+          setRecordCounts(result.counts);
+        }
       })
       .catch(() => {
         // Falls back to letting the server refuse and explain.
-        if (active) setBlockers(null);
+        if (active) {
+          setBlockers(null);
+          setCountsError(true);
+        }
       })
       .finally(() => {
         if (active) setBlockersLoading(false);
@@ -723,7 +788,7 @@ function ThingDetail({
     return () => {
       active = false;
     };
-  }, [confirming, category.archived, category.id, workspace.id]);
+  }, [confirming, category.version, category.id, workspace.id]);
   const reasons = blockers ? blockingReasons(blockers, workspace.id) : [];
 
   async function changeStatus() {
@@ -760,7 +825,7 @@ function ThingDetail({
     }
   }
 
-  const inside = categories.filter((c) => c.parentId === category.id && !c.archived).length;
+  const inside = blockers?.activeChildren;
   return (
     <>
       <ThingPicture workspaceId={workspace.id} category={category} onChanged={onRefresh} />
@@ -773,13 +838,28 @@ function ThingDetail({
           ['Version', category.version],
           [
             'Guides',
-            counts?.subtree ? `${counts.subtree} — ${guideTotal(counts)}` : 'None filed here yet',
+            recordCounts
+              ? recordCounts.subtree
+                ? `${recordCounts.subtree} — ${guideTotal(recordCounts)}`
+                : 'None filed here yet'
+              : countsError
+                ? 'Unavailable'
+                : 'Loading…',
           ],
           [
             'Published',
-            counts?.publishedSubtree ? `${counts.publishedSubtree} current` : 'None published yet',
+            recordCounts
+              ? recordCounts.publishedSubtree
+                ? `${recordCounts.publishedSubtree} current`
+                : 'None published yet'
+              : countsError
+                ? 'Unavailable'
+                : 'Loading…',
           ],
-          [`Directly inside`, inside ? `${inside} active` : 'Nothing yet'],
+          [
+            `Directly inside`,
+            inside === undefined ? 'Loading…' : inside ? `${inside} active` : 'Nothing yet',
+          ],
         ]}
       />
       {owner && (
@@ -789,7 +869,6 @@ function ThingDetail({
               key={`child-${category.id}`}
               workspace={workspace}
               domain={category.domain}
-              categories={categories}
               initialParent={category.id}
               trigger={
                 <Button type="button">
@@ -804,7 +883,6 @@ function ThingDetail({
             key={`edit-${category.id}-${category.version}`}
             workspace={workspace}
             domain={category.domain}
-            categories={categories}
             initial={category}
             trigger={
               <Button type="button" variant="secondary">
@@ -964,45 +1042,51 @@ const catalogColumns = (usage: Map<string, CatalogUsageCounts>): Column<CatalogI
 const catalogPageSize = 25;
 
 function CatalogManagement({ workspace }: { workspace: StudioWorkspace }) {
-  const { items, usage, error, loading, refresh } = useCatalog(workspace.id, { withUsage: true });
-  const usageById = useMemo(() => new Map(usage.map((entry) => [entry.itemId, entry])), [usage]);
-  const columns = useMemo(() => catalogColumns(usageById), [usageById]);
-  const { shown, visible, toggle } = useColumnChoice('catalog', columns);
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<Status>('active');
+  const [visibility, setVisibility] = useState<'all' | 'public' | 'members'>('all');
+  const [usageFilter, setUsageFilter] = useState<'all' | 'used' | 'unused'>('all');
   const [sort, setSort] = useState<Sort>({ key: 'name', direction: 'ascending' });
   const [page, setPage] = useState(1);
-  const [selectedId, setSelected] = useState<string | null>(null);
+  const [selectedRecord, setSelected] = useState<CatalogItem | null>(null);
   const [notice, setNotice] = useState('');
-  // A new item, until the table has moved to the page it sits on.
   const [placing, setPlacing] = useState<string | null>(null);
   const owner = workspace.role === 'manage';
-
-  // Status counts describe what the search matches, before the selected status
-  // narrows it, so All always equals Active plus Inactive.
-  const matching = filterCatalog(items, { search, includeArchived: true });
-  const statusCounts = {
-    all: matching.length,
-    active: matching.filter((item) => !item.archived).length,
-    inactive: matching.filter((item) => item.archived).length,
-  };
-  const compare = compareBy(columns, sort);
-  const filtered = matching.filter((item) =>
-    status === 'all' ? true : status === 'active' ? !item.archived : item.archived,
+  const { data, error, loading, refresh } = useManagementPage<CatalogPage>(
+    workspace.id,
+    'catalog',
+    {
+      search,
+      status,
+      visibility,
+      usage: usageFilter,
+      sort,
+      page,
+      reveal: placing,
+    },
   );
-  const ordered = compare ? [...filtered].sort(compare) : filtered;
-  const pages = Math.max(1, Math.ceil(ordered.length / catalogPageSize));
-  const current = Math.min(page, pages);
-  const shownRows = ordered.slice((current - 1) * catalogPageSize, current * catalogPageSize);
-  const selected = items.find((item) => item.id === selectedId);
-  // A different question starts from its first page; opening a record does not.
-  useEffect(() => setPage(1), [search, status, sort]);
+  const items = data?.items ?? [];
+  const shownRows = items;
+  const usageById = useMemo(
+    () => new Map(data?.usage.map((entry) => [entry.itemId, entry]) ?? []),
+    [data],
+  );
+  const columns = useMemo(() => catalogColumns(usageById), [usageById]);
+  const { shown, visible, toggle } = useColumnChoice('catalog', columns);
+  const statusCounts = data?.statusCounts ?? { all: 0, active: 0, inactive: 0 };
+  const selected = useManagementRecord(workspace.id, 'catalog', selectedRecord);
+  const selectedId = selected?.id;
   useEffect(() => {
-    const index = placing ? ordered.findIndex((item) => item.id === placing) : -1;
-    if (index < 0) return;
-    setPage(Math.floor(index / catalogPageSize) + 1);
+    if (!loading && !error && data) {
+      setPage(data.page);
+      setPlacing(null);
+    }
+  }, [data, loading, error]);
+  function changeQuestion(change: () => void) {
+    setPage(1);
     setPlacing(null);
-  });
+    change();
+  }
   const focus = useRowFocus(
     shownRows.map((item) => item.id),
     { fallback: () => document.getElementById('catalog-search'), paused: Boolean(selectedId) },
@@ -1010,7 +1094,7 @@ function CatalogManagement({ workspace }: { workspace: StudioWorkspace }) {
 
   function open(item: CatalogItem) {
     focus.opened(item.id);
-    setSelected(item.id);
+    setSelected(item);
   }
   /**
    * A new item opens straight away. Behind it, the table clears a search or
@@ -1020,7 +1104,10 @@ function CatalogManagement({ workspace }: { workspace: StudioWorkspace }) {
   function place(item: CatalogItem) {
     if (filterCatalog([item], { search, includeArchived: false }).length === 0) setSearch('');
     if (status === 'inactive') setStatus('active');
+    if (visibility !== 'all' && visibility !== item.visibility) setVisibility('all');
+    if (usageFilter === 'used') setUsageFilter('all');
     setPlacing(item.id);
+    focus.focusWhenShown(item.id);
     open(item);
   }
 
@@ -1038,9 +1125,14 @@ function CatalogManagement({ workspace }: { workspace: StudioWorkspace }) {
           label="Search catalog"
           placeholder="Find names, sizes, models or part numbers…"
           value={search}
-          onChange={setSearch}
+          onChange={(value) => changeQuestion(() => setSearch(value))}
         />
-        <StatusTabs label="Status" value={status} counts={statusCounts} onChange={setStatus} />
+        <StatusTabs
+          label="Status"
+          value={status}
+          counts={statusCounts}
+          onChange={(value) => changeQuestion(() => setStatus(value))}
+        />
         <ColumnMenu columns={columns} visible={visible} onToggle={toggle} />
         {owner && (
           <CatalogDialog
@@ -1059,6 +1151,24 @@ function CatalogManagement({ workspace }: { workspace: StudioWorkspace }) {
           />
         )}
       </div>
+      <ManagementFilters
+        visibility={visibility}
+        usage={usageFilter}
+        onVisibility={(value) => changeQuestion(() => setVisibility(value))}
+        onUsage={(value) => changeQuestion(() => setUsageFilter(value))}
+        onClear={() =>
+          changeQuestion(() => {
+            setSearch('');
+            setStatus('active');
+            setVisibility('all');
+            setUsageFilter('all');
+          })
+        }
+        active={Boolean(
+          search || status !== 'active' || visibility !== 'all' || usageFilter !== 'all',
+        )}
+      />
+
       {notice && (
         <p className={noticeClass} role="status">
           {notice}
@@ -1067,7 +1177,7 @@ function CatalogManagement({ workspace }: { workspace: StudioWorkspace }) {
       <p className={S.count} role="status">
         {loading
           ? 'Loading catalog…'
-          : `${filtered.length} ${filtered.length === 1 ? 'item' : 'items'}`}
+          : `${data?.total ?? 0} ${data?.total === 1 ? 'item' : 'items'}`}
       </p>
       {error ? (
         <>
@@ -1076,13 +1186,13 @@ function CatalogManagement({ workspace }: { workspace: StudioWorkspace }) {
             Try again
           </Button>
         </>
-      ) : loading && !items.length ? null : !filtered.length ? (
+      ) : loading && !items.length ? null : !items.length ? (
         <div className={S.empty}>
           <Package size={36} />
           {/* An empty catalog and an over-narrow search are different situations,
               and suggesting a different search to somebody with nothing yet reads
               as a failure rather than a beginning. */}
-          {items.length === 0 ? (
+          {!search && status === 'active' && visibility === 'all' && usageFilter === 'all' ? (
             <>
               <h2>Nothing here yet</h2>
               <p>
@@ -1099,7 +1209,7 @@ function CatalogManagement({ workspace }: { workspace: StudioWorkspace }) {
         </div>
       ) : (
         <>
-          <div className={panelClass}>
+          <div className={panelClass} aria-busy={loading}>
             <table className={tableClass} aria-label="Catalog items">
               <thead>
                 <tr>
@@ -1108,7 +1218,7 @@ function CatalogManagement({ workspace }: { workspace: StudioWorkspace }) {
                       key={column.key}
                       column={column}
                       sort={sort}
-                      onSort={(key) => setSort(nextSort(sort, key))}
+                      onSort={(key) => changeQuestion(() => setSort(nextSort(sort, key)))}
                     />
                   ))}
                 </tr>
@@ -1157,11 +1267,14 @@ function CatalogManagement({ workspace }: { workspace: StudioWorkspace }) {
             </table>
           </div>
           <Pager
-            page={current}
+            page={data?.page ?? 1}
             pageSize={catalogPageSize}
-            total={ordered.length}
+            total={data?.total ?? 0}
             noun={['item', 'items']}
-            onPage={setPage}
+            onPage={(next) => {
+              setPlacing(null);
+              setPage(next);
+            }}
           />
         </>
       )}

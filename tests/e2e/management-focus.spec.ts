@@ -43,6 +43,52 @@ const item = (n: number, name: string) => ({
   imageAssetId: null,
 });
 
+// These fixtures answer the same bounded-list contract as the server. A mock
+// that returned every record would let accidental client-side paging pass.
+function paged<T extends { id: string; name: string; archived: boolean }>(url: URL, records: T[]) {
+  const query = url.searchParams.get('search')?.toLowerCase() ?? '';
+  const found = records.filter((record) => record.name.toLowerCase().includes(query));
+  const statusCounts = {
+    all: found.length,
+    active: found.filter((record) => !record.archived).length,
+    inactive: found.filter((record) => record.archived).length,
+  };
+  const status = url.searchParams.get('status') ?? 'active';
+  const direction = url.searchParams.get('direction') === 'descending' ? -1 : 1;
+  const ordered = found
+    .filter((record) => status === 'all' || record.archived === (status === 'inactive'))
+    .sort((a, b) => direction * a.name.localeCompare(b.name));
+  const pageSize = Number(url.searchParams.get('pageSize') ?? 25);
+  let page = Math.max(1, Number(url.searchParams.get('page') ?? 1));
+  const revealed = ordered.findIndex((record) => record.id === url.searchParams.get('reveal'));
+  if (revealed >= 0) page = Math.floor(revealed / pageSize) + 1;
+  page = Math.min(page, Math.max(1, Math.ceil(ordered.length / pageSize)));
+  return {
+    records: ordered.slice((page - 1) * pageSize, page * pageSize),
+    total: ordered.length,
+    page,
+    pageSize,
+    statusCounts,
+  };
+}
+
+function categoryList(url: URL, categories: ReturnType<typeof thing>[]) {
+  if (!url.searchParams.has('page')) return { categories, counts: [] };
+  const { records, ...metadata } = paged(url, categories);
+  return {
+    ...metadata,
+    categories: records,
+    counts: [],
+    rows: records.map((category) => ({
+      category,
+      depth: 0,
+      context: false,
+      hasChildren: false,
+      expanded: false,
+    })),
+  };
+}
+
 async function signedIn(page: Page) {
   await page.route('**/api/studio/session', (route) =>
     route.fulfill({
@@ -62,6 +108,7 @@ async function thingsWithSlowRefresh(page: Page) {
   const held = new Promise<void>((resolve) => (release = resolve));
   await signedIn(page);
   await page.route('**/api/studio/*/categories**', async (route) => {
+    const url = new URL(route.request().url());
     if (route.request().method() === 'POST') {
       const added = thing(
         '77777777-7777-4777-8777-777777777777',
@@ -72,7 +119,8 @@ async function thingsWithSlowRefresh(page: Page) {
       return route.fulfill({ status: 201, json: { category: added } });
     }
     if (created) await held;
-    return route.fulfill({ json: { categories: things, counts: [] } });
+    const selected = things.find((entry) => url.pathname.endsWith(`/${entry.id}`));
+    return route.fulfill({ json: selected ? { category: selected } : categoryList(url, things) });
   });
   await page.goto(`/studio/${workspace.id}/categories`);
   await expect(page.getByRole('button', { name: 'Parent', exact: true })).toBeVisible();
@@ -126,7 +174,7 @@ for (const filter of ['Inactive', 'a search'] as const)
     );
     await signedIn(page);
     await page.route('**/api/studio/*/categories**', (route) =>
-      route.fulfill({ json: { categories: [] } }),
+      route.fulfill({ json: categoryList(new URL(route.request().url()), []) }),
     );
     await page.route('**/api/studio/*/catalog**', async (route) => {
       if (route.request().method() === 'POST') {
@@ -134,7 +182,12 @@ for (const filter of ['Inactive', 'a search'] as const)
         items.push(created);
         return route.fulfill({ status: 201, json: { item: created } });
       }
-      return route.fulfill({ json: { items, usage: [] } });
+      const url = new URL(route.request().url());
+      const selected = items.find((entry) => url.pathname.endsWith(`/${entry.id}`));
+      if (selected) return route.fulfill({ json: { item: selected } });
+      if (!url.searchParams.has('page')) return route.fulfill({ json: { items, usage: [] } });
+      const { records, ...metadata } = paged(url, items);
+      return route.fulfill({ json: { ...metadata, items: records, usage: [] } });
     });
     await page.goto(`/studio/${workspace.id}/catalog`);
     await expect(page.getByRole('button', { name: 'Item 00', exact: true })).toBeVisible();

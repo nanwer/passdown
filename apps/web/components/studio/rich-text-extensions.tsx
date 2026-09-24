@@ -129,19 +129,61 @@ const TableAccessibility = Extension.create({
               const label = `Scrollable instruction table${tables.length > 1 ? ` ${index + 1}` : ''}`;
               if (wrapper.getAttribute('aria-label') !== label)
                 wrapper.setAttribute('aria-label', label);
+              // A nested tab stop takes focus from the contenteditable root in
+              // Firefox. Then the editor moves its model selection on Tab but
+              // cannot move the browser caret. Keep the scroll region keyboard
+              // reachable when outside the editor; editing uses the root's
+              // focus and normal cell navigation instead.
+              if (view.hasFocus()) wrapper.removeAttribute('tabindex');
+              else wrapper.tabIndex = 0;
             });
+          };
+          const enterTable = (event: PointerEvent) => {
+            if (!(event.target instanceof Element) || !event.target.closest('td,th')) return;
+            // Remove before the browser's pointer default chooses its focus
+            // target, preserving the native caret placement within the cell.
+            view.dom
+              .querySelectorAll('.tableWrapper')
+              .forEach((wrapper) => wrapper.removeAttribute('tabindex'));
+          };
+          const scrollTable = (event: KeyboardEvent) => {
+            const wrapper = event.target;
+            if (
+              !(wrapper instanceof HTMLElement) ||
+              !wrapper.classList.contains('tableWrapper') ||
+              wrapper !== document.activeElement ||
+              event.altKey ||
+              event.ctrlKey ||
+              event.metaKey ||
+              event.shiftKey ||
+              (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight')
+            )
+              return;
+            // This tab stop controls the scroll region, not a text selection.
+            // Stop the enclosing editor's arrow-key handlers from consuming it.
+            event.preventDefault();
+            event.stopPropagation();
+            wrapper.scrollLeft += event.key === 'ArrowRight' ? 80 : -80;
           };
           // React moves/detaches the editor DOM during teardown. Keep DOM-only
           // accessibility updates outside ProseMirror's synchronous update cycle.
           const schedule = () => {
             if (!frame && !destroyed) frame = requestAnimationFrame(labelTables);
           };
+          view.dom.addEventListener('pointerdown', enterTable);
+          view.dom.addEventListener('keydown', scrollTable, true);
+          view.dom.addEventListener('focusin', schedule);
+          view.dom.addEventListener('focusout', schedule);
           schedule();
           return {
             update: schedule,
             destroy() {
               destroyed = true;
               cancelAnimationFrame(frame);
+              view.dom.removeEventListener('pointerdown', enterTable);
+              view.dom.removeEventListener('keydown', scrollTable, true);
+              view.dom.removeEventListener('focusin', schedule);
+              view.dom.removeEventListener('focusout', schedule);
             },
           };
         },

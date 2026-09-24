@@ -1,28 +1,52 @@
 import { test, expect } from '@playwright/test';
 test.beforeEach(async ({ page }) => {
   await page.route('**/api/studio/*/catalog**', (route) => route.fulfill({ json: { items: [] } }));
-  await page.route('**/api/studio/*/categories**', (route) =>
-    route.fulfill({
+  const category = {
+    id: '55555555-5555-4555-8555-555555555555',
+    workspaceId: '22222222-2222-4222-8222-222222222222',
+    domain: 'guide',
+    parentId: null,
+    name: 'Testing',
+    code: 'GC-0001',
+    description: '',
+    visibility: 'public',
+    archived: false,
+    version: 1,
+    sortOrder: 0,
+    imageAssetId: null,
+    path: [{ id: '55555555-5555-4555-8555-555555555555', name: 'Testing' }],
+  };
+  const counts = {
+    categoryId: category.id,
+    direct: 0,
+    subtree: 0,
+    publishedDirect: 0,
+    publishedSubtree: 0,
+  };
+  await page.route('**/api/studio/*/categories**', (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname.endsWith(`/${category.id}`))
+      return route.fulfill({
+        json: {
+          category,
+          counts,
+          blockers: { activeChildren: 0, assignedGuides: 0, currentReleases: 0, activeItems: 0 },
+        },
+      });
+    return route.fulfill({
       json: {
-        categories: [
-          {
-            id: '55555555-5555-4555-8555-555555555555',
-            workspaceId: '22222222-2222-4222-8222-222222222222',
-            domain: 'guide',
-            parentId: null,
-            name: 'Testing',
-            description: '',
-            visibility: 'public',
-            archived: false,
-            version: 1,
-            sortOrder: 0,
-            imageAssetId: null,
-            path: [{ id: '55555555-5555-4555-8555-555555555555', name: 'Testing' }],
-          },
-        ],
+        categories: [category],
+        ...(url.searchParams.has('page') && {
+          counts: [counts],
+          rows: [{ category, depth: 0, context: false, hasChildren: false, expanded: false }],
+          total: 1,
+          page: 1,
+          pageSize: 25,
+          statusCounts: { all: 1, active: 1, inactive: 0 },
+        }),
       },
-    }),
-  );
+    });
+  });
 });
 // Synthetic route fixtures verify client interactions only. Real persistence/auth
 // are independently exercised by the local integration journey.

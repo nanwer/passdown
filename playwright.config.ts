@@ -3,6 +3,9 @@ export default defineConfig({
   testDir: './tests/e2e',
   outputDir: './test-results/fixtures',
   fullyParallel: true,
+  // Development routes compile on demand. Keep cold navigations from competing
+  // with a browser worker for every available CPU on larger machines.
+  workers: 2,
   use: {
     baseURL: 'http://127.0.0.1:3102',
     channel: process.env.PLAYWRIGHT_CHANNEL,
@@ -18,7 +21,8 @@ export default defineConfig({
       NEXT_TELEMETRY_DISABLED: '1',
     },
     url: 'http://127.0.0.1:3102',
-    reuseExistingServer: !process.env.CI,
+    // A concurrent run must not adopt a server that its owner will tear down.
+    reuseExistingServer: false,
     timeout: 120000,
   },
 });

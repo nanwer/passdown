@@ -69,13 +69,22 @@ git diff --check
 | `pnpm test:database`  | Dedicated `guide_app_test` database; resets its test data.      |
 | `pnpm test:authoring` | Dedicated `guide_app_e2e` database and app on port 3101.        |
 
-Leave the test ports available and run one instance of each database-backed suite at a time. Use these databases only for tests. Set `PLAYWRIGHT_CHANNEL=chrome` to run browser tests with an installed Google Chrome. Do not point test runners at a database containing content you want to keep.
+Leave the test ports available and run one instance of each browser or database suite at a time. Browser suites start and own their test server; an occupied port fails the run instead of reusing another run's server, which could disappear during teardown. The fixture suite defaults to two workers so cold route compilation and browser interactions share a predictable amount of CPU. Run the production build and browser suites sequentially when checking timing-sensitive interactions. Use these databases only for tests. Set `PLAYWRIGHT_CHANNEL=chrome` to run browser tests with an installed Google Chrome. Do not point test runners at a database containing content you want to keep.
 
 You can run a focused browser file during development:
 
 ```sh
 pnpm test:e2e tests/e2e/filter-navigation.spec.ts
 ```
+
+Run the focused editor and management-focus checks in Firefox and WebKit with:
+
+```sh
+pnpm exec playwright install firefox webkit
+pnpm test:cross-browser
+```
+
+This suite owns port 3105 and a separate build directory. Run it after other browser suites finish. It covers rich-text editing, tables, paste and deferred row focus; it does not certify every application journey in these browsers. The main CI suite continues to use Chromium.
 
 Format changed files with `pnpm exec prettier --write <paths>`. After editing design tokens, run `pnpm tokens:generate` and include both the source and generated output. Avoid formatting unrelated files.
 

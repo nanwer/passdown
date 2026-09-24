@@ -362,3 +362,5 @@ export type CatalogUsage = {
     currentRelease: number | null;
   }[];
 };
+
+export * from './management';

@@ -1,3 +1,4 @@
+import { managementChecks } from './management-integration';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import pg from 'pg';
@@ -1441,6 +1442,7 @@ try {
       assert.equal(internal.get(shelf.id)?.publishedSubtree, 1);
     },
   );
+  await managementChecks({ store, owner, check, actor, doc });
   console.log(
     `${checks} persistent database/identity behavioral checks passed against guide_app_test.`,
   );
