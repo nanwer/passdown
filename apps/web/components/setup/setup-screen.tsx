@@ -101,7 +101,7 @@ export function SetupScreen() {
       {!signIn && (
         <form ref={form} method="post" onSubmit={submit} noValidate className="mt-6 space-y-4">
           {fields.map(([name, label, type, autoComplete], index) => (
-            <div key={name}>
+            <div key={name} className="grid gap-2">
               <Label htmlFor={`setup-${name}`}>{label}</Label>
               <Input
                 id={`setup-${name}`}

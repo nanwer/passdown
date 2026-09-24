@@ -1,8 +1,9 @@
 import { createHash } from 'node:crypto';
+import { ApplicationError } from '@guide/contracts';
 import { beforeEach, expect, it, vi } from 'vitest';
 const state = vi.hoisted(() => ({
   required: true,
-  hash: Buffer.alloc(32),
+  hash: Buffer.alloc(32) as Buffer | undefined,
   outcome: { outcome: 'created', workspace: 'workshop' },
   reconciliation: 'complete',
   signIn: vi.fn(),
@@ -48,6 +49,7 @@ const request = (body: unknown = input, origin = 'https://example.org') =>
 beforeEach(() => {
   vi.clearAllMocks();
   state.required = true;
+  state.rate.mockResolvedValue(undefined);
   state.hash = createHash('sha256').update(code.replaceAll('-', '')).digest();
   state.completeSetup.mockResolvedValue({ outcome: 'created', workspace: 'workshop' });
   state.reconcileSetup.mockResolvedValue('complete');
@@ -59,6 +61,53 @@ it('requires a configured origin and correct code before account creation', asyn
   expect((await POST(request(input, 'https://attacker.org'))).status).toBe(403);
   expect((await POST(request({ ...input, code: 'wrong' }))).status).toBe(403);
   expect(state.completeSetup).not.toHaveBeenCalled();
+});
+it('honors setup throttling before creating accounts or sessions', async () => {
+  state.rate.mockRejectedValue(new ApplicationError('RATE_LIMITED', 'Wait before retrying.', 429));
+  const response = await POST(request());
+  expect(response.status).toBe(429);
+  expect(response.headers.get('Retry-After')).toBe('60');
+  expect(state.completeSetup).not.toHaveBeenCalled();
+  expect(state.signIn).not.toHaveBeenCalled();
+});
+it('refuses setup when the operator has not configured a code hash', async () => {
+  state.hash = undefined;
+  const response = await POST(request());
+  expect(response.status).toBe(503);
+  expect((await response.json()).error.code).toBe('SETUP_CODE_MISSING');
+  expect(state.completeSetup).not.toHaveBeenCalled();
+});
+it.each([
+  [
+    'missing field',
+    JSON.stringify({ ...input, workspaceName: undefined }),
+    'application/json',
+    422,
+  ],
+  ['unknown field', JSON.stringify({ ...input, administrator: true }), 'application/json', 422],
+  ['non-JSON media', JSON.stringify(input), 'text/plain', 415],
+  ['malformed JSON', '{', 'application/json', 400],
+  [
+    'oversized streamed body',
+    JSON.stringify({ ...input, code: 'x'.repeat(17_000) }),
+    'application/json',
+    413,
+  ],
+])('rejects %s before creating accounts', async (_name, body, contentType, status) => {
+  const response = await POST(
+    new Request('https://example.org/api/setup', {
+      method: 'POST',
+      headers: { origin: 'https://example.org', 'Content-Type': contentType },
+      // No Content-Length: enforce the size while consuming the body itself.
+      body,
+    }),
+  );
+  expect(response.status).toBe(status);
+  expect(state.completeSetup).not.toHaveBeenCalled();
+  expect(state.signIn).not.toHaveBeenCalled();
+});
+it('normalizes a pasted setup code before verifying it', async () => {
+  expect((await POST(request({ ...input, code: ' l2345 6789o abcde fghjk ' }))).status).toBe(201);
 });
 it('canonicalizes email and returns the sign-in session', async () => {
   const result = await POST(request());
@@ -81,6 +130,7 @@ it.each(['complete', 'empty', 'other-account'])(
     state.reconcileSetup.mockResolvedValue(value);
     const response = await POST(request());
     expect(response.status).toBe(value === 'complete' ? 201 : value === 'empty' ? 503 : 404);
+    expect(state.completeSetup).toHaveBeenCalledTimes(1);
     expect(state.signIn).not.toHaveBeenCalled();
   },
 );
