@@ -309,7 +309,10 @@ export const cellClass =
  * user nowhere. So while focus is still on that row, or has just been lost
  * from it, the table puts it on the row now in the same place, or on the
  * search when nothing is left. A row that was just created takes focus as
- * soon as it appears, once nothing is open over the table.
+ * soon as it appears, once nothing is open over the table — unless the viewer
+ * has started doing something else in the meantime. The list can take a while
+ * to come back, and a creation finished seconds ago must not pull focus out
+ * of a search box somebody is typing in now.
  */
 export function useRowFocus(
   rowIds: string[],
@@ -320,6 +323,8 @@ export function useRowFocus(
   const watching = useRef(false);
   const pending = useRef<string | null>(null);
   const [, setPendingVersion] = useState(0);
+  const pausedNow = useRef(paused);
+  pausedNow.current = paused;
 
   const neighbour = () => {
     const index = Math.min(last.current?.index ?? 0, rowIds.length - 1);
@@ -343,8 +348,21 @@ export function useRowFocus(
       const current = last.current && openers.current.get(last.current.id);
       if (event.target !== current) watching.current = false;
     };
+    // A key or a press on the table itself is the viewer's next action, and
+    // the new row gives way to it. Inside a dialog or sheet it is still part
+    // of the creation (typing the name, pressing Add, closing the sheet), and
+    // focus moved by a closing dialog is not the viewer acting at all.
+    const acted = () => {
+      if (!pausedNow.current) pending.current = null;
+    };
     document.addEventListener('focusin', moved);
-    return () => document.removeEventListener('focusin', moved);
+    document.addEventListener('keydown', acted, true);
+    document.addEventListener('pointerdown', acted, true);
+    return () => {
+      document.removeEventListener('focusin', moved);
+      document.removeEventListener('keydown', acted, true);
+      document.removeEventListener('pointerdown', acted, true);
+    };
   }, []);
 
   useEffect(() => {

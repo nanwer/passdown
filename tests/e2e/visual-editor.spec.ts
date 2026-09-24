@@ -327,6 +327,72 @@ test('links are visual and validated, rich paste is editable, and unsupported pa
   await expect(field.locator('a').first()).toHaveAttribute('href', 'https://example.com/manual');
 });
 
+// The browser moves the caret for an arrow key itself and reports it with a
+// selectionchange event delivered later; a key pressed before then used to act
+// on the old selection. Both halves run the same forced sequence in one task,
+// so the event cannot arrive in between: a linked word is selected in the
+// editor, the browser caret is collapsed after it, and Enter is dispatched.
+// The control removes the app's key handler to show the sequence does lose the
+// word without the fix. If the control ever starts passing after an upgrade,
+// ProseMirror has begun doing this itself and selection-sync.ts can go.
+for (const synced of [true, false])
+  test(`Enter acts where the caret is before the browser reports it (${synced ? 'with the fix' : 'control, without it'})`, async ({
+    page,
+  }) => {
+    const field = await openEditor(page);
+    await field.fill('Read the manual.');
+    await selectText(field, 'manual');
+    await page.getByRole('button', { name: 'Link', exact: true }).click();
+    await page
+      .getByRole('textbox', { name: 'Link address', exact: true })
+      .fill('https://example.com/manual');
+    await page.getByRole('button', { name: 'Apply link', exact: true }).click();
+    await expect(field.locator('a')).toHaveText('manual');
+    const result = await field.evaluate((element, synced) => {
+      const editor = (element as unknown as { editor: any }).editor;
+      editor.commands.focus();
+      editor.commands.setTextSelection({ from: 10, to: 16 });
+      const view = editor.view;
+      const handler = view.props.handleKeyDown;
+      if (!synced) view.setProps({ handleKeyDown: () => false });
+      const range = document.createRange();
+      range.selectNodeContents(element.querySelector('a')!);
+      range.collapse(false);
+      const selection = window.getSelection()!;
+      selection.removeAllRanges();
+      selection.addRange(range);
+      const before = {
+        editorSelectsText: editor.state.selection.from !== editor.state.selection.to,
+        browserSelection: selection.toString(),
+      };
+      element.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: 'Enter',
+          code: 'Enter',
+          keyCode: 13,
+          which: 13,
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+      view.setProps({ handleKeyDown: handler });
+      return { before, text: editor.getText() as string };
+    }, synced);
+    // The race really was set up: the editor still selects the word while
+    // the browser caret has already moved past it.
+    expect(result.before).toEqual({ editorSelectsText: true, browserSelection: '' });
+    if (!synced) {
+      expect(result.text).not.toContain('manual');
+      return;
+    }
+    await expect(field.locator('a')).toHaveText('manual');
+    await expect(field.locator('p')).toHaveCount(2);
+    await page.getByRole('button', { name: 'Save draft', exact: true }).click();
+    await expect(page.getByText('All changes saved', { exact: true })).toBeVisible();
+    await page.reload();
+    await expect(field.locator('a')).toHaveText('manual');
+  });
+
 test('oversized unsaved visual content survives step switching and can be corrected', async ({
   page,
 }) => {
