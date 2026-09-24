@@ -27,6 +27,12 @@ Passdown is an early, working application for public community guides and privat
 - Library listings that read one bounded page from the database, filtered and counted there.
 - Versioned migrations with a checksummed manifest, a health endpoint that refuses a database this build does not match, and a warning when the running process is older than the schema.
 
+## Authoring interface
+
+Guide creation uses compact, keyboard-operable choice cards, separate essentials/preparation/section panels, and draft guidance beside the form on desktop. The same essentials and preparation components appear in **Guide details**. Preparation cards keep quantity and usage controls visible while optional notes expand on demand; saved notes open expanded. Radios and checkboxes retain their own dimensions rather than inheriting text-input sizing. Internal drafts in public workspaces pass their selected audience to category and catalog pickers.
+
+See [authoring UI patterns](authoring-ui.md) for the reusable components and [manual test steps](manual-test-checklist.md#guide-creation-and-preparation-layout) for the complete create/save journey.
+
 ## Boundaries
 
 Saves are manual. Management lists use 25-row pages; Things may additionally show ancestor context at page boundaries. Inline category pickers still load their options when opened. Open signup is deliberately off — an account exists because somebody was invited or because the installation created the first one. Nothing sends email; invitations are links passed on by hand, and account recovery does not exist. Attachments other than pictures, cross-guide prerequisites, approval workflows and collaborative editing are not implemented.

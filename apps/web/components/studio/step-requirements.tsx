@@ -206,14 +206,16 @@ export function StepRequirements({
                   </Dialog>
                 )}
               </div>
-              <RequirementQuantity
-                label={`${requirement.name} in this step`}
-                quantity={usage.quantity}
-                unit={usage.unit}
-                role={requirement.role}
-                disabled={disabled}
-                onChange={(changes) => patchUsage(requirement.id, changes)}
-              />
+              <div className="my-4">
+                <RequirementQuantity
+                  label={`${requirement.name} in this step`}
+                  quantity={usage.quantity}
+                  unit={usage.unit}
+                  role={requirement.role}
+                  disabled={disabled}
+                  onChange={(changes) => patchUsage(requirement.id, changes)}
+                />
+              </div>
               {requirement.role === 'use' ? (
                 <label>
                   How it is used

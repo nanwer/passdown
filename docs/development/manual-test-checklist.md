@@ -2,6 +2,20 @@
 
 Start the local app and sign in at [Studio](http://127.0.0.1:3100/studio) using the generated credentials in your private LOCAL_ACCESS.md. Test both Repair collective and Workshop operations. These examples use local test data you create yourself.
 
+## Guide creation and preparation layout
+
+Use **Studio → a workspace → New guide** (`/studio/{workspace}/new`), then the draft editor’s **Guide details**.
+
+1. Select **Inspection** by clicking anywhere on its card. Expect a small checked indicator, a highlighted card, and the inspection question below the choices. Use Tab and arrow keys to change the selection; the focus indicator must remain visible. A custom workspace type still displays its configured label and description.
+2. Enter a title and summary, open **What is this about?**, and choose a thing. Cancel and reopen the picker before choosing; your typed fields must remain intact. Complete the **Guide essentials** section and confirm difficulty and duration remain editable.
+3. Under **Tools, materials & parts**, use **Add something you keep** and choose a catalog item. Expect a compact item card with its name/specification, **Amount**, **Unit**, **After this guide**, and **Optional for this guide**. Choose **Exact quantity** to reveal the number field; switch back to **As needed** to remove that field.
+4. Expand **Guide-specific notes**, type a note, collapse it and reopen it. Expect the text to remain. Notes already saved on a draft open expanded. Mark the item optional and change **After this guide** to **Used up or fitted**; expect the same item and its note in that group, without duplication. Removal still requires confirmation.
+5. In a public workspace, choose **Internal** under **Section**, then reopen the catalog picker. Member-only items are available. Choose **Public** and reopen it: member-only options are excluded. A private workspace shows the membership notice without offering a public section.
+6. Click **Create draft**. Expect the step editor to open; nothing is published. Open **Guide details** and confirm the essentials, selected item, amount and note. Edit them, choose **Save draft**, reload, and confirm the saved values remain.
+7. Repeat at 390px and 320px widths and in light/dark themes. Work-type cards become a single column; quantity fields fit the item card; labels, focus and actions remain visible without horizontal scrolling. Desktop-only draft guidance must not push the mobile form down.
+
+The redesign shares its choice cards, section hierarchy and quantity controls with draft editing. It does not add autosave or change catalog records, publication snapshots or permissions. Notes are optional disclosures; required fields and validation remain visible.
+
 ## Source readiness checks
 
 1. Open the repository README and follow **GitHub Sponsors**. Expect the `nanwer` sponsorship page. The repository funding configuration points to the same account; GitHub controls whether a Sponsor button appears for that account.

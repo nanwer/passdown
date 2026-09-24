@@ -3,6 +3,14 @@ import * as X from './studio-styles';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import {
   ArrowRight,
+  ArrowLeftRight,
+  ClipboardCheck,
+  Layers3,
+  PackageOpen,
+  Wrench,
+  Settings2,
+  FileText,
+  Check,
   Globe2,
   LockKeyhole,
   PenLine,
@@ -10,7 +18,7 @@ import {
   Search,
   SlidersHorizontal,
 } from 'lucide-react';
-import { Button, buttonVariants, cn } from '@guide/ui';
+import { Button, ChoiceCard, buttonVariants, cn } from '@guide/ui';
 import type { Category, DraftGuide, DraftSummary, StudioWorkspace } from '@guide/contracts';
 import { composeGuideTitle, type GuideDocument, type GuideType } from '@guide/content';
 import { Frame, ErrorNotice, SessionGate, StudioTrail } from './frame';
@@ -19,6 +27,7 @@ import { newDocument, safeReturnTo } from './model';
 import { CategoryPicker } from '../structured';
 import { words } from '../../lib/vocabulary';
 import { GuideRequirements } from './guide-requirements';
+import { AuthoringSection, authoringPanel } from './authoring-section';
 export function SignIn() {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
@@ -360,66 +369,80 @@ export function MetadataFields({
   className?: string;
 }) {
   return (
-    <div className={cn(X.form, className)}>
-      <label>
-        Guide title
-        <input
-          required
-          maxLength={140}
-          value={document.title}
-          onChange={(e) => {
-            onTitleEdited?.();
-            onDocument({ ...document, title: e.target.value });
-          }}
-          placeholder="What will the reader learn?"
-        />
-      </label>
-      <label>
-        Summary
-        <textarea
-          required
-          maxLength={500}
-          rows={3}
-          value={document.summary}
-          onChange={(e) => onDocument({ ...document, summary: e.target.value })}
-          placeholder="Describe the outcome and who this guide is for."
-        />
-      </label>
-      <div className="grid grid-cols-[2fr_1fr_1fr] gap-4 max-[1000px]:grid-cols-[1fr_1fr] max-[1000px]:[&>label:first-child]:col-[1/-1] max-[700px]:grid-cols-[1fr] max-[700px]:[&>label:first-child]:col-[auto]">
-        <CategoryPicker
-          workspace={workspace}
-          domain="guide"
-          value={category}
-          onChange={onCategory}
-          visibility={audience ?? (workspace.audience === 'public' ? 'public' : 'members')}
-          required
-          label="What is this about?"
-        />
-        <label>
-          Difficulty
-          <select
-            value={document.difficulty}
-            onChange={(e) =>
-              onDocument({ ...document, difficulty: e.target.value as GuideDocument['difficulty'] })
-            }
-          >
-            <option value="easy">Easy</option>
-            <option value="moderate">Moderate</option>
-            <option value="advanced">Advanced</option>
-          </select>
-        </label>
-        <label>
-          Time (minutes)
-          <input
-            type="number"
-            min={1}
-            max={10080}
-            required
-            value={document.durationMinutes}
-            onChange={(e) => onDocument({ ...document, durationMinutes: Number(e.target.value) })}
-          />
-        </label>
-      </div>
+    <div className={cn('grid gap-6', className)}>
+      <AuthoringSection
+        id="guide-essentials-title"
+        title="Guide essentials"
+        description="Give readers a clear outcome and an idea of what to expect."
+        icon={<FileText size={18} />}
+      >
+        <div className={X.form}>
+          <label>
+            Guide title
+            <input
+              required
+              maxLength={140}
+              value={document.title}
+              onChange={(e) => {
+                onTitleEdited?.();
+                onDocument({ ...document, title: e.target.value });
+              }}
+              placeholder="What will the reader learn?"
+            />
+          </label>
+          <label>
+            Summary
+            <textarea
+              required
+              maxLength={500}
+              rows={3}
+              value={document.summary}
+              onChange={(e) => onDocument({ ...document, summary: e.target.value })}
+              placeholder="Describe the outcome and who this guide is for."
+            />
+          </label>
+          <div className="grid grid-cols-[2fr_1fr_1fr] gap-4 max-[1000px]:grid-cols-[1fr_1fr] max-[1000px]:[&>label:first-child]:col-[1/-1] max-[700px]:grid-cols-[1fr] max-[700px]:[&>label:first-child]:col-[auto]">
+            <CategoryPicker
+              workspace={workspace}
+              domain="guide"
+              value={category}
+              onChange={onCategory}
+              visibility={audience ?? (workspace.audience === 'public' ? 'public' : 'members')}
+              required
+              label="What is this about?"
+            />
+            <label>
+              Difficulty
+              <select
+                value={document.difficulty}
+                onChange={(e) =>
+                  onDocument({
+                    ...document,
+                    difficulty: e.target.value as GuideDocument['difficulty'],
+                  })
+                }
+              >
+                <option value="easy">Easy</option>
+                <option value="moderate">Moderate</option>
+                <option value="advanced">Advanced</option>
+              </select>
+            </label>
+            <label>
+              Time (minutes)
+              <input
+                type="number"
+                min={1}
+                max={10080}
+                required
+                value={document.durationMinutes}
+                onChange={(e) =>
+                  onDocument({ ...document, durationMinutes: Number(e.target.value) })
+                }
+              />
+            </label>
+          </div>
+        </div>
+      </AuthoringSection>
       {document.schemaVersion === 5 && (
         <GuideRequirements
           document={document}
@@ -530,118 +553,167 @@ function CreateGuide({ workspace }: { workspace: StudioWorkspace }) {
     }
   }
   return (
-    <main id="main" tabIndex={-1} className={X.narrowContainer}>
+    <main
+      id="main"
+      tabIndex={-1}
+      className={cn(X.container, 'max-w-[1180px] py-10 [&_h1]:text-[38px]')}
+    >
       <div className={X.pageHeading}>
         <StudioTrail workspace={workspace} section="Guides" />
-        <h1>Start with the essentials.</h1>
-        <p>You can refine everything as you write. Nothing is published yet.</p>
+        <h1>Start a guide.</h1>
+        <p>Set the essentials, then bring each step to life. Nothing is published yet.</p>
       </div>
       {workspace.role !== 'manage' ? (
         <ErrorNotice error="Only workspace owners can create guides in this preview." />
       ) : (
         document && (
-          <form className={X.card} onSubmit={submit}>
-            {types.length > 0 && (
-              <fieldset className="m-0 grid gap-2.5 rounded-[10px] border border-solid border-line p-4 [&_legend]:px-1.5 [&_legend]:py-0 [&_legend]:text-[13px] [&_legend]:font-[650]">
-                <legend>What kind of work is this?</legend>
-                <p className={X.hint}>
-                  This is separate from what the guide is about. A floor is a {words.thing}; an
-                  inspection is something you do to one.
-                </p>
-                <div className="grid grid-cols-[repeat(auto-fit,minmax(210px,1fr))] gap-2">
-                  {types.map((type) => (
-                    <label
-                      key={type.key}
-                      className="flex cursor-pointer items-start gap-2 rounded-[9px] border border-solid border-line px-[13px] py-[11px] has-checked:border-focus has-checked:bg-sunken [&_span]:grid [&_span]:gap-[3px] [&_span]:text-[13px] [&_span]:text-muted [&_strong]:text-ink"
-                    >
+          <form
+            className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_240px]"
+            onSubmit={submit}
+          >
+            <div className="grid min-w-0 gap-6">
+              {types.length > 0 && (
+                <fieldset className={cn(authoringPanel, 'm-0 min-w-0')}>
+                  <legend className="float-start mb-1 w-full text-[17px] font-semibold tracking-tight">
+                    What kind of work is this?
+                  </legend>
+                  <p className="clear-both mb-5 text-[13px] leading-5">
+                    Choose the purpose of your guide. Your workspace’s types help readers find the
+                    right instructions.
+                  </p>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {types.map((type) => {
+                      const Icon =
+                        (
+                          {
+                            repair: Wrench,
+                            replacement: ArrowLeftRight,
+                            disassembly: Layers3,
+                            teardown: PackageOpen,
+                            inspection: ClipboardCheck,
+                            maintenance: Settings2,
+                          } as Record<string, typeof Wrench>
+                        )[type.key] ?? PenLine;
+                      return (
+                        <ChoiceCard
+                          key={type.key}
+                          title={type.label}
+                          description={type.description}
+                          icon={<Icon size={18} />}
+                          name="guideType"
+                          value={type.key}
+                          checked={typeKey === type.key}
+                          onChange={() => {
+                            setTypeKey(type.key);
+                            if (!type.prompt) setSubject('');
+                          }}
+                        />
+                      );
+                    })}
+                  </div>
+                  {selectedType?.prompt && (
+                    <label className="mt-5 grid gap-2 border-t border-line pt-5 text-sm font-semibold text-ink [&_input]:font-normal">
+                      {selectedType.prompt}
                       <input
-                        type="radio"
-                        name="guideType"
-                        value={type.key}
-                        checked={typeKey === type.key}
-                        onChange={() => {
-                          setTypeKey(type.key);
-                          // A question that is no longer asked keeps no answer.
-                          if (!type.prompt) setSubject('');
-                        }}
+                        maxLength={140}
+                        value={subject}
+                        onChange={(e) => setSubject(e.target.value)}
                       />
-                      <span>
-                        <strong>{type.label}</strong>
-                        {type.description}
-                      </span>
                     </label>
-                  ))}
-                </div>
-                {selectedType?.prompt && (
-                  <label className="grid gap-[5px] text-[13px] font-semibold text-ink [&_input]:font-normal">
-                    {selectedType.prompt}
-                    <input
-                      maxLength={140}
-                      value={subject}
-                      onChange={(e) => setSubject(e.target.value)}
+                  )}
+                </fieldset>
+              )}
+              <MetadataFields
+                audience={audience}
+                document={document}
+                workspace={workspace}
+                category={category}
+                onDocument={setDocument}
+                onCategory={(id, chosen) => {
+                  setCategory(id);
+                  setThingName(chosen?.name ?? '');
+                }}
+                onTitleEdited={() => {
+                  titleEdited.current = true;
+                }}
+              />
+              {workspace.audience === 'public' ? (
+                <fieldset className={cn(authoringPanel, 'm-0 min-w-0')}>
+                  <legend className="float-start mb-1 w-full text-[17px] font-semibold tracking-tight">
+                    Section
+                  </legend>
+                  <p className="clear-both mb-5 text-[13px] leading-5">
+                    Choose who can read it when published. You can move a guide between sections
+                    later, from Guide details.
+                  </p>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <ChoiceCard
+                      title="Public"
+                      description="Anyone can read it once published."
+                      icon={<Globe2 size={18} />}
+                      name="audience"
+                      value="public"
+                      checked={audience === 'public'}
+                      onChange={() => setAudience('public')}
                     />
-                  </label>
-                )}
-              </fieldset>
-            )}
-            <MetadataFields
-              document={document}
-              workspace={workspace}
-              category={category}
-              onDocument={setDocument}
-              onCategory={(id, chosen) => {
-                setCategory(id);
-                setThingName(chosen?.name ?? '');
-              }}
-              onTitleEdited={() => {
-                titleEdited.current = true;
-              }}
-            />
-            {workspace.audience === 'public' ? (
-              <fieldset className="m-0 grid gap-2.5 rounded-[10px] border border-solid border-line p-4 [&_legend]:px-1.5 [&_legend]:py-0 [&_legend]:text-[13px] [&_legend]:font-[650]">
-                <legend>Section</legend>
-                <p className={X.hint}>
-                  You can move a guide between sections later, from Guide details.
+                    <ChoiceCard
+                      title="Internal"
+                      description="Only active workspace members can read it."
+                      icon={<LockKeyhole size={18} />}
+                      name="audience"
+                      value="members"
+                      checked={audience === 'members'}
+                      onChange={() => setAudience('members')}
+                    />
+                  </div>
+                </fieldset>
+              ) : (
+                <p className="flex items-start gap-2 rounded-xl border border-line bg-panel p-4 text-[13px]">
+                  <LockKeyhole size={17} className="mt-0.5 shrink-0" aria-hidden="true" />
+                  Private workspace: published guides are only visible to active workspace members.
                 </p>
-                <label className="flex cursor-pointer items-start gap-2 rounded-[9px] border border-solid border-line px-[13px] py-[11px] has-checked:border-focus has-checked:bg-sunken [&_span]:grid [&_span]:gap-[3px] [&_span]:text-[13px] [&_span]:text-muted [&_strong]:text-ink">
-                  <input
-                    type="radio"
-                    name="audience"
-                    value="public"
-                    checked={audience === 'public'}
-                    onChange={() => setAudience('public')}
-                  />
-                  <span>
-                    <strong>Public</strong>
-                    Anyone can read it once published.
-                  </span>
-                </label>
-                <label className="flex cursor-pointer items-start gap-2 rounded-[9px] border border-solid border-line px-[13px] py-[11px] has-checked:border-focus has-checked:bg-sunken [&_span]:grid [&_span]:gap-[3px] [&_span]:text-[13px] [&_span]:text-muted [&_strong]:text-ink">
-                  <input
-                    type="radio"
-                    name="audience"
-                    value="members"
-                    checked={audience === 'members'}
-                    onChange={() => setAudience('members')}
-                  />
-                  <span>
-                    <strong>Internal</strong>
-                    Only active members of this workspace can read it.
-                  </span>
-                </label>
-              </fieldset>
-            ) : (
-              <p className={X.notice}>
-                Private workspace: published guides are only visible to active workspace members.
-              </p>
-            )}
-            {error && <ErrorNotice error={error} />}
-            <div className={cn(X.actions, 'mt-8 justify-end')}>
-              <a href={`/studio/${workspace.id}`}>Cancel</a>
-              <Button type="submit" loading={pending}>
-                Create draft <ArrowRight size={17} />
-              </Button>
+              )}
+              {error && <ErrorNotice error={error} />}
+              <div className="flex flex-wrap items-center justify-between gap-4 border-t border-line pt-6">
+                <a
+                  className={buttonVariants({ variant: 'ghost' })}
+                  href={`/studio/${workspace.id}`}
+                >
+                  Cancel
+                </a>
+                <Button type="submit" loading={pending}>
+                  Create draft <ArrowRight size={17} />
+                </Button>
+              </div>
             </div>
+            <aside
+              className="rounded-2xl border border-line bg-panel p-5 hidden lg:sticky lg:top-28 lg:block"
+              aria-label="About your draft"
+            >
+              <div className="mb-3 flex items-center gap-2 text-[13px] font-semibold">
+                <span className="size-2 rounded-full bg-action" aria-hidden="true" /> New draft
+              </div>
+              <p className="text-[13px] leading-6">
+                Your guide belongs to{' '}
+                <strong className="font-semibold text-ink">{workspace.name}</strong>. It stays
+                unpublished until you choose to share a release.
+              </p>
+              <div className="mt-5 border-t border-line pt-4 max-lg:hidden">
+                <p className="mb-3 text-[12px] font-semibold text-ink">Next, in the editor</p>
+                <ul className="m-0 grid list-none gap-3 p-0 text-[12px] text-muted">
+                  {[
+                    'Write and illustrate each step',
+                    'Assign tools and materials',
+                    'Preview, save and publish',
+                  ].map((text) => (
+                    <li key={text} className="flex items-center gap-2">
+                      <Check size={14} aria-hidden="true" />
+                      {text}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </aside>
           </form>
         )
       )}

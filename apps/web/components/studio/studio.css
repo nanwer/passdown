@@ -21,7 +21,7 @@
     font-weight: 600;
     font-size: 14px;
   }
-  .studio input,
+  .studio input:not([type='radio']):not([type='checkbox']):not([type='file']),
   .studio textarea,
   .studio select {
     width: 100%;
@@ -34,6 +34,23 @@
     font: inherit;
     font-weight: 400;
     line-height: 1.5;
+  }
+  /* Choice indicators have intrinsic dimensions; text-field sizing makes
+     radios enormous and prevents checkboxes from aligning with their labels. */
+  .studio input[type='radio'],
+  .studio input[type='checkbox'] {
+    width: 16px;
+    height: 16px;
+    min-height: 0;
+    padding: 0;
+    flex-shrink: 0;
+    accent-color: var(--gp-semantic-action-primary-background);
+  }
+  .studio label:has(> input[type='radio']),
+  .studio label:has(> input[type='checkbox']) {
+    flex-direction: row;
+    align-items: center;
+    font-weight: 400;
   }
   .studio textarea {
     resize: vertical;

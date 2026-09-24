@@ -1,5 +1,5 @@
 'use client';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useId, useState } from 'react';
 import type { CatalogItem, StudioWorkspace } from '@guide/contracts';
 import {
   allocatedRequirementQuantity,
@@ -22,8 +22,9 @@ import {
   fieldControl,
   fieldLabel,
 } from './requirement-styles';
-import { Package, RefreshCw, Trash2, Wrench } from 'lucide-react';
+import { ChevronDown, MessageSquare, Package, RefreshCw, Trash2, Wrench } from 'lucide-react';
 import { CatalogPicker } from '../structured';
+import { AuthoringSection } from './authoring-section';
 import { studioFetch } from './transport';
 
 /**
@@ -68,8 +69,10 @@ export function RequirementQuantity({
   disabled?: boolean;
 }) {
   return (
-    <div className="my-4 grid grid-cols-[minmax(140px,1.5fr)_minmax(75px,1fr)_minmax(70px,1fr)] gap-3 max-[600px]:grid-cols-[1fr_1fr]">
-      <label className={`${fieldLabel} max-[600px]:col-[1/-1]`}>
+    <div
+      className={`grid min-w-0 items-start gap-3 ${quantity === null ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)]'}`}
+    >
+      <label className={`${fieldLabel} ${quantity !== null ? 'col-span-2 sm:col-span-1' : ''}`}>
         Amount
         <select
           className={`${fieldControl} min-h-10`}
@@ -217,22 +220,12 @@ export function GuideRequirements({
   }
   const issues = getRequirementIssues(document).filter((issue) => issue.path[0] === 'requirements');
   return (
-    <section
-      className="mt-7 border-t border-solid border-t-line pt-7"
-      aria-labelledby="guide-requirements-title"
+    <AuthoringSection
+      id="guide-requirements-title"
+      title="Tools, materials & parts"
+      description="Choose catalog items and set the total needed for the guide. Assign items to individual steps in the editor."
+      icon={<Wrench size={18} />}
     >
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h2 id="guide-requirements-title" className="m-0 text-[21px]">
-            Tools, materials & parts
-          </h2>
-          <p className="mx-0 mt-[7px] mb-4 text-[13px] leading-[1.6]">
-            Select exact items from your workspace catalog. Set the total to prepare for the whole
-            guide.
-          </p>
-        </div>
-        <Wrench size={22} aria-hidden="true" className="mt-[5px] shrink-0 text-muted" />
-      </div>
       <p className="text-[13px] empty:hidden" role="status">
         {notice}
       </p>
@@ -308,17 +301,19 @@ export function GuideRequirements({
         const selected = document.requirements.filter((entry) => entry.role === group);
         const Icon = group === 'keep' ? Wrench : Package;
         return (
-          <div className="[&+&]:mt-7" key={group}>
-            <h3 className="mt-4 mb-3 flex items-center gap-2 text-[15px]">
+          <div className="[&+&]:mt-6 [&+&]:border-t [&+&]:border-line [&+&]:pt-6" key={group}>
+            <h3 className="mb-3 flex items-center gap-2 text-[14px] font-semibold">
               <Icon size={17} aria-hidden="true" />
-              {group === 'keep' ? 'What you need to hand' : 'What gets used up'}
-              <span className="ms-auto text-[12px] font-medium text-muted">{selected.length}</span>
+              {group === 'keep' ? 'Reusable items' : 'Used up or fitted'}
+              <span className="ms-auto rounded-md bg-panel px-2 py-0.5 text-[12px] font-medium text-muted">
+                {selected.length}
+              </span>
             </h3>
             {selected.length === 0 && (
               <p className="mx-0 mt-[7px] mb-4 text-[13px] leading-[1.6]">
                 {group === 'keep'
-                  ? 'Anything the reader still has when they are done — tools, a jig, gloves.'
-                  : 'Anything used up or fitted — a screw, an adhesive, a replacement screen.'}
+                  ? 'Tools and equipment the reader keeps, such as a driver or a jig.'
+                  : 'Consumables and parts, such as adhesive or a replacement screen.'}
               </p>
             )}
             {selected.map((entry) => {
@@ -331,13 +326,13 @@ export function GuideRequirements({
               const allocated = allocatedRequirementQuantity(document, entry.id);
               return (
                 <article
-                  className="requirement-card my-3 scroll-mt-[120px] scroll-mb-[120px] rounded-[10px] border border-solid border-line bg-panel p-4.5 focus:[outline:2px_solid_var(--gp-semantic-focus-ring)] focus:outline-offset-[3px] max-[600px]:p-3.5"
+                  className="requirement-card my-3 min-w-0 scroll-mt-[120px] scroll-mb-[120px] rounded-xl border border-line bg-panel p-4 focus:[outline:2px_solid_var(--gp-semantic-focus-ring)] focus:outline-offset-[3px] sm:p-5"
                   id={`edit-requirement-${entry.id}`}
                   tabIndex={-1}
                   key={entry.id}
                 >
-                  <div className={cardHeader}>
-                    <div>
+                  <div className={`${cardHeader} mb-4 border-b border-control pb-4`}>
+                    <div className="min-w-0">
                       <h4 className={cardTitle}>{entry.name}</h4>
                       {entry.specification && <p className={cardDetail}>{entry.specification}</p>}
                       {[entry.manufacturer, entry.model, entry.partNumber].some(Boolean) && (
@@ -459,67 +454,66 @@ export function GuideRequirements({
                       </button>
                     </Dialog>
                   )}
-                  <RequirementQuantity
-                    quantity={entry.quantity}
-                    unit={entry.unit}
-                    role={entry.role}
-                    label={entry.name}
-                    disabled={disabled}
-                    onChange={(next) => patch(entry.id, next)}
-                  />
-                  <label className={checkboxLabel}>
-                    <input
-                      className={checkbox}
-                      type="checkbox"
-                      checked={entry.optional}
+                  <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
+                    <RequirementQuantity
+                      quantity={entry.quantity}
+                      unit={entry.unit}
+                      role={entry.role}
+                      label={entry.name}
                       disabled={disabled}
-                      onChange={(event) => patch(entry.id, { optional: event.target.checked })}
+                      onChange={(next) => patch(entry.id, next)}
                     />
-                    Optional for this guide
-                  </label>
-                  <label>
-                    Guide-specific notes
-                    <textarea
-                      className={fieldControl}
-                      rows={2}
-                      maxLength={2000}
-                      value={entry.notes}
-                      disabled={disabled}
-                      placeholder="For example, an equivalent size is suitable."
-                      onChange={(event) => patch(entry.id, { notes: event.target.value })}
-                    />
-                  </label>
-                  {/* The role is the one thing about a requirement that has no
+                    {/* The role is the one thing about a requirement that has no
                       right answer until an author gives one, so it has to be
                       changeable after the fact. Moving it also fixes up the
                       step usages, because a thing you keep is reused. */}
-                  <label>
-                    Will the reader still have it afterwards?
-                    <select
-                      value={entry.role}
-                      disabled={disabled}
-                      onChange={(event) => {
-                        const role = event.target.value as GuideRequirement['role'];
-                        onChange({
-                          ...document,
-                          requirements: document.requirements.map((candidate) =>
-                            candidate.id === entry.id ? { ...candidate, role } : candidate,
-                          ),
-                          steps: document.steps.map((step) => ({
-                            ...step,
-                            requirements: step.requirements.map((usage) =>
-                              usage.requirementId === entry.id && role === 'keep'
-                                ? { ...usage, mode: 'reuse' as const }
-                                : usage,
+                    <label className={fieldLabel}>
+                      After this guide
+                      <select
+                        className={fieldControl}
+                        aria-label={`${entry.name}: After this guide`}
+                        value={entry.role}
+                        disabled={disabled}
+                        onChange={(event) => {
+                          const role = event.target.value as GuideRequirement['role'];
+                          onChange({
+                            ...document,
+                            requirements: document.requirements.map((candidate) =>
+                              candidate.id === entry.id ? { ...candidate, role } : candidate,
                             ),
-                          })),
-                        });
-                      }}
-                    >
-                      <option value="keep">Yes — they keep it</option>
-                      <option value="use">No — it is used up or fitted</option>
-                    </select>
-                  </label>
+                            steps: document.steps.map((step) => ({
+                              ...step,
+                              requirements: step.requirements.map((usage) =>
+                                usage.requirementId === entry.id && role === 'keep'
+                                  ? { ...usage, mode: 'reuse' as const }
+                                  : usage,
+                              ),
+                            })),
+                          });
+                        }}
+                      >
+                        <option value="keep">Kept for reuse</option>
+                        <option value="use">Used up or fitted</option>
+                      </select>
+                    </label>
+                  </div>
+                  <div className="mt-3">
+                    <label className={checkboxLabel}>
+                      <input
+                        className={checkbox}
+                        type="checkbox"
+                        checked={entry.optional}
+                        disabled={disabled}
+                        onChange={(event) => patch(entry.id, { optional: event.target.checked })}
+                      />
+                      Optional for this guide
+                    </label>
+                    <RequirementNotes
+                      value={entry.notes}
+                      disabled={disabled}
+                      onChange={(notes) => patch(entry.id, { notes })}
+                    />
+                  </div>
                   <div className="flex flex-col gap-[5px] pt-3.5 text-[11px] leading-[1.5] text-muted">
                     <span>
                       {usedIn.length
@@ -564,6 +558,53 @@ export function GuideRequirements({
           </ul>
         </div>
       )}
-    </section>
+    </AuthoringSection>
+  );
+}
+
+function RequirementNotes({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  disabled: boolean;
+}) {
+  const [open, setOpen] = useState(Boolean(value));
+  const id = useId();
+  return (
+    <div className="mt-2">
+      <button
+        type="button"
+        className="flex min-h-9 w-full items-center gap-2 rounded-md py-2 text-start text-[12px] text-muted hover:text-ink"
+        aria-expanded={open}
+        aria-controls={id}
+        onClick={() => setOpen(!open)}
+      >
+        <MessageSquare size={14} aria-hidden="true" /> Guide-specific notes
+        {value && !open && <span className="max-w-[14ch] truncate font-normal">· {value}</span>}
+        <ChevronDown
+          size={14}
+          aria-hidden="true"
+          className={`ms-auto shrink-0 transition-transform ${open ? 'rotate-180' : ''}`}
+        />
+      </button>
+      <div id={id} hidden={!open} className="pt-2">
+        <label className="sr-only" htmlFor={`${id}-input`}>
+          Guide-specific notes
+        </label>
+        <textarea
+          id={`${id}-input`}
+          className={fieldControl}
+          rows={2}
+          maxLength={2000}
+          value={value}
+          disabled={disabled}
+          placeholder="Substitutions, handling advice or other details…"
+          onChange={(event) => onChange(event.target.value)}
+        />
+      </div>
+    </div>
   );
 }
