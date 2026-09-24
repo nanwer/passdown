@@ -1,6 +1,7 @@
 'use client';
 import * as X from './studio-styles';
 import { PublicationControls } from './publication-controls';
+import { mergePublicationState } from './publication-state';
 import {
   useEffect,
   useRef,
@@ -1097,25 +1098,17 @@ function Editor({ workspace, guideId }: { workspace: StudioWorkspace; guideId: s
       document.removeEventListener('click', navigate, true);
     };
   }, [dirty, pending]);
+  function applyPublicationState(current: DraftGuide) {
+    setLicense('');
+    setGuide((latest) => (latest ? mergePublicationState(latest, current) : latest));
+  }
   function problem(e: unknown) {
     setError(e instanceof Error ? e.message : 'The request failed. Your input is still here.');
     if (e instanceof StudioError) {
       if (e.code === 'PUBLICATION_CHANGED') {
         setPublishOpen(false);
         void studioFetch<{ guide: DraftGuide }>(endpoint)
-          .then(({ guide: current }) =>
-            setGuide((latest) =>
-              latest
-                ? {
-                    ...latest,
-                    state: current.state,
-                    currentRelease: current.currentRelease,
-                    publishedVersion: current.publishedVersion,
-                    publicationRevision: current.publicationRevision,
-                  }
-                : latest,
-            ),
-          )
+          .then(({ guide: current }) => applyPublicationState(current))
           .catch(() => {});
       } else if (e.status === 409) setConflict(true);
       if (e.status === 401)
@@ -1155,17 +1148,14 @@ function Editor({ workspace, guideId }: { workspace: StudioWorkspace; guideId: s
           expectedVersion: snapshot.version,
         }),
       });
+      if (stored.audience !== snapshot.audience) setLicense('');
       setBaseline(fingerprint(stored));
       setReleaseUrl('');
       setGuide((latest) =>
         latest && fingerprint(latest) !== fingerprint(snapshot)
           ? {
-              ...latest,
+              ...mergePublicationState(latest, stored),
               version: stored.version,
-              currentRelease: stored.currentRelease,
-              state: stored.state,
-              publicationRevision: stored.publicationRevision,
-              publishedVersion: stored.publishedVersion,
               updatedAt: stored.updatedAt,
             }
           : stored,
@@ -1355,19 +1345,7 @@ function Editor({ workspace, guideId }: { workspace: StudioWorkspace; guideId: s
                 saving.current = busy;
                 setPending(busy ? 'publication' : null);
               }}
-              onChanged={(current) =>
-                setGuide((latest) =>
-                  latest
-                    ? {
-                        ...latest,
-                        state: current.state,
-                        currentRelease: current.currentRelease,
-                        publishedVersion: current.publishedVersion,
-                        publicationRevision: current.publicationRevision,
-                      }
-                    : latest,
-                )
-              }
+              onChanged={applyPublicationState}
             />
             <Dialog
               open={publishOpen}
