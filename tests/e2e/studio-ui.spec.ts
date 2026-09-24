@@ -1,3 +1,4 @@
+import { pressTab } from '../support/browser';
 import { test, expect } from '@playwright/test';
 test.beforeEach(async ({ page }) => {
   await page.route('**/api/studio/*/catalog**', (route) => route.fulfill({ json: { items: [] } }));
@@ -158,11 +159,17 @@ for (const retainParentEscapeListener of [false, true]) {
       ),
     ).toBe(true);
 
-    for (let index = 0; index < 8; index++) {
-      await page.keyboard.press('Tab');
-      expect(await child.evaluate((element) => element.contains(document.activeElement))).toBe(
-        true,
-      );
+    const search = child.getByRole('textbox', { name: 'Search things' });
+    const root = child.getByRole('button', { name: 'Not inside anything', exact: true });
+    const close = child.getByRole('button', { name: 'Close dialog' });
+    await expect(search).toBeFocused();
+    for (const control of [root, close, search, root, close, search]) {
+      await pressTab(page);
+      await expect(control).toBeFocused();
+    }
+    for (const control of [close, root, search]) {
+      await pressTab(page, { shift: true });
+      await expect(control).toBeFocused();
     }
 
     await page.keyboard.press('Escape');

@@ -73,6 +73,45 @@ export function Dialog({
         />
         <Primitive.Content
           ref={registerContent}
+          onKeyDown={(event) => {
+            // Safari uses Option+Tab to include controls in native navigation,
+            // but Radix's focus scope only wraps an unmodified Tab. Preserve
+            // that native traversal inside the modal at either boundary.
+            const node = content.current;
+            if (
+              event.defaultPrevented ||
+              event.key !== 'Tab' ||
+              !event.altKey ||
+              event.ctrlKey ||
+              event.metaKey ||
+              !node ||
+              !(event.target instanceof Element) ||
+              event.target.closest('[role="dialog"]') !== node
+            )
+              return;
+            const controls = Array.from(
+              node.querySelectorAll<HTMLElement>(
+                'a[href],button,input,select,textarea,summary,[tabindex],[contenteditable="true"]',
+              ),
+            ).filter(
+              (element) =>
+                (element.tabIndex >= 0 ||
+                  (element.isContentEditable && !element.hasAttribute('tabindex'))) &&
+                !element.matches(':disabled') &&
+                !element.closest('[inert],[aria-hidden="true"]') &&
+                element.getClientRects().length > 0 &&
+                getComputedStyle(element).visibility !== 'hidden',
+            );
+            const first = controls[0];
+            const last = controls.at(-1);
+            if (
+              !first ||
+              (event.shiftKey ? document.activeElement === first : document.activeElement === last)
+            ) {
+              event.preventDefault();
+              (event.shiftKey ? last : first)?.focus();
+            }
+          }}
           onEscapeKeyDown={(event) => {
             const origin =
               event.target instanceof Element ? event.target.closest('[role="dialog"]') : null;

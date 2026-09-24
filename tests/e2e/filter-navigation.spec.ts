@@ -62,10 +62,10 @@ for (const viewport of [
           'Filtering must not replace the document',
         ).toBe(before.origin);
         await expect
-          .poll(() => page.evaluate(() => window.scrollY), {
+          .poll(() => page.evaluate((before) => Math.abs(window.scrollY - before), before.scroll), {
             message: 'Filtering must preserve the visible position',
           })
-          .toBeCloseTo(before.scroll, 0);
+          .toBeLessThanOrEqual(1);
       }
     });
   }
@@ -91,7 +91,9 @@ test('search, no-results recovery and Back/Forward preserve the document and fil
   await page.getByRole('button', { name: 'Search guides' }).click();
   await expect(page.locator('.guide-card')).toHaveCount(1);
   expect(await page.evaluate(() => performance.timeOrigin)).toBe(before.origin);
-  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeCloseTo(before.scroll, 0);
+  await expect
+    .poll(() => page.evaluate((before) => Math.abs(window.scrollY - before), before.scroll))
+    .toBeLessThanOrEqual(1);
   expect(new URL(page.url()).pathname).toBe('/categories/electronics');
   await page.getByRole('searchbox').fill('no-such-guide');
   await page.getByRole('searchbox').press('Enter');
@@ -150,7 +152,9 @@ test('a delayed workshop category response updates in place when it arrives', as
     await expect(inspection).toHaveAttribute('aria-current', 'true');
     await expect(page.getByRole('status')).toHaveText('1 guide found.');
     expect(await page.evaluate(() => performance.timeOrigin)).toBe(before.origin);
-    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeCloseTo(before.scroll, 0);
+    await expect
+      .poll(() => page.evaluate((before) => Math.abs(window.scrollY - before), before.scroll))
+      .toBeLessThanOrEqual(1);
   } finally {
     release();
   }

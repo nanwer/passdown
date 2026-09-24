@@ -1,3 +1,4 @@
+import { pressTab } from '../support/browser';
 import { expect, test, type Page } from '@playwright/test';
 
 const workspaceTrigger = (page: Page) => page.locator('.workspace-menu summary');
@@ -70,9 +71,11 @@ test('workspace disclosure supports keyboard opening and all non-modal closing p
   await expect(popup).toBeHidden();
   await expect(trigger).toBeFocused();
 
-  await trigger.click();
-  await trigger.focus();
-  await page.keyboard.press('Shift+Tab');
+  // Keep the focus-leaving case keyboard-driven. Native summary clicks can
+  // establish a different sequential-navigation start point in WebKit.
+  await trigger.press('Enter');
+  await expect(popup).toBeVisible();
+  await pressTab(page, { shift: true });
   await expect(popup).toBeHidden();
   await expect(page.getByRole('button', { name: 'Switch to dark theme' })).toBeFocused();
 

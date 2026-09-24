@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Request } from '@playwright/test';
 
 test('typing filters the library without Enter and preserves the active category', async ({
   page,
@@ -54,30 +54,85 @@ test('clearing live search restores results and rapid input keeps the latest que
 });
 
 test('a slow earlier search cannot replace newer results', async ({ page }) => {
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => (release = resolve));
+  let earlier: Request | undefined;
+  let responseReady = false;
+  let delivered = false;
+  let markFinished!: () => void;
+  const finished = new Promise<void>((resolve) => (markFinished = resolve));
+  const terminal = (request: Request) => {
+    if (request === earlier) markFinished();
+  };
+  page.on('requestfinished', terminal);
+  page.on('requestfailed', terminal);
   await page.route('**/?q=bicycle*', async (route) => {
-    await new Promise((resolve) => setTimeout(resolve, 700));
-    await route.continue();
+    if (earlier) return route.continue();
+    earlier = route.request();
+    // Hold the complete response, not merely permission to start its request.
+    const response = await route.fetch();
+    responseReady = true;
+    await gate;
+    await route.fulfill({ response });
+    delivered = true;
   });
   await page.goto('/');
   const search = page.getByRole('searchbox');
-  await search.fill('bicycle');
-  await page.waitForTimeout(300);
-  await search.fill('keyboard');
-
-  await expect(page).toHaveURL(/q=keyboard/);
-  await expect(page.getByRole('heading', { name: 'Inside a mechanical keyboard' })).toBeVisible();
-  await page.waitForTimeout(700);
-  await expect(page).toHaveURL(/q=keyboard/);
-  await expect(page.getByRole('heading', { name: 'Inside a mechanical keyboard' })).toBeVisible();
+  try {
+    await search.fill('bicycle');
+    await expect.poll(() => responseReady).toBe(true);
+    await search.fill('keyboard');
+    await expect(page).toHaveURL(/q=keyboard/);
+    await expect(page.getByRole('heading', { name: 'Inside a mechanical keyboard' })).toBeVisible();
+    release();
+    await expect.poll(() => delivered).toBe(true);
+    await finished;
+    // Let response consumers schedule their render before checking the settled
+    // transition; a fulfilled route alone does not prove the UI consumed it.
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+        ),
+    );
+    await expect(page.locator('#guide-search-feedback')).toHaveText('');
+    await expect(page).toHaveURL(/q=keyboard/);
+    await expect(search).toHaveValue('keyboard');
+    await expect(page.getByRole('heading', { name: 'Inside a mechanical keyboard' })).toBeVisible();
+  } finally {
+    release();
+    page.off('requestfinished', terminal);
+    page.off('requestfailed', terminal);
+  }
 });
 
 test('IME composition waits until composition ends before searching', async ({ page }) => {
   await page.goto('/');
+  // Synthetic composition events are not replayed across hydration. Confirm
+  // that the application is interactive before injecting the IME sequence.
+  await page.getByRole('button', { name: 'Switch to dark theme' }).click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
   const search = page.getByRole('searchbox');
   await search.focus();
 
   await search.dispatchEvent('compositionstart');
-  await search.fill('keyboard');
+  await search.evaluate((element) => {
+    // Firefox's protocol-backed fill() starts AND ends its own composition.
+    // Keep this synthetic IME sequence open until the explicit end below.
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(
+      element,
+      'keyboard',
+    );
+    element.dispatchEvent(
+      new InputEvent('input', {
+        bubbles: true,
+        inputType: 'insertCompositionText',
+        data: 'keyboard',
+        isComposing: true,
+      }),
+    );
+  });
+  // A bounded negative assertion: composition must suppress the debounce.
   await page.waitForTimeout(350);
   await expect(page.locator('.guide-card')).toHaveCount(6);
   await expect(page).toHaveURL('/');

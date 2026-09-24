@@ -1,3 +1,4 @@
+import { dispatchPaste, selectText, browserContextOptions } from '../support/browser';
 import { test, expect, type Page, type Locator } from '@playwright/test';
 test.beforeEach(async ({ page }) => {
   await page.route('**/api/studio/*/catalog**', (route) => route.fulfill({ json: { items: [] } }));
@@ -94,25 +95,6 @@ async function insert(page: Page, name: string) {
   await page.getByRole('button', { name: 'Insert elements', exact: true }).click();
   await page.getByRole('menuitem', { name, exact: true }).click();
 }
-async function selectText(field: Locator, text: string) {
-  await field.evaluate((element, target) => {
-    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
-    let node: Node | null;
-    while ((node = walker.nextNode())) {
-      const start = (node.textContent ?? '').indexOf(target);
-      if (start < 0) continue;
-      const range = document.createRange();
-      range.setStart(node, start);
-      range.setEnd(node, start + target.length);
-      const selection = window.getSelection()!;
-      selection.removeAllRanges();
-      selection.addRange(range);
-      (element as HTMLElement).focus();
-      return;
-    }
-    throw new Error('Text selection target was not found');
-  }, text);
-}
 
 test('formatting changes the selected text directly with active controls and undo/redo', async ({
   page,
@@ -134,7 +116,7 @@ test('formatting changes the selected text directly with active controls and und
   await page.getByRole('button', { name: 'Redo', exact: true }).click();
   await expect(field.locator('strong')).toHaveText('steady pressure');
   await selectText(field, 'work slowly');
-  await field.press(process.platform === 'darwin' ? 'Meta+i' : 'Control+i');
+  await field.press('ControlOrMeta+i');
   await expect(field.locator('em')).toHaveText('work slowly');
   await page.getByRole('button', { name: 'Text style', exact: true }).click();
   await page.getByRole('menuitem', { name: 'Heading 2', exact: true }).click();
@@ -305,27 +287,12 @@ test('links are visual and validated, rich paste is editable, and unsupported pa
   await field.press('ArrowRight');
   await field.press('ArrowRight');
   await field.press('Enter');
-  await field.evaluate((element) => {
-    const clipboardData = new DataTransfer();
-    clipboardData.setData('text/html', '<p><strong>Pasted bold</strong> and <em>italic</em></p>');
-    const event = new ClipboardEvent('paste', { bubbles: true, cancelable: true });
-    // Firefox drops DataTransfer passed to the constructor of an untrusted
-    // clipboard event. Supply the fixture payload explicitly for every engine.
-    Object.defineProperty(event, 'clipboardData', { value: clipboardData });
-    element.dispatchEvent(event);
-  });
+  await dispatchPaste(field, { html: '<p><strong>Pasted bold</strong> and <em>italic</em></p>' });
   await expect(field.locator('strong')).toContainText('Pasted bold');
   await expect(field.locator('em')).toContainText('italic');
   const before = await field.textContent();
-  await field.evaluate((element) => {
-    const clipboardData = new DataTransfer();
-    clipboardData.setData(
-      'text/html',
-      '<img src="missing" onerror="alert(1)"><p>Unsupported paste</p>',
-    );
-    const event = new ClipboardEvent('paste', { bubbles: true, cancelable: true });
-    Object.defineProperty(event, 'clipboardData', { value: clipboardData });
-    element.dispatchEvent(event);
+  await dispatchPaste(field, {
+    html: '<img src="missing" onerror="alert(1)"><p>Unsupported paste</p>',
   });
   await expect(page.getByText(/This paste contains active or embedded content/)).toBeVisible();
   await expect(field).toHaveText(before!);
@@ -649,6 +616,7 @@ test('touch and keyboard table options insert on either side of the selected cel
   browser,
 }) => {
   const context = await browser.newContext({
+    ...browserContextOptions,
     viewport: { width: 390, height: 844 },
     hasTouch: true,
   });

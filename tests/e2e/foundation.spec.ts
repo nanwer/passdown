@@ -18,7 +18,7 @@ test('library filters and reader navigation use the same public records', async 
   await page.getByRole('link', { name: '03 Inspect the contact points' }).click();
   await expect(page).toHaveURL(/#step-/);
 });
-test('anonymous routes conceal private and unpublished records', async ({ request }) => {
+test('@api anonymous routes conceal private and unpublished records', async ({ request }) => {
   for (const url of [
     '/w/workshop',
     '/guides/private-note',
@@ -73,7 +73,9 @@ test('mobile library and reader fit the viewport', async ({ page }) => {
   }
 });
 
-test('the read API rejects oversized search input with a traceable error', async ({ request }) => {
+test('@api the read API rejects oversized search input with a traceable error', async ({
+  request,
+}) => {
   const response = await request.get(
     '/api/v1/workspaces/repair-collective/guides?q=' + 'a'.repeat(201),
   );

@@ -8,10 +8,16 @@ export default defineConfig({
   workers: 2,
   use: {
     baseURL: 'http://127.0.0.1:3102',
-    channel: process.env.PLAYWRIGHT_CHANNEL,
+    locale: 'en-US',
+    timezoneId: 'UTC',
     trace: 'retain-on-failure',
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'], channel: process.env.PLAYWRIGHT_CHANNEL },
+    },
+  ],
   webServer: {
     command: 'pnpm --filter @guide/web exec next dev --hostname 127.0.0.1 --port 3102',
     env: {
