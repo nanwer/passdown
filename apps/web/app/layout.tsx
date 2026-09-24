@@ -1,6 +1,8 @@
 import { connection } from 'next/server';
+import { SourceLinkProvider } from '@guide/ui';
 import { deploymentStatus } from '../lib/deployment';
 import { setupRequired } from '../lib/setup';
+import { sourceCodeURL } from '../lib/source';
 import { SetupScreen } from '../components/setup/setup-screen';
 import { NotConfigured } from '../components/setup/not-configured';
 import type { Metadata } from 'next';
@@ -33,13 +35,15 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <script dangerouslySetInnerHTML={{ __html: themeBoot }} />
       </head>
       <body>
-        {gate === 'not-configured' ? (
-          <NotConfigured />
-        ) : gate === 'setup' ? (
-          <SetupScreen />
-        ) : (
-          children
-        )}
+        <SourceLinkProvider href={sourceCodeURL()}>
+          {gate === 'not-configured' ? (
+            <NotConfigured />
+          ) : gate === 'setup' ? (
+            <SetupScreen />
+          ) : (
+            children
+          )}
+        </SourceLinkProvider>
       </body>
     </html>
   );

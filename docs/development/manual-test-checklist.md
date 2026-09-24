@@ -348,3 +348,13 @@ Use the [container evaluation guide](../self-hosting/development-stack.md) and a
 6. Run `node scripts/check-proxy.mjs --live` and `PASSDOWN_SKIP_BUILD=1 sh scripts/deployment-boot-check.sh` from the repository root. Expect both to pass and remove their own disposable Docker resources. They must not replace or remove the existing local development stack.
 
 No published images, recovery UI, nginx stack or upgrade command are delivered yet; backup and restore are covered above. Public-domain clean-host and physical-browser release checks remain outstanding.
+
+## Staged source-link change
+
+This section describes local integration work pending release validation, not functionality delivered on the public branch.
+
+1. Start the app with `PASSDOWN_REVISION` set to a valid 7–40 digit Git commit hash. Open `/`, `/sign-in`, and `/studio`. In each footer, Tab to **Source code**. Expect a normal link to that commit under the public repository's `/tree/` path.
+2. Set `PASSDOWN_SOURCE_URL=https://example.org/source` and restart. Expect every source link to use the override.
+3. Clear both values and restart. Expect the public repository root. An invalid or non-HTTP(S) override must also fall back safely.
+
+Unit checks cover URL selection and the accessible link. Browser rendering and the production build remain pending integration validation.

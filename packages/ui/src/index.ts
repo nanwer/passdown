@@ -21,3 +21,4 @@ export {
 export { SiteHeader, type HeaderSection } from './site-header';
 
 export { ChoiceCard } from './choice-card';
+export { SourceCodeLink, SourceLinkProvider } from './source-link';

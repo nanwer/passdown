@@ -1,4 +1,5 @@
 'use client';
+import { SourceCodeLink } from './source-link';
 import { iconButton, skipLink } from './primitives';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { BookOpen, ChevronDown, Globe2, Moon, Sun, LockKeyhole } from 'lucide-react';
@@ -182,6 +183,7 @@ export function AppShell({
           Made to be understood.
         </a>
         <span>{footerNote}</span>
+        <SourceCodeLink className="underline underline-offset-2" />
       </footer>
     </div>
   );
