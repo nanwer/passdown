@@ -5,7 +5,8 @@
   "license": "AGPL-3.0-only",
   "type": "module",
   "dependencies": {
-    "@guide/database": "workspace:*"
+    "@guide/database": "workspace:*",
+    "@guide/contracts": "workspace:*"
   },
   "devDependencies": {
     "esbuild": "0.28.2"

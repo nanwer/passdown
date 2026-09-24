@@ -2,6 +2,19 @@
 
 Start the local app and sign in at [Studio](http://127.0.0.1:3100/studio) using the generated credentials in your private LOCAL_ACCESS.md. Test both Repair collective and Workshop operations. These examples use local test data you create yourself.
 
+## Picture checks and backup archives
+
+Use a disposable container evaluation with the operator image rebuilt from the current source. These are operator commands; the Studio does not gain a backup screen.
+
+1. Save a draft with a picture. From `deploy`, run `docker compose run --rm -T ops verify-media --checksums --json`. Expect no missing, damaged or dangling pictures and exit 0. The command must not change the draft or files.
+2. Run `sh backup.sh /path/to/private-backups` with a real writable private directory. Expect a final archive path only after the archive passes its offline check. On macOS, run `stat -f '%Lp' <archive>` (Linux: `stat -c '%a' <archive>`): expect `600`.
+3. Run `tar -tf <archive>`. Expect exactly `database.dump`, `media.tar`, `manifest.json`, `SHA256SUMS`. Keep all extracted content private.
+4. Run `docker compose run --rm --no-deps -T ops restore --check < /path/to/private-backups/passdown-example.tar`. Expect the integrity/compatibility success message explicitly saying no database was restored. Your existing guide must remain unchanged.
+5. Run the backup wrapper again. Expect another file; the first file must still exist unchanged. Run `docker compose run --rm --no-deps -T ops restore` without input flags: expect refusal with exit 4 and no database or media changes.
+6. To exercise damage and missing-file errors, use the focused synthetic tests or a separate disposable copy. Never remove pictures from an installation you want to keep.
+
+Database restore, access invalidation after restore, and upgrade rehearsal are unfinished. Archive checks alone are not proof of disaster recovery. See [backup instructions](../self-hosting/backups.md).
+
 ## Container isolation and authoring stability
 
 1. **Audience warning — Studio → public workspace → New guide:** select **Internal**, open **What is this about?**, and select a members-only thing (or add one there). Switch to **Public**. Expect a warning beside the picker explaining that the thing is members-only and must be changed before publication. Switch back to **Internal**: the warning clears and the same selection remains. Other guide fields stay intact.

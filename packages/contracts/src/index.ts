@@ -366,3 +366,5 @@ export type CatalogUsage = {
 export * from './management';
 
 export * from './setup';
+
+export * from './media-files';

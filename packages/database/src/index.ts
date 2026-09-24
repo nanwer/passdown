@@ -14,3 +14,5 @@ export * from './config';
 export * from './runtime-role';
 
 export * from './migrator';
+
+export * from './lifecycle';

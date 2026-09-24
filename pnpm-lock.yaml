@@ -59,6 +59,9 @@ importers:
 
   apps/operator:
     dependencies:
+      '@guide/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
       '@guide/database':
         specifier: workspace:*
         version: link:../../packages/database

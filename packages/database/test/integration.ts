@@ -18,6 +18,7 @@ import { structuredChecks } from './structured-integration';
 import { verifyStructuredMigration } from './migration-integration';
 import { verifySetup } from './setup-integration';
 import { verifyMigrator } from './migrator-integration';
+import { verifyLifecycle } from './lifecycle-integration';
 import {
   editorDocumentToBody,
   parseStepMarkdown,
@@ -1332,6 +1333,9 @@ try {
   );
   await verifySetup(check);
   await verifyMigrator(config.GUIDE_OWNER_DATABASE_URL, config.GUIDE_DATABASE_URL, check);
+  await check('lifecycle snapshots retain consistent rows and report damaged references', () =>
+    verifyLifecycle(config.GUIDE_OWNER_DATABASE_URL),
+  );
   await structuredChecks({ store, owner, runtime, check, scoped, actor, anonymous, doc });
   await check(
     'library listing is bounded and counted in the database, and sections only narrow',

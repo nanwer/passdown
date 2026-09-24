@@ -46,3 +46,8 @@ apps/operator/dist/
 *.env
 .passdown-settings.*
 *.renew-lock/
+
+# Private operator archives and partial backup output.
+deploy/backups/
+.incomplete-passdown-*/
+.passdown-backup.*

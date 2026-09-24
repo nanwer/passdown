@@ -3,7 +3,12 @@ import { createHash } from 'node:crypto';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import sharp, { type Metadata, type Sharp } from 'sharp';
-import { ApplicationError } from '@guide/contracts';
+import {
+  ApplicationError,
+  mediaFileName,
+  MediaFileNameError,
+  type MediaFileVariant,
+} from '@guide/contracts';
 import { servedImageWidths, type ServedImageWidth } from '@guide/content';
 
 /**
@@ -47,10 +52,14 @@ function mediaRoot() {
  * read cannot wander between tenants, and the id is random rather than derived
  * from the filename a visitor chose.
  */
-function assetPath(workspaceId: string, assetId: string, variant: `w${number}` | 'display') {
-  if (!/^[a-z0-9][a-z0-9-]{0,99}$/.test(workspaceId) || !/^[0-9a-f-]{36}$/.test(assetId))
-    throw new ApplicationError('VALIDATION_ERROR', 'Invalid asset reference.', 422);
-  return join(mediaRoot(), workspaceId, `${assetId}.${variant}.webp`);
+function assetPath(workspaceId: string, assetId: string, variant: MediaFileVariant) {
+  try {
+    return join(mediaRoot(), mediaFileName(workspaceId, assetId, variant));
+  } catch (error) {
+    if (error instanceof MediaFileNameError)
+      throw new ApplicationError('VALIDATION_ERROR', 'Invalid asset reference.', 422);
+    throw error;
+  }
 }
 
 /**
