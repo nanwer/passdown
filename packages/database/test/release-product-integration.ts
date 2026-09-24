@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import pg from 'pg';
 import { createApplicationStore } from '../src/store';
 import * as database from '../src/index';
-import { newDocument } from '../../../apps/web/components/studio/model';
+import type { GuideDocument } from '@guide/content';
+import { randomUUID } from 'node:crypto';
 import { readConfig } from '../../../scripts/local-config.mjs';
 import { migrate } from '../../../scripts/migrate-local.mjs';
 const config = readConfig();
@@ -79,7 +80,29 @@ try {
           visibility: 'public',
           sortOrder: 0,
         });
-        const document = newDocument();
+        const document: GuideDocument = {
+          schemaVersion: 1,
+          title: 'Fixture procedure',
+          summary: 'Synthetic product regression',
+          locale: 'en',
+          difficulty: 'easy',
+          durationMinutes: 1,
+          tools: [],
+          steps: [
+            {
+              id: randomUUID(),
+              title: 'Prepare',
+              body: [
+                {
+                  type: 'paragraph',
+                  children: [{ type: 'text', text: 'Prepare the fixture.', marks: [] }],
+                },
+              ],
+              media: [],
+              callouts: [],
+            },
+          ],
+        };
         document.title = 'Fixture procedure';
         document.summary = 'Synthetic product regression';
         document.steps[0]!.title = 'Prepare';

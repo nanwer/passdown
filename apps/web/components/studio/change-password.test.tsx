@@ -57,18 +57,16 @@ it('labels the account form and announces successful changes', async () => {
 it('associates a wrong-current-password response with its field and focuses it', async () => {
   vi.stubGlobal(
     'fetch',
-    vi
-      .fn()
-      .mockImplementation(() =>
-        Promise.resolve(
-          new Response(
-            JSON.stringify({
-              error: { code: 'VALIDATION_ERROR', message: 'That current password is not right.' },
-            }),
-            { status: 422 },
-          ),
+    vi.fn().mockImplementation(() =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            error: { code: 'VALIDATION_ERROR', message: 'That current password is not right.' },
+          }),
+          { status: 422 },
         ),
       ),
+    ),
   );
   render(<ChangePassword forced={false} />);
   fireEvent.change(screen.getByLabelText('Current password'), {

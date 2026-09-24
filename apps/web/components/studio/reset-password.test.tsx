@@ -9,20 +9,18 @@ afterEach(() => {
 it('shows the account and directs a mismatch to password confirmation', async () => {
   vi.stubGlobal(
     'fetch',
-    vi
-      .fn()
-      .mockImplementation(() =>
-        Promise.resolve(
-          new Response(
-            JSON.stringify({
-              email: 'reader@test.local',
-              name: 'Reader',
-              expiresAt: '2026-10-01T10:00:00Z',
-              signedInAs: null,
-            }),
-          ),
+    vi.fn().mockImplementation(() =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            email: 'reader@test.local',
+            name: 'Reader',
+            expiresAt: '2026-10-01T10:00:00Z',
+            signedInAs: null,
+          }),
         ),
       ),
+    ),
   );
   render(<ResetPassword token={'a'.repeat(43)} />);
   expect(await screen.findByRole('heading', { name: 'Choose a new password' })).toBeTruthy();
