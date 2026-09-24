@@ -83,6 +83,11 @@ test('@core real public create, step editing, save, reload, immutable publicatio
   page,
   context,
 }) => {
+  // This first journey loads the editor, publishes twice and searches the library.
+  // Fresh engine jobs pay first-load costs across those routes; keep each action
+  // bounded while allowing the complete journey its own cumulative budget.
+  test.setTimeout(120000);
+  context.setDefaultTimeout(30000);
   const title = `Public journey ${randomUUID().slice(0, 8)}`;
   const categoryName = `Browser verification ${randomUUID().slice(0, 8)}`;
   await page.goto('/studio');
