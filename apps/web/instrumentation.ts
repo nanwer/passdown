@@ -11,15 +11,17 @@
  * /api/health answers 503 for as long as it lasts so a container healthcheck
  * or load balancer keeps traffic away without this process having to exit.
  *
- * The first administrator is created here too, for the opposite reason: it has
- * to happen before anything is served. A setup page that waits for the first
- * visitor is a race for administrator rights that anyone who can reach the
- * port may win.
  */
 export async function register() {
   if (process.env.NEXT_RUNTIME !== 'nodejs') return;
+  const { deploymentStatus } = await import('./lib/deployment');
+  const status = deploymentStatus();
+  if (status.production) {
+    for (const problem of status.problems) console.error(problem.message);
+    if (status.previewIgnored) console.warn('Preview identities are disabled in production.');
+  }
+  if (process.env.PASSDOWN_SETUP_CODE_SHA256 && !status.setupCodeHash)
+    console.error('PASSDOWN_SETUP_CODE_SHA256 is invalid; browser setup is unavailable.');
   const { reportSchemaState } = await import('./lib/schema-report');
   await reportSchemaState();
-  const { bootstrapIfEmpty } = await import('./lib/first-run');
-  await bootstrapIfEmpty();
 }

@@ -9,6 +9,25 @@ Start the local app and sign in at [Studio](http://127.0.0.1:3100/studio) using 
 
 These changes do not add authoring features or announce an alpha release. Existing software and contribution licensing remain in force.
 
+## First-run setup and production configuration
+
+Use a dedicated empty, migrated evaluation database and the hash-only setup-code instructions in [Getting started](../getting-started.md#first-run-browser-setup-and-production-status). Do not clear an existing installation to try setup. Local sample accounts created by `pnpm local:setup` deliberately bypass this screen.
+
+| Feature                     | Exact steps                                                                                                                                  | Expected result                                                                                                      |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| Empty installation          | Configure the empty database and setup-code hash, restart, open `/`, `/studio`, then `/setup`.                                               | Every page shows only **Set up Passdown**; `/api/health` reports `setup-required`.                                   |
+| Missing or wrong code       | Start without the hash, submit the form; then configure a hash, restart, and submit a different code.                                        | Missing code gives operator guidance. Wrong code is rejected and focus returns to Setup code; no account is created. |
+| Password validation         | Fill every field, use different Password and Confirm password values, submit.                                                                | Inline mismatch error, focus on Confirm password, entered values retained.                                           |
+| Complete setup              | Enter the valid code with hyphens/lowercase, name, `Owner@Example.org`, matching 12–200-character password, and workspace name. Submit once. | Studio opens signed in; the chosen workspace appears; no password-change screen.                                     |
+| Later sign-in               | Sign out, open `/sign-in`, enter `Owner@Example.org` and the chosen password. Repeat with lowercase email.                                   | Both sign-ins work.                                                                                                  |
+| Permanent closure           | After setup, open `/setup`; submit another POST to `/api/setup` from the configured origin.                                                  | Both return 404; no additional account or workspace is created.                                                      |
+| Connection uncertainty      | If the browser reports setup may have finished, reload `/setup`; if unavailable, sign in with the chosen credentials.                        | Successful setup remains intact; the page explains recovery without deleting accounts or silently retrying.          |
+| Keyboard and small screens  | Before completing setup, Tab through every field and submit with keyboard. Repeat at 320px and 390px in light/dark themes.                   | Labels, focus and errors are available; no horizontal overflow; submit remains reachable.                            |
+| Production without settings | Start a production build without database/sign-in settings. Open `/` and request `/api/health`.                                              | Installation configuration page; no sample guides or studio navigation; health is 503 `not-configured`.              |
+| Production preview guard    | Set `GUIDE_DEMO_PREVIEW=1` on a configured production build and open the preview path.                                                       | No preview identity or sample library is available.                                                                  |
+
+Automated setup browser checks: `pnpm test:setup` runs Chromium, Firefox and WebKit sequentially, each with a new disposable database and server on port 3106. Setup traces/screenshots are disabled to avoid recording entered credentials. Container installation, setup-code renewal tooling, installation-wide account recovery and deployment certification remain unfinished.
+
 ## Catalog picker
 
 | Feature                   | Steps                                                                                                                        | Expected result                                                                                                                                                                                          |

@@ -1,3 +1,4 @@
+import { canonicalAccountEmail } from '@guide/database';
 import { ApplicationError, acceptInvitationSchema } from '@guide/contracts';
 import { getApplication, enforceRateLimit, currentSession } from '../../../../lib/application';
 import { apiResponse, assertOrigin, parseInput, readJSON } from '../../../../lib/http';
@@ -69,8 +70,10 @@ export function POST(request: Request, context: Context) {
       // address: they are signed in as it. A link alone must never be enough to
       // act as an existing account.
       const session = await currentSession(request.headers);
-      const signedInAs = session?.user.email?.trim().toLowerCase();
-      if (signedInAs !== invitation.email.trim().toLowerCase())
+      const signedInAs = session?.user.email
+        ? canonicalAccountEmail(session.user.email)
+        : undefined;
+      if (signedInAs !== canonicalAccountEmail(invitation.email))
         throw new ApplicationError(
           'VALIDATION_ERROR',
           `An account already exists for ${invitation.email}. Sign in as it, then open this link again.`,

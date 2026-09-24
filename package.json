@@ -30,7 +30,8 @@
     "local:verify": "tsx scripts/verify-schema.mjs",
     "migrations:manifest": "node scripts/migration-manifest.mjs",
     "migrations:check": "node scripts/migration-manifest.mjs --check",
-    "seed:showcase": "tsx scripts/seed-showcase.ts"
+    "seed:showcase": "tsx scripts/seed-showcase.ts",
+    "test:setup": "node scripts/test-setup.mjs"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.13.0",

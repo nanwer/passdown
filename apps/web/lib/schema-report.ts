@@ -1,3 +1,4 @@
+import { deploymentStatus } from './deployment';
 import 'server-only';
 import { describeSchemaDrift, describeSchemaState } from '@guide/database';
 import { getApplication, isConfigured } from './application';
@@ -14,7 +15,7 @@ export async function reportSchemaState(): Promise<void> {
   let drift: string | null;
   try {
     const state = await getApplication().store.schemaState();
-    message = describeSchemaState(state);
+    message = describeSchemaState(state, deploymentStatus().production ? 'deployment' : 'local');
     drift = describeSchemaDrift(state);
   } catch (error) {
     // An unreachable database is a different problem, already reported by the

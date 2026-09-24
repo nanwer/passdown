@@ -1,3 +1,4 @@
+import { sampleLibraryEnabled, previewIdentitiesEnabled } from './deployment';
 import 'server-only';
 import { createDemoQueries, type DemoGuide } from '@guide/testing';
 import type { Actor } from '@guide/core';
@@ -159,14 +160,14 @@ export async function viewerSignedIn(): Promise<boolean> {
 }
 
 export async function rootWorkspaceId(): Promise<string | null> {
-  if (!isConfigured()) return 'repair-collective';
+  if (sampleLibraryEnabled()) return 'repair-collective';
   return getApplication().store.rootWorkspace();
 }
 
 export async function getPublicScope(workspaceId?: string) {
   const id = workspaceId ?? (await rootWorkspaceId());
   if (!id) return null;
-  if (!isConfigured()) {
+  if (sampleLibraryEnabled()) {
     const scope = queries.inWorkspace({ kind: 'anonymous' }, id);
     return scope ? demoScope(scope) : null;
   }
@@ -265,7 +266,7 @@ export async function getLibraries(
 }
 
 export function getTeamPreviewScope() {
-  if (process.env.GUIDE_DEMO_PREVIEW !== '1') return null;
+  if (!previewIdentitiesEnabled()) return null;
   // This identity is confined to original, synthetic fixtures. Never connect this path to a real repository.
   const scope = queries.inWorkspace({ kind: 'user', id: 'demo-reader', active: true }, 'workshop');
   return scope ? demoScope(scope) : null;

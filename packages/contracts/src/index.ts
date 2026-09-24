@@ -364,3 +364,5 @@ export type CatalogUsage = {
 };
 
 export * from './management';
+
+export * from './setup';

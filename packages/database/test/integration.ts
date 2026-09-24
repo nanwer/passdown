@@ -16,7 +16,7 @@ import { libraryPageSize } from '@guide/contracts';
 import type { Actor } from '@guide/core';
 import { structuredChecks } from './structured-integration';
 import { verifyStructuredMigration } from './migration-integration';
-import { verifyBootstrap } from './bootstrap-integration';
+import { verifySetup } from './setup-integration';
 import {
   editorDocumentToBody,
   parseStepMarkdown,
@@ -1329,7 +1329,7 @@ try {
     '007 migration preserves release JSON and legacy wording, conceals restricted labels and reruns idempotently',
     verifyStructuredMigration,
   );
-  await verifyBootstrap(check);
+  await verifySetup(check);
   await structuredChecks({ store, owner, runtime, check, scoped, actor, anonymous, doc });
   await check(
     'library listing is bounded and counted in the database, and sections only narrow',

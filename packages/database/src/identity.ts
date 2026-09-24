@@ -3,18 +3,24 @@ import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import pg from 'pg';
 import * as schema from './auth-schema';
-import { localDatabaseURL, localOrigin } from './config';
+import {
+  authSecret,
+  identityOrigin,
+  pgClientConfig,
+  runtimeDatabaseTarget,
+  type ConnectionPolicy,
+} from './config';
 export function createIdentity(options: {
   connectionString: string;
   secret: string;
   baseURL: string;
   allowSignUp?: boolean;
+  policy?: ConnectionPolicy;
 }) {
-  if (options.secret.length < 32)
-    throw new Error('Identity secret must be at least 32 characters. Run pnpm local:setup.');
-  const baseURL = localOrigin(options.baseURL);
+  authSecret(options.secret);
+  const baseURL = identityOrigin(options.baseURL, options.policy);
   const pool = new pg.Pool({
-    connectionString: localDatabaseURL(options.connectionString),
+    ...pgClientConfig(runtimeDatabaseTarget(options.connectionString, options.policy)),
     max: 5,
     connectionTimeoutMillis: 5000,
     idleTimeoutMillis: 10000,
@@ -23,6 +29,7 @@ export function createIdentity(options: {
     secret: options.secret,
     baseURL,
     trustedOrigins: [baseURL],
+    advanced: { useSecureCookies: baseURL.startsWith('https://') },
     database: drizzleAdapter(drizzle(pool, { schema }), { provider: 'pg', schema }),
     emailAndPassword: {
       enabled: true,

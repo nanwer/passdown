@@ -1,3 +1,6 @@
+import { canonicalAccountEmail } from './credentials';
+import { completeSetup, setupRequired, reconcileSetup, type SetupAccountInput } from './setup';
+import { runtimeRoleIsSafe } from './runtime-role';
 import { managementStore } from './management-store';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import pg from 'pg';
@@ -49,7 +52,7 @@ function isApplicationError(error: unknown): error is ApplicationError {
   );
 }
 
-import { localDatabaseURL } from './config';
+import { pgClientConfig, runtimeDatabaseTarget, type ConnectionPolicy } from './config';
 import {
   structuredStore,
   selectedCategory,
@@ -259,9 +262,12 @@ function hashToken(token: string): string {
   return createHash('sha256').update(token).digest('hex');
 }
 
-export function createApplicationStore(options: { connectionString: string }) {
+export function createApplicationStore(options: {
+  connectionString: string;
+  policy?: ConnectionPolicy;
+}) {
   const pool = new pg.Pool({
-    connectionString: localDatabaseURL(options.connectionString),
+    ...pgClientConfig(runtimeDatabaseTarget(options.connectionString, options.policy)),
     max: 8,
     connectionTimeoutMillis: 5000,
     idleTimeoutMillis: 10000,
@@ -275,11 +281,7 @@ export function createApplicationStore(options: { connectionString: string }) {
       client = await pool.connect();
     try {
       await client.query('BEGIN');
-      const permission = (
-        await client.query(
-          "SELECT NOT rolsuper AND NOT rolbypassrls AND rolname='guide_runtime' AND NOT pg_has_role(current_user,(SELECT relowner FROM pg_class WHERE oid='app.guide'::regclass),'MEMBER') AS safe FROM pg_roles WHERE rolname=current_user",
-        )
-      ).rows[0];
+      const permission = (await client.query(`SELECT ${runtimeRoleIsSafe} AS safe`)).rows[0];
       if (!permission?.safe) throw new Error('Unsafe application database role configuration.');
       await client.query(
         "SELECT set_config('guide.actor_id',$1,true),set_config('guide.actor_active',$2,true),set_config('guide.workspace_id',$3,true),set_config('guide.actor_kind',$4,true)",
@@ -578,7 +580,7 @@ export function createApplicationStore(options: { connectionString: string }) {
       try {
         const { rows } = await client.query(
           'SELECT id,email FROM public.auth_user WHERE app.normalized_name(email)=app.normalized_name($1)',
-          [email],
+          [canonicalAccountEmail(email)],
         );
         return rows[0] ?? null;
       } finally {
@@ -686,7 +688,7 @@ export function createApplicationStore(options: { connectionString: string }) {
         const already = await c.query(
           `SELECT 1 FROM app.membership m JOIN public.auth_user u ON u.id = m.actor_id
            WHERE m.workspace_id=$1 AND app.normalized_name(u.email)=app.normalized_name($2)`,
-          [workspaceId, data.email],
+          [workspaceId, canonicalAccountEmail(data.email)],
         );
         if (already.rowCount)
           throw new ApplicationError(
@@ -702,7 +704,7 @@ export function createApplicationStore(options: { connectionString: string }) {
           `DELETE FROM app.invitation
            WHERE workspace_id=$1 AND app.normalized_name(email)=app.normalized_name($2)
              AND accepted_at IS NULL AND expires_at <= now()`,
-          [workspaceId, data.email],
+          [workspaceId, canonicalAccountEmail(data.email)],
         );
         const token = randomBytes(32).toString('base64url');
         const id = randomUUID();
@@ -711,7 +713,14 @@ export function createApplicationStore(options: { connectionString: string }) {
           await c.query(
             `INSERT INTO app.invitation(workspace_id,id,email,role,token_hash,expires_at,invited_by)
              VALUES($1,$2,$3,$4,$5,$6,app.actor_id())`,
-            [workspaceId, id, data.email, data.role, hashToken(token), expiresAt],
+            [
+              workspaceId,
+              id,
+              canonicalAccountEmail(data.email),
+              data.role,
+              hashToken(token),
+              expiresAt,
+            ],
           );
         } catch (error) {
           if ((error as { code?: string }).code === '23505')
@@ -1327,10 +1336,13 @@ export function createApplicationStore(options: { connectionString: string }) {
         client.release();
       }
     },
+    completeSetup: (input: SetupAccountInput) => completeSetup(pool, input),
+    setupRequired: () => setupRequired(pool),
+    reconcileSetup: (email: string) => reconcileSetup(pool, email),
     async health(): Promise<boolean> {
       try {
         const result = await pool.query(
-          "SELECT NOT rolsuper AND NOT rolbypassrls AND rolname='guide_runtime' AS safe,to_regclass('app.guide') IS NOT NULL AS ready FROM pg_roles WHERE rolname=current_user",
+          `SELECT ${runtimeRoleIsSafe} AS safe, to_regclass('app.guide') IS NOT NULL AS ready`,
         );
         return result.rows[0]?.safe === true && result.rows[0]?.ready === true;
       } catch {

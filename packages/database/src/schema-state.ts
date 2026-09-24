@@ -73,15 +73,20 @@ export async function readSchemaState(client: Pick<pg.Client, 'query'>): Promise
  * null when it can. Being ahead of the build does not stop it being served, so
  * it is not reported here — see describeSchemaDrift.
  */
-export function describeSchemaState(state: SchemaState): string | null {
+export function describeSchemaState(
+  state: SchemaState,
+  audience: 'local' | 'deployment' = 'local',
+): string | null {
   if (state.ok) return null;
   if (state.reason === 'uninitialized')
-    return 'This database has no schema yet. Run pnpm local:setup to create it.';
+    return audience === 'local'
+      ? 'This database has no schema yet. Run pnpm local:setup to create it.'
+      : 'This database has no schema yet. Run docker compose run --rm migrate to create it.';
   if (state.reason === 'changed')
     return `These migrations were edited after they were applied: ${state.changed.join(', ')}. The database and this build have diverged; restore the original files or rebuild the database from a backup.`;
   return `This database is missing ${state.pending.length} migration${
     state.pending.length === 1 ? '' : 's'
-  } (${state.pending.join(', ')}). Run pnpm local:migrate, then start again.`;
+  } (${state.pending.join(', ')}). Run ${audience === 'local' ? 'pnpm local:migrate' : './upgrade.sh'}, then start again.`;
 }
 
 /**

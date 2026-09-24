@@ -1,6 +1,7 @@
 export { createApplicationStore } from './store';
 export { createIdentity } from './identity';
-export { bootstrapFirstRun, type BootstrapResult } from './bootstrap';
+export * from './setup';
+export * from './credentials';
 export {
   readSchemaState,
   describeSchemaDrift,
@@ -8,3 +9,6 @@ export {
   expectedMigrations,
   type SchemaState,
 } from './schema-state';
+
+export * from './config';
+export * from './runtime-role';

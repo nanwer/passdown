@@ -31,3 +31,17 @@ describe('persistent infrastructure configuration', () => {
     ).toThrow(/loopback/i);
   });
 });
+
+it('accepts explicit deployment hosts and enables secure identity cookies', async () => {
+  const connectionString = 'postgres://guide_runtime:synthetic@database/app';
+  const store = createApplicationStore({ connectionString, policy: 'deployment' });
+  const identity = createIdentity({
+    connectionString,
+    policy: 'deployment',
+    secret: 'x'.repeat(48),
+    baseURL: 'https://example.org',
+  });
+  expect(identity.options.advanced?.useSecureCookies).toBe(true);
+  await identity.close();
+  await store.close();
+});

@@ -1,12 +1,13 @@
 import { ApplicationError } from '@guide/contracts';
-import { getApplication, isConfigured } from '../../../../../../lib/application';
+import { getApplication } from '../../../../../../lib/application';
+import { sampleLibraryEnabled } from '../../../../../../lib/deployment';
 import { apiResponse, assertIdentifier } from '../../../../../../lib/http';
 export const dynamic = 'force-dynamic';
 export function GET(_request: Request, context: { params: Promise<{ workspace: string }> }) {
   return apiResponse(async () => {
     const { workspace } = await context.params;
     assertIdentifier(workspace);
-    if (!isConfigured()) return Response.json({ categories: [] });
+    if (sampleLibraryEnabled()) return Response.json({ categories: [] });
     const store = getApplication().store,
       actor = { kind: 'anonymous' } as const;
     if (!(await store.getWorkspace(actor, workspace)))

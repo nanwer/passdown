@@ -1,3 +1,4 @@
+import { deploymentStatus, configurationHint } from './deployment';
 import 'server-only';
 import { headers } from 'next/headers';
 import { createApplicationStore, createIdentity } from '@guide/database';
@@ -22,22 +23,27 @@ type Application = {
 };
 const applicationGlobal = globalThis as typeof globalThis & { guideApplication?: Application };
 export function isConfigured() {
-  return Boolean(process.env.GUIDE_DATABASE_URL);
+  return deploymentStatus().production
+    ? deploymentStatus().configured
+    : Boolean(process.env.GUIDE_DATABASE_URL);
 }
 export function getApplication(): Application {
   if (applicationGlobal.guideApplication) return applicationGlobal.guideApplication;
   const connectionString = process.env.GUIDE_DATABASE_URL;
   const secret = process.env.BETTER_AUTH_SECRET;
   const baseURL = process.env.BETTER_AUTH_URL;
-  if (!connectionString || !secret || !baseURL)
-    throw new ApplicationError(
-      'CONFIGURATION_REQUIRED',
-      'Local authoring is not configured yet. Run pnpm local:setup, then restart the app.',
-      503,
-    );
-  const identity = createIdentity({ connectionString, secret, baseURL });
-  const invitedSignUp = createIdentity({ connectionString, secret, baseURL, allowSignUp: true });
-  const store = createApplicationStore({ connectionString });
+  if (!connectionString || !secret || !baseURL || !deploymentStatus().configured)
+    throw new ApplicationError('CONFIGURATION_REQUIRED', configurationHint(), 503);
+  const policy = deploymentStatus().policy;
+  const identity = createIdentity({ connectionString, secret, baseURL, policy });
+  const invitedSignUp = createIdentity({
+    connectionString,
+    secret,
+    baseURL,
+    policy,
+    allowSignUp: true,
+  });
+  const store = createApplicationStore({ connectionString, policy });
   return (applicationGlobal.guideApplication = {
     store,
     identity,
