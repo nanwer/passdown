@@ -56,6 +56,15 @@ function ResetLinkDialog({ account, refresh }: { account: AdminAccount; refresh:
       setBusy(false);
     }
   }
+  async function copyLink() {
+    if (!issued) return;
+    try {
+      await navigator.clipboard.writeText(issued.link);
+      setStatus('Link copied.');
+    } catch {
+      setStatus('Select the link and copy it.');
+    }
+  }
   return (
     <Dialog
       open={open}
@@ -114,15 +123,7 @@ function ResetLinkDialog({ account, refresh }: { account: AdminAccount; refresh:
               onFocus={(e) => e.currentTarget.select()}
             />
             <p>Expires {formatLinkExpiry(issued.expiresAt)}.</p>
-            <Button
-              variant="secondary"
-              onClick={() =>
-                void navigator.clipboard
-                  .writeText(issued.link)
-                  .then(() => setStatus('Link copied.'))
-                  .catch(() => setStatus('Select the link and copy it.'))
-              }
-            >
+            <Button variant="secondary" onClick={() => void copyLink()}>
               Copy link
             </Button>
             <Button variant="secondary" loading={busy} onClick={() => void cancel()}>

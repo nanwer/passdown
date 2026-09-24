@@ -52,6 +52,8 @@ it('shows a reset link once and removes it when cancelled', async () => {
   fireEvent.click(await screen.findByRole('button', { name: 'Create reset link for Reader' }));
   fireEvent.click(screen.getByRole('button', { name: 'Create link' }));
   expect(await screen.findByRole('textbox', { name: 'Reset link for Reader' })).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Copy link' }));
+  expect(await screen.findByText('Select the link and copy it.')).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: 'Cancel this link' }));
   await waitFor(() =>
     expect(screen.queryByRole('textbox', { name: 'Reset link for Reader' })).toBeNull(),
