@@ -602,6 +602,10 @@ test('catalog listing reports how many guides use each item and filters by statu
   await page.goto(`/studio/${workspace}/catalog`);
   const tabs = page.getByRole('group', { name: 'Status' });
   await expect(tabs).toBeVisible();
+  // The tabs are drawn while the list is still loading, counting nothing. Read
+  // them only once it has arrived: reading during the load compared zeros,
+  // which proves nothing, or caught the list arriving between two reads.
+  await expect(page.getByText(/^\d+ items?$/)).toBeVisible();
 
   // All equals Active plus Inactive, and the counts respond to the filters.
   const readCount = async (name: string) =>
@@ -616,6 +620,7 @@ test('catalog listing reports how many guides use each item and filters by statu
     await readCount('Active'),
     await readCount('Inactive'),
   ];
+  expect(active, 'the item created above is active').toBeGreaterThan(0);
   expect(all).toBe(active + inactive);
 
   // An item nothing references shows no usage. Searched for, because the table
