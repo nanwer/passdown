@@ -365,7 +365,7 @@ Unit checks cover URL selection and the accessible link. Browser rendering and t
 2. Change the password twice without reloading. After each success, expect **Password changed. You are still signed in here.**, empty fields and an enabled Change password button.
 3. Enter an incorrect current password. Expect its error and focus on Current password. Mismatching new passwords focus the confirmation field.
 
-Component checks cover consecutive changes, announcements and current-password field errors. Recovery-link invalidation and database failure mapping are pending the staged credential integration; browser verification remains pending.
+Component checks cover consecutive changes, announcements and current-password field errors. Recovery-link invalidation and database failure mapping are implemented in the staged credential integration; browser verification remains pending.
 
 ## Staged publication and recovery database foundation
 
@@ -386,7 +386,7 @@ These controls now exist on the staged product branch. They remain unmerged; bro
 1. Sign in as a workspace manager. Open a published guide in Studio and choose **Withdraw…**. Enter an optional reason, then choose **Withdraw release N**. Expect a withdrawal announcement, a **Reinstate…** button and **See what readers see**. Unsaved draft text must stay intact.
 2. Open the reader address as a former reader. Expect **This guide has been withdrawn**, no title/instructions/photos, HTTP 200 and noindex metadata. An outsider to a private guide must still get 404.
 3. Choose **Reinstate…**, wait for dependency checks, then **Reinstate release N**. Expect the same release number to become readable. An inactive/restricted dependency must disable confirmation and explain the blocker.
-4. Open two editor tabs. Change publication state in one, then confirm an old action in the other. Expect `PUBLICATION_CHANGED`, refreshed publication state and preserved unsaved text.
+4. Open two editor tabs. Change publication state or audience in one, then confirm an old action in the other. Expect `PUBLICATION_CHANGED`, refreshed publication state and audience, cleared license consent and preserved unsaved text. Retrying must show the current audience before publishing.
 5. A withdrawn guide stays in Studio's **Withdrawn** filter, but disappears from the library and active catalog usage. Audience moves are unavailable until reinstated or republished. Save a changed draft and publish to end withdrawal with a new release.
 
 ### Administration and reset links
@@ -399,4 +399,4 @@ These controls now exist on the staged product branch. They remain unmerged; bro
 
 ### Remaining validation and integration
 
-Automated focused component, route and disposable-database checks cover the implemented foundations. Full browser journeys, concurrent credential races, the complete SQL denial matrix, keyboard/VoiceOver/mobile checks and production build are pending. The server command registry and proxy/logging integration belong to a later deployment slice; only database-level operator adapters exist here. No release, image or deployment is published by this work.
+Automated focused component, route and disposable-database checks cover the implemented foundations. Full browser journeys, concurrent credential races, the complete SQL denial matrix, keyboard/VoiceOver/mobile checks and production build are pending. A sign-in that verified the old password immediately before a reset can still insert a session afterward because Better Auth does not take the credential account lock; this remains a documented residual, without an additional probe result. The server command registry and proxy/logging integration belong to a later deployment slice; only database-level operator adapters exist here. No release, image or deployment is published by this work.
