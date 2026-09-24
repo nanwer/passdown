@@ -11,15 +11,9 @@ const config: NextConfig = {
   distDir: process.env.GUIDE_NEXT_DIST_DIR || '.next',
   serverExternalPackages: ['better-auth', 'pg'],
   /**
-   * Uploaded pictures are runtime data, not part of the build.
-   *
-   * The media root is resolved from an environment variable, so the tracer
-   * cannot see where it points and walks the directory it finds beside the
-   * application — pulling every locally uploaded image into the route's file
-   * trace. A deployment built from that trace ships one installation's photos.
-   *
-   * Excluded explicitly, because the tracer has no other way to know that a
-   * path decided at runtime is not an application dependency.
+   * Runtime uploads must never enter a build. media.ts avoids anchoring an
+   * unknown media path to the application directory; these exclusions also
+   * protect known local upload folders and compiled application source.
    */
   outputFileTracingExcludes: {
     '**': [

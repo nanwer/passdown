@@ -11,6 +11,13 @@ const fixtures = [
   'apps/web/CLAUDE.md',
   'apps/web/private-note.md',
   'apps/web/lib/media.test.ts',
+  'apps/web/lib/runtime.spec.js',
+  'apps/web/lib/runtime.mts',
+  'apps/web/lib/runtime.cts',
+  'apps/web/unreferenced.mjs',
+  'apps/web/unreferenced.json',
+  'apps/web/lib/unreferenced.js',
+  'apps/web/lib/unreferenced.cjs',
   'apps/web/components/secret.test.tsx',
   'apps/web/.passdown-settings.123',
   'deploy/custom.env',
@@ -18,7 +25,12 @@ const fixtures = [
   'deploy/.env.renew-lock',
   'apps/web/.private/report.txt',
 ];
-const contextFixtures = [...fixtures, 'apps/web/credentials.txt'];
+const contextFixtures = [
+  ...fixtures.filter(
+    (file) => !file.endsWith('/unreferenced.mjs') && !file.endsWith('/unreferenced.json'),
+  ),
+  'apps/web/credentials.txt',
+];
 try {
   for (const file of contextFixtures) {
     mkdirSync(join(directory, file, '..'), { recursive: true });
@@ -94,6 +106,30 @@ try {
     } finally {
       rmSync(authored, { recursive: true, force: true });
     }
+    const suffixResults = [];
+    for (const suffix of ['spec.js', 'mts', 'cts']) {
+      const root = mkdtempSync(join(tmpdir(), 'passdown-image-suffix-'));
+      try {
+        const file = join(root, 'node_modules/dependency', `runtime.${suffix}`);
+        mkdirSync(join(file, '..'), { recursive: true });
+        writeFileSync(file, 'synthetic-source');
+        const strict = spawnSync(process.execPath, [checker, root]);
+        const pruned = spawnSync(process.execPath, [checker, root, '--prune-metadata']);
+        suffixResults.push({
+          suffix,
+          strict: strict.status,
+          pruned: pruned.status,
+          removed: !existsSync(file),
+        });
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    }
+    assert.deepEqual(
+      suffixResults,
+      ['spec.js', 'mts', 'cts'].map((suffix) => ({ suffix, strict: 1, pruned: 0, removed: true })),
+      'Dependency suffix guards must reject tests and TypeScript, then prune them only in dependency mode.',
+    );
     const clean = mkdtempSync(join(tmpdir(), 'passdown-image-clean-'));
     try {
       for (const file of [
@@ -101,6 +137,9 @@ try {
         'THIRD_PARTY_NOTICES.md',
         'node_modules/dependency/LICENSE.md',
         'node_modules/dependency/NOTICE.md',
+        'node_modules/dependency/NOTICES.md',
+        'node_modules/dependency/THIRD-PARTY-NOTICES.md',
+        'node_modules/dependency/COPYING.md',
         'apps/web/server.js',
       ]) {
         mkdirSync(join(clean, file, '..'), { recursive: true });
@@ -111,6 +150,18 @@ try {
         0,
         'Runtime files and legal notices must be retained.',
       );
+      assert.equal(
+        spawnSync(process.execPath, [checker, clean, '--prune-metadata']).status,
+        0,
+        'Dependency pruning must accept legal notices.',
+      );
+      for (const file of ['NOTICES.md', 'THIRD-PARTY-NOTICES.md', 'COPYING.md']) {
+        assert.equal(
+          readFileSync(join(clean, 'node_modules/dependency', file), 'utf8'),
+          'retained runtime or notice',
+          'Pruning must preserve legal-notice contents.',
+        );
+      }
     } finally {
       rmSync(clean, { recursive: true, force: true });
     }

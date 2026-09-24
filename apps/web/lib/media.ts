@@ -1,7 +1,7 @@
 import 'server-only';
 import { createHash } from 'node:crypto';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join } from 'node:path';
 import sharp, { type Metadata, type Sharp } from 'sharp';
 import { ApplicationError } from '@guide/contracts';
 import { servedImageWidths, type ServedImageWidth } from '@guide/content';
@@ -36,8 +36,10 @@ export type StoredAsset = {
 };
 
 function mediaRoot() {
-  // Deliberately outside the web root: nothing here is statically served.
-  return resolve(process.env.GUIDE_MEDIA_ROOT ?? join(process.cwd(), '.media'));
+  // Keep runtime paths relative when configured that way. fs resolves them
+  // against cwd; resolving an unknown environment value here instead makes
+  // Next's file tracer treat the whole application directory as media.
+  return process.env.GUIDE_MEDIA_ROOT ?? '.media';
 }
 
 /**
