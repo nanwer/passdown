@@ -1,3 +1,4 @@
+import { hashCredentialPassword, verifyCredentialPassword } from '@guide/database';
 import { ApplicationError, changePasswordSchema } from '@guide/contracts';
 import { currentSession, enforceRateLimit, getApplication } from '../../../../lib/application';
 import { apiResponse, assertOrigin, parseInput, readJSON } from '../../../../lib/http';
@@ -30,21 +31,21 @@ export function POST(request: Request) {
         'The new password must be different from the current one.',
         422,
       );
-    try {
-      await app.identity.api.changePassword({
-        body: {
-          currentPassword: input.currentPassword,
-          newPassword: input.newPassword,
-          revokeOtherSessions: true,
-        },
-        headers: request.headers,
-      });
-    } catch {
-      // Better Auth distinguishes a wrong password from other failures, but
-      // saying which is a free oracle for anyone testing a stolen session.
+    const storedHash = await app.store.currentPasswordHash(session.user.id);
+    if (
+      !storedHash ||
+      !(await verifyCredentialPassword({ password: input.currentPassword, hash: storedHash }))
+    )
       throw new ApplicationError('VALIDATION_ERROR', 'That current password is not right.', 422);
-    }
-    await app.store.clearPasswordChangeRequirement(session.user.id);
+    const newHash = await hashCredentialPassword(input.newPassword);
+    await app.store.changeOwnPassword(
+      { kind: 'user', id: session.user.id, active: session.user.active },
+      {
+        expectedHash: storedHash,
+        newHash,
+        keepSessionId: session.session.id,
+      },
+    );
     return Response.json({ changed: true });
   });
 }

@@ -122,7 +122,7 @@ BEGIN
     RAISE EXCEPTION 'Expected a token hash' USING ERRCODE = '22023';
   END IF;
   SELECT * INTO target FROM public.auth_user u
-  WHERE app.normalized_name(u.email) = app.normalized_name(address)
+  WHERE u.email = address
   FOR UPDATE;                                                     -- step 1
   IF NOT FOUND THEN RETURN; END IF;
   IF target.active IS NOT TRUE THEN
@@ -211,7 +211,7 @@ BEGIN
   IF (hash ~ '^[0-9a-f]{64}$') IS NOT TRUE THEN RETURN NULL; END IF;
   SELECT r.user_id INTO target FROM app.password_reset r WHERE r.token_hash = hash;
   IF NOT FOUND THEN RETURN NULL; END IF;
-  PERFORM 1 FROM public.auth_user u WHERE u.id = target AND u.active IS TRUE FOR UPDATE;   -- step 1
+  PERFORM 1 FROM public.auth_user u WHERE u.id = target AND u.active IS TRUE AND u.email_verified IS TRUE FOR UPDATE;   -- step 1
   IF NOT FOUND THEN RETURN NULL; END IF;
   SELECT * INTO link FROM app.password_reset r                                           -- step 2
   WHERE r.token_hash = hash AND r.user_id = target
@@ -415,7 +415,7 @@ BEGIN
     RAISE EXCEPTION 'Only the operator can grant administration' USING ERRCODE = '42501';
   END IF;
   SELECT * INTO account FROM public.auth_user u
-  WHERE app.normalized_name(u.email) = app.normalized_name(address) FOR UPDATE;       -- step 1
+  WHERE u.email = address FOR UPDATE;       -- step 1
   IF NOT FOUND THEN RETURN QUERY SELECT 'no-account'::text, NULL::text; RETURN; END IF;
   PERFORM app.lock_admin_set();                                                        -- step 1a
   IF account.active IS NOT TRUE OR account.email_verified IS NOT TRUE THEN
@@ -439,7 +439,7 @@ BEGIN
     RAISE EXCEPTION 'Only the operator can revoke administration' USING ERRCODE = '42501';
   END IF;
   SELECT * INTO account FROM public.auth_user u
-  WHERE app.normalized_name(u.email) = app.normalized_name(address) FOR UPDATE;       -- step 1
+  WHERE u.email = address FOR UPDATE;       -- step 1
   IF NOT FOUND THEN RETURN QUERY SELECT 'no-account'::text, NULL::text, NULL::bigint; RETURN; END IF;
   PERFORM app.lock_admin_set();                                                        -- step 1a
   IF NOT EXISTS(SELECT 1 FROM app.installation_admin a WHERE a.user_id = account.id) THEN

@@ -18,3 +18,4 @@ export * from './migrator';
 export * from './lifecycle';
 
 export * from './restore';
+export * from './password-reset';

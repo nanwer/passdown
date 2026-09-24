@@ -6,6 +6,7 @@ export function GET(request: Request) {
     const { session, actor } = await requireSession(request);
     return Response.json({
       user: { id: session.user.id, name: session.user.name, email: session.user.email },
+      isAdministrator: await getApplication().store.isInstallationAdministrator(actor),
       workspaces: await getApplication().store.listWorkspaces(actor),
     });
   });

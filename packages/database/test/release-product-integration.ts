@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import pg from 'pg';
 import { createApplicationStore } from '../src/store';
+import * as database from '../src/index';
 import { newDocument } from '../../../apps/web/components/studio/model';
 import { readConfig } from '../../../scripts/local-config.mjs';
 import { migrate } from '../../../scripts/migrate-local.mjs';
@@ -103,6 +104,13 @@ try {
         assert.equal((await store.getDraft(actor, 'public', guide.id))?.state, 'withdrawn');
         assert.equal(await store.withdrawnNotice({ kind: 'anonymous' }, 'public', guide.id), true);
         await assert.rejects(
+          owner.query("UPDATE app.guide SET state='published',audience='members' WHERE id=$1", [
+            guide.id,
+          ]),
+          { code: '23514' },
+        );
+
+        await assert.rejects(
           store.withdrawGuide(actor, 'public', guide.id, {
             expectedRelease: 1,
             expectedPublicationRevision: current.publicationRevision,
@@ -185,6 +193,31 @@ try {
       code: '23514',
     });
   });
+  await check(
+    'credential store authorizes administrators and returns single-use reset links',
+    async () => {
+      const store = createApplicationStore({ connectionString: runtimeURL });
+      const actor = { kind: 'user' as const, id: 'owner', active: true };
+      try {
+        assert.equal(await store.isInstallationAdministrator(actor), true);
+        assert.equal(await store.isInstallationAdministrator({ kind: 'anonymous' }), false);
+        const accounts = await store.listAccountsForAdministrator(actor, { q: 'reader' });
+        assert.equal(accounts.total, 1);
+        assert.equal(accounts.accounts[0]?.email, 'reader@test.local');
+        const issued = await store.adminIssuePasswordReset(actor, 'reader');
+        assert.match(issued.token, /^[A-Za-z0-9_-]{43}$/);
+        assert.equal((await store.describePasswordReset(issued.token))?.email, 'reader@test.local');
+        await store.adminCancelPasswordReset(actor, 'reader');
+        assert.equal(await store.describePasswordReset(issued.token), null);
+        await assert.rejects(
+          store.adminIssuePasswordReset({ kind: 'user', id: 'reader', active: true }, 'owner'),
+          { status: 404 },
+        );
+      } finally {
+        await store.close();
+      }
+    },
+  );
   await check('runtime cannot issue through the operator function', () =>
     scoped('owner', async (c) => {
       await assert.rejects(
@@ -237,6 +270,105 @@ try {
       });
     },
   );
+  await check('revoking email verification makes an issued reset unredeemable', async () => {
+    const hash = 'e'.repeat(64);
+    await owner.query("SELECT * FROM app.operator_issue_password_reset('reader@test.local',$1)", [
+      hash,
+    ]);
+    await owner.query("UPDATE public.auth_user SET email_verified=false WHERE id='reader'");
+    try {
+      await scoped(null, async (c) => {
+        assert.equal(
+          (await c.query('SELECT app.redeem_password_reset($1,$2) AS who', [hash, passwordHash]))
+            .rows[0].who,
+          null,
+        );
+      });
+    } finally {
+      await owner.query("UPDATE public.auth_user SET email_verified=true WHERE id='reader'");
+    }
+  });
+  await check(
+    'operator lookup does not normalize a different Unicode email into an account',
+    async () => {
+      assert.equal(
+        (
+          await owner.query(
+            "SELECT * FROM app.operator_issue_password_reset('ｒｅａｄｅｒ@test.local',$1)",
+            ['f'.repeat(64)],
+          )
+        ).rowCount,
+        0,
+      );
+    },
+  );
+  await check('operator adapter canonicalizes email and returns a usable link', async () => {
+    assert.equal(typeof database.issueOperatorPasswordReset, 'function');
+    const result = await database.issueOperatorPasswordReset({
+      ownerDatabaseURL: ownerURL,
+      origin: 'http://127.0.0.1:3100',
+      email: 'READER@test.local',
+    });
+    assert.equal(result.kind, 'issued');
+    if (result.kind !== 'issued') return;
+    assert.match(result.link, /\/reset\/[A-Za-z0-9_-]{43}$/);
+    assert.equal(result.email, 'reader@test.local');
+  });
+  await check(
+    'operator administrator wrappers preserve the last-administrator refusal',
+    async () => {
+      assert.equal(typeof database.grantInstallationAdministrator, 'function');
+      assert.equal(
+        (
+          await database.grantInstallationAdministrator({
+            ownerDatabaseURL: ownerURL,
+            email: 'OWNER@test.local',
+          })
+        ).outcome,
+        'already',
+      );
+      assert.equal(
+        (
+          await database.revokeInstallationAdministrator({
+            ownerDatabaseURL: ownerURL,
+            email: 'OWNER@test.local',
+          })
+        ).reason,
+        'last-administrator',
+      );
+      assert.equal(
+        (await database.listInstallationAdministrators({ ownerDatabaseURL: ownerURL }))[0]?.email,
+        'owner@test.local',
+      );
+    },
+  );
+  await check('setup wrapper grants only inside its existing transaction', async () => {
+    assert.equal(typeof database.completeSetupAdministrator, 'function');
+    const c = await owner.connect();
+    try {
+      await c.query('BEGIN');
+      await c.query('TRUNCATE public.auth_user CASCADE');
+      await c.query(
+        "INSERT INTO public.auth_user(id,name,email,email_verified,active) VALUES('setup','Setup','setup@test.local',true,true)",
+      );
+      await c.query(
+        "INSERT INTO public.auth_account(id,account_id,provider_id,user_id,password) VALUES('setup','setup','credential','setup',$1)",
+        [passwordHash],
+      );
+      await database.completeSetupAdministrator(c, 'setup');
+      assert.equal(
+        (await c.query('SELECT user_id FROM app.installation_admin')).rows[0].user_id,
+        'setup',
+      );
+    } finally {
+      await c.query('ROLLBACK');
+      c.release();
+    }
+    assert.equal(
+      (await owner.query('SELECT user_id FROM app.installation_admin')).rows[0].user_id,
+      'owner',
+    );
+  });
   await check('restore audit is idempotent per restoreId', async () => {
     await owner.query(
       'SELECT app.operator_record_restore(\'{"restoreId":"synthetic-restore"}\'::jsonb)',

@@ -187,6 +187,7 @@ async function getPersistentScope(
     list: (filter?: LibraryFilter) =>
       store.listReleases(actor, workspaceId, { ...filter, audience }),
     get: (id: string) => store.getRelease(actor, workspaceId, id),
+    withdrawn: (id: string) => store.withdrawnNotice(actor, workspaceId, id),
     categories: () => store.listCategories(actor, workspaceId, { domain: 'guide' }),
     // Browse totals from the database, in the same section this scope reads.
     categoryCounts: () => store.listLibraryCategoryCounts(actor, workspaceId, audience),

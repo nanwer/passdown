@@ -198,6 +198,7 @@ export type PublishedGuidePage = {
   offset: number;
 };
 export type StudioSession = {
+  isAdministrator: boolean;
   user: { id: string; name: string; email: string };
   workspaces: StudioWorkspace[];
 };
@@ -375,3 +376,4 @@ export * from './setup';
 export * from './media-files';
 
 export * from './build-info';
+export * from './password-reset';

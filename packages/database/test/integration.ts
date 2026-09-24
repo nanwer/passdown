@@ -277,7 +277,11 @@ try {
     await denied(
       store.publishDraft(actor('owner'), 'public', publicDraft.id, {
         expectedVersion: 1,
-        expectedPublicationRevision: 0,
+        expectedPublicationRevision: (await store.getDraft(
+          actor('owner'),
+          'public',
+          publicDraft.id,
+        ))!.publicationRevision,
         expectedRelease: null,
         license: 'CC-BY-4.0',
       }),
@@ -286,7 +290,11 @@ try {
     await denied(
       store.publishDraft(actor('owner'), 'public', publicDraft.id, {
         expectedVersion: 2,
-        expectedPublicationRevision: 1,
+        expectedPublicationRevision: (await store.getDraft(
+          actor('owner'),
+          'public',
+          publicDraft.id,
+        ))!.publicationRevision,
         expectedRelease: 1,
         license: 'CC-BY-4.0',
       }),
@@ -295,14 +303,19 @@ try {
     await denied(
       store.publishDraft(actor('owner'), 'public', publicDraft.id, {
         expectedVersion: 2,
-        expectedPublicationRevision: 0,
+        expectedPublicationRevision: (await store.getDraft(
+          actor('owner'),
+          'public',
+          publicDraft.id,
+        ))!.publicationRevision,
         expectedRelease: null,
       } as any),
       422,
     );
     const release = await store.publishDraft(actor('owner'), 'public', publicDraft.id, {
       expectedVersion: 2,
-      expectedPublicationRevision: 0,
+      expectedPublicationRevision: (await store.getDraft(actor('owner'), 'public', publicDraft.id))!
+        .publicationRevision,
       expectedRelease: null,
       license: 'CC-BY-4.0',
     });
@@ -312,7 +325,11 @@ try {
     await denied(
       store.publishDraft(actor('owner'), 'private', privateDraft.id, {
         expectedVersion: 1,
-        expectedPublicationRevision: 0,
+        expectedPublicationRevision: (await store.getDraft(
+          actor('owner'),
+          'private',
+          privateDraft.id,
+        ))!.publicationRevision,
         expectedRelease: null,
         license: 'CC-BY-4.0',
       }),
@@ -320,7 +337,11 @@ try {
     );
     await store.publishDraft(actor('owner'), 'private', privateDraft.id, {
       expectedVersion: 1,
-      expectedPublicationRevision: 0,
+      expectedPublicationRevision: (await store.getDraft(
+        actor('owner'),
+        'private',
+        privateDraft.id,
+      ))!.publicationRevision,
       expectedRelease: null,
       license: 'all-rights-reserved',
     });
@@ -381,10 +402,14 @@ try {
         'Saved newer title',
       );
       const results = await Promise.allSettled(
-        [1, 2].map(() =>
+        [1, 2].map(async () =>
           store.publishDraft(actor('owner'), 'public', publicDraft.id, {
             expectedVersion: 3,
-            expectedPublicationRevision: 1,
+            expectedPublicationRevision: (await store.getDraft(
+              actor('owner'),
+              'public',
+              publicDraft.id,
+            ))!.publicationRevision,
             expectedRelease: 1,
             license: 'CC-BY-SA-4.0',
           }),
@@ -398,7 +423,11 @@ try {
       await denied(
         store.publishDraft(actor('owner'), 'public', publicDraft.id, {
           expectedVersion: 3,
-          expectedPublicationRevision: 2,
+          expectedPublicationRevision: (await store.getDraft(
+            actor('owner'),
+            'public',
+            publicDraft.id,
+          ))!.publicationRevision,
           expectedRelease: 2,
           license: 'CC-BY-SA-4.0',
         }),
@@ -437,7 +466,11 @@ try {
         await assert.rejects(
           store.publishDraft(actor('owner'), 'public', publicDraft.id, {
             expectedVersion: 4,
-            expectedPublicationRevision: 2,
+            expectedPublicationRevision: (await store.getDraft(
+              actor('owner'),
+              'public',
+              publicDraft.id,
+            ))!.publicationRevision,
             expectedRelease: 2,
             license: 'CC-BY-4.0',
           }),
@@ -511,7 +544,7 @@ try {
     },
   );
   await check(
-    'withdrawn/redacted rows disappear before search and direct metadata projection',
+    'withdrawn guides retain manager drafts while reader projections stay hidden',
     async () => {
       for (const state of ['withdrawn', 'redacted']) {
         await owner.query('UPDATE app.guide SET state=$1 WHERE id=$2', [state, publicDraft.id]);
@@ -523,7 +556,7 @@ try {
         await scoped(actor('owner'), 'public', async (c) => {
           assert.equal(
             (await c.query('SELECT * FROM app.guide WHERE id=$1', [publicDraft.id])).rowCount,
-            0,
+            state === 'withdrawn' ? 1 : 0,
           );
           assert.equal(
             (await c.query('SELECT * FROM app.release WHERE guide_id=$1', [publicDraft.id]))
@@ -691,7 +724,11 @@ try {
       );
       const release = await store.publishDraft(actor('owner'), 'public', publicDraft.id, {
         expectedVersion: 5,
-        expectedPublicationRevision: 2,
+        expectedPublicationRevision: (await store.getDraft(
+          actor('owner'),
+          'public',
+          publicDraft.id,
+        ))!.publicationRevision,
         expectedRelease: 2,
         license: 'CC-BY-4.0',
       });
@@ -727,7 +764,11 @@ try {
       });
       const published = await store.publishDraft(actor(id), 'repair-collective', 'bicycle-brake', {
         expectedVersion: 2,
-        expectedPublicationRevision: 1,
+        expectedPublicationRevision: (await store.getDraft(
+          actor('owner'),
+          'repair-collective',
+          'bicycle-brake',
+        ))!.publicationRevision,
         expectedRelease: 1,
         license: 'CC-BY-4.0',
       });
@@ -818,7 +859,8 @@ try {
         });
         await store.publishDraft(actor('owner'), 'public', draft.id, {
           expectedVersion: 1,
-          expectedPublicationRevision: 0,
+          expectedPublicationRevision: (await store.getDraft(actor('owner'), 'public', draft.id))!
+            .publicationRevision,
           expectedRelease: null,
           license: 'CC-BY-4.0',
         });
@@ -855,7 +897,8 @@ try {
       await denied(
         store.publishDraft(actor('owner'), 'public', draft.id, {
           expectedVersion: 1,
-          expectedPublicationRevision: 0,
+          expectedPublicationRevision: (await store.getDraft(actor('owner'), 'public', draft.id))!
+            .publicationRevision,
           expectedRelease: null,
           license: 'CC-BY-4.0',
         }),
@@ -932,7 +975,8 @@ try {
       });
       await store.publishDraft(actor('owner'), 'public', draft.id, {
         expectedVersion: 1,
-        expectedPublicationRevision: 0,
+        expectedPublicationRevision: (await store.getDraft(actor('owner'), 'public', draft.id))!
+          .publicationRevision,
         expectedRelease: null,
         license: 'CC-BY-4.0',
       });
@@ -1384,7 +1428,8 @@ try {
         });
         await store.publishDraft(actor('owner'), 'library', draft.id, {
           expectedVersion: 1,
-          expectedPublicationRevision: 0,
+          expectedPublicationRevision: (await store.getDraft(actor('owner'), 'library', draft.id))!
+            .publicationRevision,
           expectedRelease: null,
           license: audience === 'public' ? 'CC-BY-4.0' : 'all-rights-reserved',
         });

@@ -1,6 +1,7 @@
 import { canonicalAccountEmail } from './credentials';
 import { completeSetup, setupRequired, reconcileSetup, type SetupAccountInput } from './setup';
 import { runtimeRoleIsSafe } from './runtime-role';
+import { credentialStore } from './credential-store';
 import { managementStore } from './management-store';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import pg from 'pg';
@@ -446,6 +447,7 @@ export function createApplicationStore(options: {
     });
   }
   return {
+    ...credentialStore(pool),
     ...structuredStore(transaction, owner),
     withdrawGuide: (actor: Actor, workspaceId: string, id: string, input: WithdrawGuideInput) =>
       changePublication(actor, workspaceId, id, input, true),
@@ -604,16 +606,6 @@ export function createApplicationStore(options: {
      * rather than anything inside a workspace, so there is no workspace to
      * scope it to.
      */
-    async clearPasswordChangeRequirement(userId: string): Promise<void> {
-      const client = await pool.connect();
-      try {
-        await client.query('UPDATE public.auth_user SET must_change_password=false WHERE id=$1', [
-          userId,
-        ]);
-      } finally {
-        client.release();
-      }
-    },
     /**
      * Who is in a workspace, and who has been asked.
      *

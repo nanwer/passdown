@@ -19,12 +19,14 @@ export function Frame({
   children,
   workspace,
   workspaceCount = 0,
+  isAdministrator = false,
   user,
   onSignOut,
 }: {
   children: ReactNode;
   workspace?: StudioWorkspace;
   workspaceCount?: number;
+  isAdministrator?: boolean;
   user?: string;
   onSignOut?: () => void;
 }) {
@@ -76,6 +78,11 @@ export function Frame({
             <a className={headerLink} href="/studio">
               {workspaceCount > 1 ? 'Workspaces' : 'Studio'}
             </a>
+            {isAdministrator && (
+              <a className={headerLink} href="/admin/accounts">
+                Administration
+              </a>
+            )}
             <ThemeToggle />
             {user && (
               <a className={headerLink} href="/account" aria-label="Your account">
@@ -204,6 +211,7 @@ export function SessionGate({
     <Frame
       workspace={workspace}
       workspaceCount={session?.workspaces.length}
+      isAdministrator={session?.isAdministrator}
       user={session?.user.name}
       onSignOut={session ? () => void signOut() : undefined}
     >

@@ -84,7 +84,9 @@ export function SignIn() {
           <Button type="submit" loading={pending}>
             Sign in <ArrowRight size={17} />
           </Button>
-          <p className={X.hint}>Need access? Ask an administrator of this installation.</p>
+          <p className={X.hint}>
+            Forgot your password? Ask an administrator of this installation for a reset link.
+          </p>
         </form>
       </main>
     </Frame>
@@ -104,6 +106,13 @@ export function Workspaces() {
             <p>Choose a workspace to continue a draft or start something useful.</p>
           </div>
           <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,310px),1fr))] gap-6">
+            {session.isAdministrator && (
+              <div className={X.card}>
+                <h2>This installation</h2>
+                <a href="/admin/accounts">Administration → Accounts</a>
+                <p>Create password reset links for people who are locked out.</p>
+              </div>
+            )}
             {session.workspaces.map((workspace) => (
               /* Not a single link any more. The card used to be one <a>, which
                  meant the only thing you could do from here was enter the
@@ -207,7 +216,11 @@ function GuideList({ workspace }: { workspace: StudioWorkspace }) {
         .toLowerCase()
         .includes(search.toLowerCase()) &&
       (status === 'all' ||
-        (status === 'published' ? guide.currentRelease !== null : guide.currentRelease === null)),
+        (status === 'withdrawn'
+          ? guide.state === 'withdrawn'
+          : status === 'published'
+            ? guide.state === 'published'
+            : guide.state === 'draft')),
   );
   return (
     <main id="main" tabIndex={-1} className={X.container}>
@@ -256,6 +269,7 @@ function GuideList({ workspace }: { workspace: StudioWorkspace }) {
                 <option value="all">All guides</option>
                 <option value="draft">Drafts</option>
                 <option value="published">Published</option>
+                <option value="withdrawn">Withdrawn</option>
               </select>
             </label>
           </div>
@@ -294,7 +308,11 @@ function GuideList({ workspace }: { workspace: StudioWorkspace }) {
                     </div>
                     <div className="flex min-w-[170px] flex-col items-end gap-2 max-[700px]:min-w-0 max-[700px]:flex-row max-[700px]:flex-wrap max-[700px]:items-center [&_small]:text-muted">
                       <span className={X.badge}>
-                        {guide.currentRelease ? `Release ${guide.currentRelease}` : 'Draft'}
+                        {guide.state === 'withdrawn'
+                          ? `Release ${guide.currentRelease} withdrawn`
+                          : guide.currentRelease
+                            ? `Release ${guide.currentRelease}`
+                            : 'Draft'}
                       </span>
                       <small>
                         {guide.currentRelease && guide.publishedVersion !== guide.version

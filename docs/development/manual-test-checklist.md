@@ -375,4 +375,28 @@ These migrations and contracts are pending integration. Main does not yet provid
 - Withdrawing through the scoped store preserves the editable draft, refuses former readers access to release content, and allows only the former audience to read the withdrawal-notice flag. Reinstating keeps the same release and checks current dependencies.
 - Password reset tables and administrator SQL functions are installed in migration 032. Runtime SQL cannot directly replace or delete a credential. Non-administrators cannot list accounts or issue reset links. The last effective installation administrator cannot be revoked or deactivated.
 
-Developer validation uses only an explicitly named disposable `release_b_*` database through `packages/database/test/release-product-integration.ts`. It covers scoped publication transitions, credential grants, denial cases, redemption/session removal and idempotent restore auditing. Reader/editor controls and account-recovery pages/API are still under development; this database foundation alone does not deliver them.
+Developer validation uses only an explicitly named disposable `release_b_*` database through `packages/database/test/release-product-integration.ts`. It covers scoped publication transitions, credential grants, denial cases, redemption/session removal and idempotent restore auditing. Reader/editor controls and account-recovery pages/API are described in the staged integration journeys below.
+
+## Staged product integration: complete manual journeys
+
+These controls now exist on the staged product branch. They remain unmerged; browser validation and the later deployment/operator integration are required before calling them delivered on main.
+
+### Withdraw and reinstate
+
+1. Sign in as a workspace manager. Open a published guide in Studio and choose **Withdraw…**. Enter an optional reason, then choose **Withdraw release N**. Expect a withdrawal announcement, a **Reinstate…** button and **See what readers see**. Unsaved draft text must stay intact.
+2. Open the reader address as a former reader. Expect **This guide has been withdrawn**, no title/instructions/photos, HTTP 200 and noindex metadata. An outsider to a private guide must still get 404.
+3. Choose **Reinstate…**, wait for dependency checks, then **Reinstate release N**. Expect the same release number to become readable. An inactive/restricted dependency must disable confirmation and explain the blocker.
+4. Open two editor tabs. Change publication state in one, then confirm an old action in the other. Expect `PUBLICATION_CHANGED`, refreshed publication state and preserved unsaved text.
+5. A withdrawn guide stays in Studio's **Withdrawn** filter, but disappears from the library and active catalog usage. Audience moves are unavailable until reinstated or republished. Save a changed draft and publish to end withdrawal with a new release.
+
+### Administration and reset links
+
+1. Sign in as an installation administrator and follow **Administration** to `/admin/accounts`. Search for an account; expect server-filtered results and workspace/status information. A workspace manager who is not an installation administrator must get 404 from this page and its APIs.
+2. For another active account, choose **Create reset link…**, then **Create link**. Expect the one-time link field to receive focus, an expiry with a time zone, and Copy/Cancel controls. The current password and sessions remain usable until redemption.
+3. Choose **Copy link**, then **Cancel this link**. Expect the link field to disappear and **Link cancelled. It no longer works.** Opening that link must show the invalid-link page.
+4. Create another link and open it in a second browser. Set matching 12–200 character passwords. Expect a new sign-in to Studio and all previous sessions for that account invalidated. Reusing the link must fail. If another account is signed in, the page explains that continuing signs that account out.
+5. Open `/account` and change the password twice without reloading. Expect empty fields, enabled submit and a success announcement each time. A wrong current password focuses that field; a busy database must say the account is busy, never claim the password is wrong.
+
+### Remaining validation and integration
+
+Automated focused component, route and disposable-database checks cover the implemented foundations. Full browser journeys, concurrent credential races, the complete SQL denial matrix, keyboard/VoiceOver/mobile checks and production build are pending. The server command registry and proxy/logging integration belong to a later deployment slice; only database-level operator adapters exist here. No release, image or deployment is published by this work.

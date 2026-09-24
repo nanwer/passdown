@@ -32,5 +32,5 @@ export const migrationManifest: { name: string; checksum: string }[] = [
   { name: '029_management_sort.sql', checksum: '530048e335f02b5e1b4e8dc2e5ee864d1583f6d1174edbd316883966b03fa3ad' },
   { name: '030_management_usage_scope.sql', checksum: '0152705e98fb565ff12af441d9bcdfe833eea816d289b1d259db87de3b067ce0' },
   { name: '031_guide_withdrawal.sql', checksum: '37672ea46eed1dc0cf161fddc8d21b601dbd1a9df91a84441d653a9e516bc806' },
-  { name: '032_password_reset_links.sql', checksum: 'e9bfec961b552bbdeaf16aaf577d0c7e55b7ab2bd5d214f57ee45cca3b607709' },
+  { name: '032_password_reset_links.sql', checksum: '98485a39a40ce4ec10ed4afa2df1d011b24ff5a9b23169d4f2cc8623c4656f4c' },
 ];

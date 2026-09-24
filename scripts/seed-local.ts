@@ -1,7 +1,7 @@
 import pg from 'pg';
 import { randomUUID } from 'node:crypto';
 import { toStructuredDocument } from '../packages/guide-content/src/index';
-import { createIdentity } from '../packages/database/src/index';
+import { createIdentity, canonicalAccountEmail } from '../packages/database/src/index';
 import { createDemoQueries } from '../packages/testing/src/index';
 import { requireLocal } from './migrate-local.mjs';
 /** Operator-only bootstrap: never import this into request handlers. */
@@ -22,7 +22,7 @@ export async function seedLocal(config: Record<string, string>) {
   });
   try {
     await client.query('SELECT pg_advisory_lock(719821006)');
-    const email = config.GUIDE_LOCAL_OWNER_EMAIL || 'owner@guide.local';
+    const email = canonicalAccountEmail(config.GUIDE_LOCAL_OWNER_EMAIL || 'owner@guide.local');
     let user = (await client.query('SELECT id FROM public.auth_user WHERE email=$1', [email]))
       .rows[0];
     if (!user) {
@@ -33,6 +33,7 @@ export async function seedLocal(config: Record<string, string>) {
       await client.query('UPDATE public.auth_user SET email_verified=true WHERE id=$1', [user.id]);
     }
     await client.query('BEGIN');
+    await client.query('SELECT * FROM app.operator_grant_administrator($1)', [email]);
     await client.query(
       // The public one is the workspace this installation serves at its root.
       // Migration 022 designates whatever is already there, but a database that

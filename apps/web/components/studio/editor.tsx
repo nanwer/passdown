@@ -1,5 +1,6 @@
 'use client';
 import * as X from './studio-styles';
+import { PublicationControls } from './publication-controls';
 import {
   useEffect,
   useRef,
@@ -937,7 +938,9 @@ function GuideSectionPicker({
   );
 }
 function GuideFamilyPicker({ workspaceId, guideId }: { workspaceId: string; guideId: string }) {
-  const [candidates, setCandidates] = useState<{ id: string; title: string }[]>([]);
+  const [candidates, setCandidates] = useState<
+    { id: string; title: string; state?: 'draft' | 'published' | 'withdrawn' }[]
+  >([]);
   const [parentId, setParentId] = useState('');
   const [saved, setSaved] = useState('');
   const [error, setError] = useState('');
@@ -946,7 +949,9 @@ function GuideFamilyPicker({ workspaceId, guideId }: { workspaceId: string; guid
   useEffect(() => {
     let active = true;
     void Promise.all([
-      studioFetch<{ guides: { id: string; title: string }[] }>(`/api/studio/${workspaceId}/guides`),
+      studioFetch<{
+        guides: { id: string; title: string; state?: 'draft' | 'published' | 'withdrawn' }[];
+      }>(`/api/studio/${workspaceId}/guides`),
       studioFetch<{ parent: { id: string } | null }>(
         `/api/studio/${workspaceId}/guides/${guideId}/family`,
       ),
@@ -1002,6 +1007,7 @@ function GuideFamilyPicker({ workspaceId, guideId }: { workspaceId: string; guid
           {candidates.map((candidate) => (
             <option key={candidate.id} value={candidate.id}>
               {candidate.title}
+              {candidate.state === 'withdrawn' ? ' (withdrawn)' : ''}
             </option>
           ))}
         </select>
@@ -1027,7 +1033,7 @@ function Editor({ workspace, guideId }: { workspace: StudioWorkspace; guideId: s
   const [baseline, setBaseline] = useState('');
   const [error, setError] = useState('');
   const [conflict, setConflict] = useState(false);
-  const [pending, setPending] = useState<'save' | 'publish' | null>(null);
+  const [pending, setPending] = useState<'save' | 'publish' | 'publication' | null>(null);
   const [selected, setSelected] = useState('');
   const [preview, setPreview] = useState(false);
   const [metadata, setMetadata] = useState(false);
@@ -1094,7 +1100,24 @@ function Editor({ workspace, guideId }: { workspace: StudioWorkspace; guideId: s
   function problem(e: unknown) {
     setError(e instanceof Error ? e.message : 'The request failed. Your input is still here.');
     if (e instanceof StudioError) {
-      if (e.status === 409) setConflict(true);
+      if (e.code === 'PUBLICATION_CHANGED') {
+        setPublishOpen(false);
+        void studioFetch<{ guide: DraftGuide }>(endpoint)
+          .then(({ guide: current }) =>
+            setGuide((latest) =>
+              latest
+                ? {
+                    ...latest,
+                    state: current.state,
+                    currentRelease: current.currentRelease,
+                    publishedVersion: current.publishedVersion,
+                    publicationRevision: current.publicationRevision,
+                  }
+                : latest,
+            ),
+          )
+          .catch(() => {});
+      } else if (e.status === 409) setConflict(true);
       if (e.status === 401)
         setError('Your session expired. Copy your work below before signing in again.');
     }
@@ -1283,7 +1306,8 @@ function Editor({ workspace, guideId }: { workspace: StudioWorkspace; guideId: s
                       : 'All changes saved'}
               </span>
               <span className={X.hint}>
-                Draft v{guide.version}
+                {guide.state === 'withdrawn' && 'Withdrawn: readers cannot open it · '}Draft v
+                {guide.version}
                 {guide.currentRelease
                   ? ` · Release ${guide.currentRelease}${changedRelease ? ' · Unpublished changes' : ' · Up to date'}`
                   : ' · Not published'}
@@ -1319,9 +1343,32 @@ function Editor({ workspace, guideId }: { workspace: StudioWorkspace; guideId: s
                     : `/w/${workspace.id}/guides/${guide.id}`
                 }
               >
-                Read release {guide.currentRelease}
+                {guide.state === 'withdrawn'
+                  ? 'See what readers see'
+                  : `Read release ${guide.currentRelease}`}
               </a>
             )}
+            <PublicationControls
+              guide={guide}
+              busy={!!pending}
+              onBusy={(busy) => {
+                saving.current = busy;
+                setPending(busy ? 'publication' : null);
+              }}
+              onChanged={(current) =>
+                setGuide((latest) =>
+                  latest
+                    ? {
+                        ...latest,
+                        state: current.state,
+                        currentRelease: current.currentRelease,
+                        publishedVersion: current.publishedVersion,
+                        publicationRevision: current.publicationRevision,
+                      }
+                    : latest,
+                )
+              }
+            />
             <Dialog
               open={publishOpen}
               closeDisabled={pending === 'publish'}
@@ -1363,6 +1410,12 @@ function Editor({ workspace, guideId }: { workspace: StudioWorkspace; guideId: s
                   steps
                 </p>
                 <p>The published snapshot stays unchanged when you edit the next draft.</p>
+                {guide.state === 'withdrawn' && (
+                  <p>
+                    Publishing ends the withdrawal. Readers get the new release; the withdrawn
+                    release is not reinstated.
+                  </p>
+                )}
                 {guide.audience === 'public' ? (
                   <label>
                     Content license
@@ -1578,23 +1631,27 @@ function Editor({ workspace, guideId }: { workspace: StudioWorkspace; guideId: s
                   }
                 />
                 <GuideFamilyPicker workspaceId={guide.workspaceId} guideId={guide.id} />
-                <GuideSectionPicker
-                  workspaceId={guide.workspaceId}
-                  guideId={guide.id}
-                  audience={guide.audience}
-                  currentRelease={guide.currentRelease}
-                  onMoved={(moved) =>
-                    setGuide((current) =>
-                      current
-                        ? {
-                            ...current,
-                            audience: moved.audience,
-                            publicationRevision: moved.publicationRevision,
-                          }
-                        : current,
-                    )
-                  }
-                />
+                {guide.state === 'withdrawn' ? (
+                  <p>Reinstate or publish the guide first, then move it between sections.</p>
+                ) : (
+                  <GuideSectionPicker
+                    workspaceId={guide.workspaceId}
+                    guideId={guide.id}
+                    audience={guide.audience}
+                    currentRelease={guide.currentRelease}
+                    onMoved={(moved) =>
+                      setGuide((current) =>
+                        current
+                          ? {
+                              ...current,
+                              audience: moved.audience,
+                              publicationRevision: moved.publicationRevision,
+                            }
+                          : current,
+                      )
+                    }
+                  />
+                )}
               </>
             ) : preview ? (
               <div className="studio-live-preview [&_.reader-step]:mt-6 [&_.step-layout]:block [&_h2]:mx-0 [&_h2]:mt-2 [&_h2]:mb-5">

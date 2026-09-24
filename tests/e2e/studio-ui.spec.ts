@@ -69,6 +69,8 @@ const initial = {
   categoryPath: [{ id: '55555555-5555-4555-8555-555555555555', name: 'Testing' }],
   audience: 'public',
   version: 1,
+  state: 'draft',
+  publicationRevision: 0,
   currentRelease: null,
   publishedVersion: null,
   updatedAt: '2026-09-19T12:00:00Z',
@@ -303,7 +305,11 @@ test('synthetic private publication records reserved rights and mobile editor re
   await page.route(`**/api/studio/${workspace.id}/guides/${guideId}/publish`, (route) => {
     publication = route.request().postDataJSON();
     return route.fulfill({
-      json: { guide: { release: 1 }, url: `/w/${workspace.id}/guides/${guideId}` },
+      json: {
+        publicationRevision: 1,
+        guide: { release: 1 },
+        url: `/w/${workspace.id}/guides/${guideId}`,
+      },
     });
   });
   await page.setViewportSize({ width: 390, height: 844 });
@@ -353,7 +359,9 @@ test('publication failure retains the dialog and license, then retry closes it a
           },
         },
       });
-    return route.fulfill({ json: { guide: { release: 1 }, url: `/guides/${guideId}` } });
+    return route.fulfill({
+      json: { publicationRevision: 1, guide: { release: 1 }, url: `/guides/${guideId}` },
+    });
   });
   await page.goto(`/studio/${workspace.id}/${guideId}`);
   await page.getByRole('button', { name: 'Publish…', exact: true }).click();
