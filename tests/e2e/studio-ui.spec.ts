@@ -320,6 +320,7 @@ test('synthetic private publication records reserved rights and mobile editor re
   await expect(page.getByRole('link', { name: 'Read published guide' })).toBeFocused();
   expect(publication).toEqual({
     expectedVersion: 1,
+    expectedPublicationRevision: 0,
     expectedRelease: null,
     license: 'all-rights-reserved',
   });

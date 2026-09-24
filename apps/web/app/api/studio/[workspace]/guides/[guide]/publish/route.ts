@@ -23,6 +23,7 @@ export function POST(request: Request, context: Context) {
       const root = await store.rootWorkspace();
       return Response.json({
         guide: release,
+        publicationRevision: release.publicationRevision,
         url:
           workspace === root && release.audience === 'public'
             ? `/guides/${guide}`

@@ -27,7 +27,14 @@ const contextSchema = z.object({
 export type Actor = z.infer<typeof actorSchema>;
 export type Membership = z.infer<typeof membershipSchema>;
 export type Workspace = z.infer<typeof workspaceSchema> & { name: string };
-export type Action = 'readRelease' | 'readDraft' | 'editDraft' | 'review' | 'publish' | 'moderate';
+export type Action =
+  | 'readWithdrawalNotice'
+  | 'readRelease'
+  | 'readDraft'
+  | 'editDraft'
+  | 'review'
+  | 'publish'
+  | 'moderate';
 export type GuideAccess = z.infer<typeof guideSchema>;
 
 /** Capability eligibility only. Publication/review use cases must additionally enforce exact revision and review policy. */
@@ -44,8 +51,8 @@ export function can(action: Action, input: unknown): boolean {
     membership.workspaceId === workspace.id
       ? membership
       : null;
-  if (action === 'readRelease') {
-    if (guide.state !== 'published') return false;
+  if (action === 'readRelease' || action === 'readWithdrawalNotice') {
+    if (guide.state !== (action === 'readRelease' ? 'published' : 'withdrawn')) return false;
     return (workspace.audience === 'public' && guide.audience === 'public') || !!member;
   }
   if (!member) return false;

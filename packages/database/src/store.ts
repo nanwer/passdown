@@ -22,6 +22,11 @@ import {
   inviteSchema,
   saveDraftSchema,
   publishSchema,
+  withdrawGuideSchema,
+  reinstateGuideSchema,
+  type WithdrawGuideInput,
+  type ReinstateGuideInput,
+  type GuideReinstateBlocker,
   assetPageSize,
   libraryPageSize,
   maxLibraryPageSize,
@@ -62,6 +67,12 @@ import {
   validation,
 } from './structured-store';
 type Row = Record<string, any>;
+const publicationChanged = () =>
+  new ApplicationError(
+    'PUBLICATION_CHANGED',
+    'Someone has just published, withdrawn or reinstated this guide. The page now shows where it stands.',
+    409,
+  );
 const missing = () => new ApplicationError('NOT_FOUND', 'Guide or workspace not found.', 404);
 const conflict = () =>
   new ApplicationError(
@@ -153,6 +164,8 @@ async function projectMedia(
 function draft(row: Row): DraftGuide {
   const document = guideDocumentSchema.parse(row.document);
   return {
+    state: row.state,
+    publicationRevision: row.publication_revision,
     id: row.id,
     workspaceId: row.workspace_id,
     title: document.title,
@@ -378,11 +391,91 @@ export function createApplicationStore(options: {
         [workspaceId, id],
       )
     ).rows[0];
-    if (!row || row.state === 'redacted' || row.state === 'withdrawn') throw missing();
+    if (!row || row.state === 'redacted') throw missing();
     return row;
+  }
+  async function changePublication(
+    actor: Actor,
+    workspaceId: string,
+    id: string,
+    input: WithdrawGuideInput | ReinstateGuideInput,
+    withdraw: boolean,
+  ): Promise<DraftGuide> {
+    const data = parse(withdraw ? withdrawGuideSchema : reinstateGuideSchema, input);
+    return transaction(actor, workspaceId, async (c) => {
+      await lockStructured(c, workspaceId);
+      const current = await lockedDraft(c, workspaceId, id);
+      if (withdraw && current.current_release === null)
+        throw validation('Only a published guide can be withdrawn.');
+      if (
+        current.publication_revision !== data.expectedPublicationRevision ||
+        current.current_release !== data.expectedRelease ||
+        current.state !== (withdraw ? 'published' : 'withdrawn')
+      )
+        throw publicationChanged();
+      if (!withdraw) {
+        const blockers = (
+          await c.query('SELECT * FROM app.guide_reinstate_blockers($1,$2)', [workspaceId, id])
+        ).rows as GuideReinstateBlocker[];
+        if (blockers.length)
+          throw new ApplicationError(
+            'REINSTATE_BLOCKED',
+            'This release cannot be reinstated. Resolve its dependencies and publish from the draft instead.',
+            422,
+            blockers.map((b) => ({ path: b.kind, message: `${b.name}: ${b.reason}` })),
+          );
+      }
+      await c.query(
+        'UPDATE app.guide SET state=$3,updated_at=clock_timestamp() WHERE workspace_id=$1 AND id=$2',
+        [workspaceId, id, withdraw ? 'withdrawn' : 'published'],
+      );
+      const event = withdraw ? 'guide.withdrawn' : 'guide.reinstated';
+      const details = {
+        release: current.current_release,
+        ...('reason' in data && data.reason ? { reason: data.reason } : {}),
+      };
+      await c.query(
+        'INSERT INTO app.audit(id,workspace_id,guide_id,actor_id,action,details) VALUES($1,$2,$3,app.actor_id(),$4,$5)',
+        [randomUUID(), workspaceId, id, event, details],
+      );
+      await c.query(
+        'INSERT INTO app.outbox(id,workspace_id,guide_id,event,payload) VALUES($1,$2,$3,$4,$5)',
+        [randomUUID(), workspaceId, id, event, { release: current.current_release }],
+      );
+      return draft(await lockedDraft(c, workspaceId, id));
+    });
   }
   return {
     ...structuredStore(transaction, owner),
+    withdrawGuide: (actor: Actor, workspaceId: string, id: string, input: WithdrawGuideInput) =>
+      changePublication(actor, workspaceId, id, input, true),
+    reinstateGuide: (actor: Actor, workspaceId: string, id: string, input: ReinstateGuideInput) =>
+      changePublication(actor, workspaceId, id, input, false),
+    async guideReinstateBlockers(
+      actor: Actor,
+      workspaceId: string,
+      id: string,
+    ): Promise<GuideReinstateBlocker[]> {
+      return transaction(actor, workspaceId, async (c) => {
+        await lockedDraft(c, workspaceId, id);
+        return (
+          await c.query('SELECT * FROM app.guide_reinstate_blockers($1,$2)', [workspaceId, id])
+        ).rows;
+      });
+    },
+    async withdrawnNotice(actor: Actor, workspaceId: string, id: string): Promise<boolean> {
+      return transaction(
+        actor,
+        workspaceId,
+        async (c) =>
+          (
+            await c.query('SELECT app.withdrawn_notice_visible($1,$2) AS visible', [
+              workspaceId,
+              id,
+            ])
+          ).rows[0]?.visible === true,
+      );
+    },
     ...managementStore(transaction),
     async listWorkspaces(actor: Actor): Promise<StudioWorkspace[]> {
       return transaction(
@@ -477,7 +570,7 @@ export function createApplicationStore(options: {
         await owner(c, workspaceId);
         return (
           await c.query(
-            "SELECT g.*,app.category_path(workspace_id,category_id) AS category_path FROM app.guide g WHERE workspace_id=$1 AND state NOT IN ('withdrawn','redacted') ORDER BY updated_at DESC,id",
+            "SELECT g.*,app.category_path(workspace_id,category_id) AS category_path FROM app.guide g WHERE workspace_id=$1 AND state <> 'redacted' ORDER BY updated_at DESC,id",
             [workspaceId],
           )
         ).rows.map((row) => {
@@ -490,7 +583,7 @@ export function createApplicationStore(options: {
       return transaction(actor, workspaceId, async (c) => {
         const row = (
           await c.query(
-            "SELECT g.*,app.category_path(workspace_id,category_id) AS category_path FROM app.guide g WHERE workspace_id=$1 AND id=$2 AND state NOT IN ('withdrawn','redacted')",
+            "SELECT g.*,app.category_path(workspace_id,category_id) AS category_path FROM app.guide g WHERE workspace_id=$1 AND id=$2 AND state <> 'redacted'",
             [workspaceId, id],
           )
         ).rows[0];
@@ -903,11 +996,17 @@ export function createApplicationStore(options: {
       workspaceId: string,
       id: string,
       input: PublishInput,
-    ): Promise<PublishedGuide> {
+    ): Promise<PublishedGuide & { publicationRevision: number }> {
       const data = parse(publishSchema, input);
       return transaction(actor, workspaceId, async (c) => {
         await lockStructured(c, workspaceId);
         const current = await lockedDraft(c, workspaceId, id);
+        if (current.publication_revision !== data.expectedPublicationRevision)
+          throw publicationChanged();
+        if (current.state === 'withdrawn' && current.published_version === current.version)
+          throw validation(
+            `Nothing has changed since release ${current.current_release}. Reinstate it instead, or save a change to the draft and publish that.`,
+          );
         if (
           current.version !== data.expectedVersion ||
           current.current_release !== data.expectedRelease ||
@@ -984,7 +1083,12 @@ export function createApplicationStore(options: {
           [workspaceId, id, number],
         );
         await projectRequirements(c, workspaceId, id, number, document);
-        const details = { release: number, version: current.version, license: data.license };
+        const details = {
+          release: number,
+          version: current.version,
+          license: data.license,
+          endedWithdrawal: current.state === 'withdrawn',
+        };
         await c.query(
           "INSERT INTO app.audit(id,workspace_id,guide_id,actor_id,action,details) VALUES($1,$2,$3,app.actor_id(),'guide.published',$4)",
           [randomUUID(), workspaceId, id, details],
@@ -993,10 +1097,17 @@ export function createApplicationStore(options: {
           "INSERT INTO app.outbox(id,workspace_id,guide_id,event,payload) VALUES($1,$2,$3,'guide.published',$4)",
           [randomUUID(), workspaceId, id, details],
         );
-        return published(
+        const release = published(
           (await c.query('SELECT * FROM app.published_guides($1) WHERE id=$2', [workspaceId, id]))
             .rows[0],
         );
+        const revision = (
+          await c.query(
+            'SELECT publication_revision FROM app.guide WHERE workspace_id=$1 AND id=$2',
+            [workspaceId, id],
+          )
+        ).rows[0].publication_revision;
+        return { ...release, publicationRevision: revision };
       });
     },
     /**
@@ -1150,6 +1261,8 @@ export function createApplicationStore(options: {
       return transaction(actor, workspaceId, async (c) => {
         await lockStructured(c, workspaceId);
         const current = await lockedDraft(c, workspaceId, id);
+        if (current.state === 'withdrawn')
+          throw validation('Reinstate or publish the guide first.');
         if (current.current_release !== expectedRelease) throw conflict();
         if (current.audience !== audience) {
           await c.query(

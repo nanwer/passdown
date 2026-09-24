@@ -208,6 +208,7 @@ export async function structuredChecks({
       guideId = draft.id;
       await store.publishDraft(who, 'public', draft.id, {
         expectedVersion: 1,
+        expectedPublicationRevision: 0,
         expectedRelease: null,
         license: 'all-rights-reserved',
       });
@@ -255,6 +256,7 @@ export async function structuredChecks({
       await denied(
         store.publishDraft(who, 'public', restrictedDraft.id, {
           expectedVersion: 1,
+          expectedPublicationRevision: 0,
           expectedRelease: null,
           license: 'all-rights-reserved',
         }),
@@ -353,6 +355,7 @@ export async function structuredChecks({
       });
       await store.publishDraft(who, 'public', draft.id, {
         expectedVersion: 1,
+        expectedPublicationRevision: 0,
         expectedRelease: null,
         license: 'all-rights-reserved',
       });
@@ -374,6 +377,7 @@ export async function structuredChecks({
       const moved = (await store.getDraft(who, 'public', draft.id))!;
       await store.publishDraft(who, 'public', draft.id, {
         expectedVersion: moved.version,
+        expectedPublicationRevision: 1,
         expectedRelease: 1,
         license: 'all-rights-reserved',
       });
@@ -459,6 +463,7 @@ export async function structuredChecks({
       await denied(store.getCatalogUsage(actor('outsider'), 'public', driver.id), 404);
       await store.publishDraft(who, 'public', selectedDraft.id, {
         expectedVersion: 1,
+        expectedPublicationRevision: 0,
         expectedRelease: null,
         license: 'all-rights-reserved',
       });
@@ -503,6 +508,7 @@ export async function structuredChecks({
       });
       await store.publishDraft(who, 'public', selectedDraft.id, {
         expectedVersion: 3,
+        expectedPublicationRevision: 1,
         expectedRelease: 1,
         license: 'all-rights-reserved',
       });
@@ -540,6 +546,7 @@ export async function structuredChecks({
       await denied(
         store.publishDraft(who, 'public', draft.id, {
           expectedVersion: 1,
+          expectedPublicationRevision: 0,
           expectedRelease: null,
           license: 'all-rights-reserved',
         }),
@@ -551,6 +558,7 @@ export async function structuredChecks({
       });
       await store.publishDraft(who, 'public', draft.id, {
         expectedVersion: 2,
+        expectedPublicationRevision: 0,
         expectedRelease: null,
         license: 'all-rights-reserved',
       });
@@ -573,6 +581,7 @@ export async function structuredChecks({
       await denied(
         store.publishDraft(who, 'public', legacy.id, {
           expectedVersion: 1,
+          expectedPublicationRevision: 0,
           expectedRelease: null,
           license: 'all-rights-reserved',
         }),
@@ -607,6 +616,7 @@ export async function structuredChecks({
       await denied(
         store.publishDraft(who, 'public', draft.id, {
           expectedVersion: 1,
+          expectedPublicationRevision: 0,
           expectedRelease: null,
           license: 'all-rights-reserved',
         }),
@@ -623,6 +633,7 @@ export async function structuredChecks({
       });
       await store.publishDraft(who, 'public', draft.id, {
         expectedVersion: 2,
+        expectedPublicationRevision: 0,
         expectedRelease: null,
         license: 'all-rights-reserved',
       });
@@ -725,6 +736,7 @@ export async function structuredChecks({
         });
         await store.publishDraft(who, 'public', created.id, {
           expectedVersion: 1,
+          expectedPublicationRevision: 0,
           expectedRelease: null,
           license: 'all-rights-reserved',
         });
@@ -828,6 +840,7 @@ export async function structuredChecks({
       const publish = async (id: string, version = 1) =>
         store.publishDraft(who, 'public', id, {
           expectedVersion: version,
+          expectedPublicationRevision: 0,
           expectedRelease: null,
           license: 'all-rights-reserved',
         });
@@ -1069,6 +1082,7 @@ export async function structuredChecks({
     assert.equal(await store.assetReadable(anonymous, 'public', coverPicture), false);
     await store.publishDraft(who, 'public', covered.id, {
       expectedVersion: covered.version,
+      expectedPublicationRevision: 0,
       expectedRelease: null,
       license: 'CC-BY-4.0',
     });
@@ -1242,6 +1256,7 @@ export async function structuredChecks({
     // And it survives into the release, which is what a reader sees.
     await store.publishDraft(who, 'public', untouched.id, {
       expectedVersion: untouched.version,
+      expectedPublicationRevision: 0,
       expectedRelease: null,
       license: 'all-rights-reserved',
     });

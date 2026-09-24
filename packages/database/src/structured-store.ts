@@ -515,7 +515,7 @@ export function structuredStore(
         if (!(await item(c, workspaceId, id))) throw missing();
         const guides = (
           await c.query(
-            'SELECT DISTINCT g.id,g.document->>\'title\' AS title,g.audience,g.current_release AS "currentRelease" FROM app.guide_requirement_reference r JOIN app.guide g ON g.id=r.guide_id AND g.workspace_id=r.workspace_id WHERE r.workspace_id=$1 AND r.item_id=$2 AND (r.release_number=0 OR r.release_number=g.current_release) ORDER BY title,g.id',
+            "SELECT DISTINCT g.id,g.document->>'title' AS title,g.audience,g.current_release AS \"currentRelease\" FROM app.guide_requirement_reference r JOIN app.guide g ON g.id=r.guide_id AND g.workspace_id=r.workspace_id WHERE g.state IN ('draft','published') AND r.workspace_id=$1 AND r.item_id=$2 AND (r.release_number=0 OR r.release_number=g.current_release) ORDER BY title,g.id",
             [workspaceId, id],
           )
         ).rows;

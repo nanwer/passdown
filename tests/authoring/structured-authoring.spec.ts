@@ -712,6 +712,7 @@ test('libraries are tabs: a member switches between them, a visitor gets only th
   ).guide;
   await api(page.request, `/api/studio/${workspace}/guides/${internal.id}/publish`, 'POST', {
     expectedVersion: internal.version,
+    expectedPublicationRevision: 0,
     expectedRelease: null,
     license: 'all-rights-reserved',
   });
@@ -827,6 +828,7 @@ test('@core a picture is re-encoded, shown to readers of the guide, and hidden f
   });
   await api(page.request, `/api/studio/${workspace}/guides/${guide.id}/publish`, 'POST', {
     expectedVersion: guide.version + 1,
+    expectedPublicationRevision: 0,
     expectedRelease: null,
     license: 'all-rights-reserved',
   });
@@ -888,6 +890,7 @@ test('a guide family lets readers narrow to a model without exposing relatives t
   const publish = async (id: string, version: number) =>
     api(page.request, `/api/studio/${workspace}/guides/${id}/publish`, 'POST', {
       expectedVersion: version,
+      expectedPublicationRevision: 0,
       expectedRelease: null,
       license: 'all-rights-reserved',
     });
@@ -1032,6 +1035,7 @@ test('a guide moves between the public and internal sections, and says what it c
   ).guide;
   await api(page.request, `/api/studio/${workspace}/guides/${internal.id}/publish`, 'POST', {
     expectedVersion: internal.version,
+    expectedPublicationRevision: 0,
     expectedRelease: null,
     license: 'all-rights-reserved',
   });
@@ -1112,6 +1116,7 @@ test('a guide moves between the public and internal sections, and says what it c
   ).guide;
   await api(page.request, `/api/studio/${workspace}/guides/${filed.id}/publish`, 'POST', {
     expectedVersion: filed.version,
+    expectedPublicationRevision: 0,
     expectedRelease: null,
     license: 'all-rights-reserved',
   });
@@ -1342,6 +1347,7 @@ test('a picture is offered at several widths, and a narrow screen takes a small 
   });
   await api(page.request, `/api/studio/${workspace}/guides/${guide.id}/publish`, 'POST', {
     expectedVersion: guide.version + 1,
+    expectedPublicationRevision: 0,
     expectedRelease: null,
     license: 'all-rights-reserved',
   });
@@ -2343,6 +2349,7 @@ test('a guide is edited from the page you read it on, by whoever may', async ({
   // the reading page, not the act of publishing.
   await api(page.request, `/api/studio/workshop/guides/${created.id}/publish`, 'POST', {
     expectedVersion: created.version,
+    expectedPublicationRevision: 0,
     expectedRelease: null,
     license: 'all-rights-reserved',
   });

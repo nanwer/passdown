@@ -167,3 +167,21 @@ describe('runtime-authorized query scopes', () => {
     expect(scope.get('brakes')).toBeNull();
   });
 });
+
+describe('withdrawal notice eligibility', () => {
+  it('admits only former readers, without allowing release content', () => {
+    const withdrawn = { ...publicContext, guide: { ...guide, state: 'withdrawn' } };
+    expect(can('readWithdrawalNotice', withdrawn)).toBe(true);
+    expect(can('readRelease', withdrawn)).toBe(false);
+    expect(can('readWithdrawalNotice', publicContext)).toBe(false);
+    expect(can('readWithdrawalNotice', { ...withdrawn, actor: { ...user, active: false } })).toBe(
+      false,
+    );
+    const privateWithdrawn = {
+      ...privateContext,
+      guide: { ...privateContext.guide, state: 'withdrawn' },
+    };
+    expect(can('readWithdrawalNotice', privateWithdrawn)).toBe(true);
+    expect(can('readWithdrawalNotice', { ...privateWithdrawn, membership: null })).toBe(false);
+  });
+});

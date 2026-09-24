@@ -831,7 +831,7 @@ function GuideSectionPicker({
   guideId: string;
   audience: 'public' | 'members';
   currentRelease: number | null;
-  onMoved: (audience: 'public' | 'members') => void;
+  onMoved: (guide: DraftGuide) => void;
 }) {
   const [blockers, setBlockers] = useState<GuidePublicBlocker[] | null>(null);
   const [error, setError] = useState('');
@@ -859,11 +859,14 @@ function GuideSectionPicker({
     setError('');
     setSaved('');
     try {
-      await studioFetch(`/api/studio/${workspaceId}/guides/${guideId}/audience`, {
-        method: 'PUT',
-        body: JSON.stringify({ audience: next, expectedRelease: currentRelease }),
-      });
-      onMoved(next);
+      const result = await studioFetch<{ guide: DraftGuide }>(
+        `/api/studio/${workspaceId}/guides/${guideId}/audience`,
+        {
+          method: 'PUT',
+          body: JSON.stringify({ audience: next, expectedRelease: currentRelease }),
+        },
+      );
+      onMoved(result.guide);
       setSaved(
         next === 'public'
           ? 'Moved. The published version is now in the public library.'
@@ -1137,6 +1140,8 @@ function Editor({ workspace, guideId }: { workspace: StudioWorkspace; guideId: s
               ...latest,
               version: stored.version,
               currentRelease: stored.currentRelease,
+              state: stored.state,
+              publicationRevision: stored.publicationRevision,
               publishedVersion: stored.publishedVersion,
               updatedAt: stored.updatedAt,
             }
@@ -1189,20 +1194,28 @@ function Editor({ workspace, guideId }: { workspace: StudioWorkspace; guideId: s
     setPending('publish');
     setError('');
     try {
-      const result = await studioFetch<{ guide: { release: number }; url: string }>(
-        `${endpoint}/publish`,
-        {
-          method: 'POST',
-          body: JSON.stringify({
-            expectedVersion: guide.version,
-            expectedRelease: guide.currentRelease,
-            license: guide.audience === 'members' ? 'all-rights-reserved' : license,
-          }),
-        },
-      );
+      const result = await studioFetch<{
+        guide: { release: number };
+        url: string;
+        publicationRevision: number;
+      }>(`${endpoint}/publish`, {
+        method: 'POST',
+        body: JSON.stringify({
+          expectedVersion: guide.version,
+          expectedRelease: guide.currentRelease,
+          expectedPublicationRevision: guide.publicationRevision,
+          license: guide.audience === 'members' ? 'all-rights-reserved' : license,
+        }),
+      });
       setGuide((latest) =>
         latest
-          ? { ...latest, currentRelease: result.guide.release, publishedVersion: guide.version }
+          ? {
+              ...latest,
+              state: 'published',
+              publicationRevision: result.publicationRevision,
+              currentRelease: result.guide.release,
+              publishedVersion: guide.version,
+            }
           : latest,
       );
       setReleaseUrl(result.url);
@@ -1570,8 +1583,16 @@ function Editor({ workspace, guideId }: { workspace: StudioWorkspace; guideId: s
                   guideId={guide.id}
                   audience={guide.audience}
                   currentRelease={guide.currentRelease}
-                  onMoved={(audience) =>
-                    setGuide((current) => (current ? { ...current, audience } : current))
+                  onMoved={(moved) =>
+                    setGuide((current) =>
+                      current
+                        ? {
+                            ...current,
+                            audience: moved.audience,
+                            publicationRevision: moved.publicationRevision,
+                          }
+                        : current,
+                    )
                   }
                 />
               </>

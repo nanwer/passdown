@@ -1,3 +1,5 @@
+import type { GuideState } from './withdrawal';
+export * from './withdrawal';
 import { z } from 'zod';
 import { guideDocumentSchema, type GuideDocument } from '@guide/content';
 
@@ -88,6 +90,7 @@ export type WorkspacePeople = {
   invitations: WorkspaceInvitation[];
 };
 export const publishSchema = z.strictObject({
+  expectedPublicationRevision: z.number().int().min(0),
   expectedVersion: z.number().int().min(1),
   expectedRelease: z.number().int().min(1).nullable(),
   license: contentLicenseSchema,
@@ -117,6 +120,8 @@ export type StudioWorkspace = {
   role: 'manage' | 'view';
 };
 export type DraftSummary = {
+  state: GuideState;
+  publicationRevision: number;
   id: string;
   workspaceId: string;
   title: string;

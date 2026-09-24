@@ -366,3 +366,13 @@ Unit checks cover URL selection and the accessible link. Browser rendering and t
 3. Enter an incorrect current password. Expect its error and focus on Current password. Mismatching new passwords focus the confirmation field.
 
 Component checks cover consecutive changes, announcements and current-password field errors. Recovery-link invalidation and database failure mapping are pending the staged credential integration; browser verification remains pending.
+
+## Staged publication and recovery database foundation
+
+These migrations and contracts are pending integration. Main does not yet provide the workflows below.
+
+- Publication requests must send `expectedPublicationRevision` from the latest draft response. After publishing, withdrawing, reinstating or changing audience, the revision increases. Replaying an older publication action must return `409 PUBLICATION_CHANGED`.
+- Withdrawing through the scoped store preserves the editable draft, refuses former readers access to release content, and allows only the former audience to read the withdrawal-notice flag. Reinstating keeps the same release and checks current dependencies.
+- Password reset tables and administrator SQL functions are installed in migration 032. Runtime SQL cannot directly replace or delete a credential. Non-administrators cannot list accounts or issue reset links. The last effective installation administrator cannot be revoked or deactivated.
+
+Developer validation uses only an explicitly named disposable `release_b_*` database through `packages/database/test/release-product-integration.ts`. It covers scoped publication transitions, credential grants, denial cases, redemption/session removal and idempotent restore auditing. Reader/editor controls and account-recovery pages/API are still under development; this database foundation alone does not deliver them.

@@ -78,6 +78,7 @@ try {
         throw new Error('An example draft has been edited. It was preserved without publishing.');
       await api(`/api/studio/repair-collective/guides/${guide.id}/publish`, 'POST', {
         expectedVersion: guide.version,
+        expectedPublicationRevision: 0,
         expectedRelease: null,
         license: 'all-rights-reserved',
       });

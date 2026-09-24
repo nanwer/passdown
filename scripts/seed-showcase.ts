@@ -472,6 +472,7 @@ async function writeGuides(
 
     await call(`/api/studio/${workspace}/guides/${id}/publish`, 'POST', {
       expectedVersion: created.guide.version,
+      expectedPublicationRevision: 0,
       expectedRelease: null,
       // The product refuses an open licence on a members-only guide, which is
       // the right rule: you cannot grant reuse of something you have not shared.

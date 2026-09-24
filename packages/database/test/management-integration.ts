@@ -331,6 +331,7 @@ export async function managementChecks({
         });
         await store.publishDraft(who, w, guide.id, {
           expectedVersion: 1,
+          expectedPublicationRevision: 0,
           expectedRelease: null,
           license: 'all-rights-reserved',
         });

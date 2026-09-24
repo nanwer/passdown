@@ -196,7 +196,12 @@ test('@core real private release remains concealed from anonymous and public sco
   const guide = await create(request, 'workshop', title);
   const publish = await request.post(`/api/studio/workshop/guides/${guide.id}/publish`, {
     headers,
-    data: { expectedVersion: 1, expectedRelease: null, license: 'all-rights-reserved' },
+    data: {
+      expectedVersion: 1,
+      expectedPublicationRevision: 0,
+      expectedRelease: null,
+      license: 'all-rights-reserved',
+    },
   });
   expect(publish.status()).toBe(200);
   await login(page.request);
@@ -244,7 +249,12 @@ test('@api stale save and stale publication preserve the winning draft', async (
     (
       await request.post(path + '/publish', {
         headers,
-        data: { expectedVersion: 1, expectedRelease: null, license: 'CC-BY-4.0' },
+        data: {
+          expectedVersion: 1,
+          expectedPublicationRevision: 0,
+          expectedRelease: null,
+          license: 'CC-BY-4.0',
+        },
       })
     ).status(),
   ).toBe(409);
@@ -521,7 +531,12 @@ test('complete formatting examples publish with every supported style and readab
       `/api/studio/repair-collective/guides/${guide.id}/publish`,
       {
         headers,
-        data: { expectedVersion: 1, expectedRelease: null, license: 'all-rights-reserved' },
+        data: {
+          expectedVersion: 1,
+          expectedPublicationRevision: 0,
+          expectedRelease: null,
+          license: 'all-rights-reserved',
+        },
       },
     );
     expect(published.status()).toBe(200);
