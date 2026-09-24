@@ -77,7 +77,11 @@ export function Frame({
               {workspaceCount > 1 ? 'Workspaces' : 'Studio'}
             </a>
             <ThemeToggle />
-            {user && <span className={`text-[13px] text-muted max-[1000px]:hidden`}>{user}</span>}
+            {user && (
+              <a className={headerLink} href="/account" aria-label="Your account">
+                {user}
+              </a>
+            )}
             {onSignOut && (
               <button className={iconButton} onClick={onSignOut} aria-label="Sign out">
                 <LogOut size={18} />
@@ -254,21 +258,34 @@ export function SessionGate({
  * here. The fields are ordinary password inputs — the person types their own
  * secret, which is the one place a password belongs.
  */
-function ChangePassword({ onChanged }: { onChanged: () => void }) {
+export function ChangePassword({
+  onChanged,
+  forced = true,
+}: {
+  onChanged?: () => void;
+  forced?: boolean;
+}) {
+  const [success, setSuccess] = useState('');
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
+  const [errorField, setErrorField] = useState('');
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (pending) return;
-    const fields = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const fields = new FormData(form);
     const newPassword = String(fields.get('newPassword') ?? '');
     if (newPassword !== String(fields.get('confirmPassword') ?? '')) {
       setError('Those two do not match.');
+      setErrorField('confirmPassword');
+      (form.elements.namedItem('confirmPassword') as HTMLInputElement)?.focus();
       return;
     }
+    setSuccess('');
     setPending(true);
     setError('');
+    setErrorField('');
     try {
       await studioFetch('/api/studio/password', {
         method: 'POST',
@@ -277,9 +294,17 @@ function ChangePassword({ onChanged }: { onChanged: () => void }) {
           newPassword,
         }),
       });
-      onChanged();
+      form.reset();
+      setPending(false);
+      setSuccess('Password changed. You are still signed in here.');
+      onChanged?.();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Unable to change the password.');
+      const message = e instanceof Error ? e.message : 'Unable to change the password.';
+      setError(message);
+      if (message === 'That current password is not right.') {
+        setErrorField('currentPassword');
+        (form.elements.namedItem('currentPassword') as HTMLInputElement)?.focus();
+      }
       setPending(false);
     }
   }
@@ -287,18 +312,31 @@ function ChangePassword({ onChanged }: { onChanged: () => void }) {
   return (
     <main className={X.narrowContainer} id="main" tabIndex={-1}>
       <div className={X.pageHeading}>
-        <h1>Choose your own password.</h1>
-        <p>
-          This account was created with a password that was generated for it. Replace it before
-          going any further — nothing else will work until you do.
-        </p>
+        <h1>{forced ? 'Choose your own password.' : 'Your account'}</h1>
+        {forced ? (
+          <p>
+            This account was created with a password that was generated for it. Replace it before
+            going any further — nothing else will work until you do.
+          </p>
+        ) : (
+          <p>Change your password. You will stay signed in here; other sessions will end.</p>
+        )}
       </div>
+      <p role="status" aria-live="polite" className={X.success}>
+        {success}
+      </p>
       <form className={cn(X.card, X.form)} onSubmit={submit}>
-        {error && <ErrorNotice error={error} />}
+        {error && (
+          <div id="password-error">
+            <ErrorNotice error={error} />
+          </div>
+        )}
         <label>
           Current password
           <input
             name="currentPassword"
+            aria-invalid={errorField === 'currentPassword' || undefined}
+            aria-describedby={errorField === 'currentPassword' ? 'password-error' : undefined}
             type="password"
             autoComplete="current-password"
             required
@@ -327,6 +365,8 @@ function ChangePassword({ onChanged }: { onChanged: () => void }) {
           New password again
           <input
             name="confirmPassword"
+            aria-invalid={errorField === 'confirmPassword' || undefined}
+            aria-describedby={errorField === 'confirmPassword' ? 'password-error' : undefined}
             type="password"
             autoComplete="new-password"
             required

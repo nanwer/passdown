@@ -358,3 +358,11 @@ This section describes local integration work pending release validation, not fu
 3. Clear both values and restart. Expect the public repository root. An invalid or non-HTTP(S) override must also fall back safely.
 
 Unit checks cover URL selection and the accessible link. Browser rendering and the production build remain pending integration validation.
+
+## Staged Your account form
+
+1. Sign in and select your name in the studio header, or open `/account`. Expect **Your account** with current password, new password and confirmation.
+2. Change the password twice without reloading. After each success, expect **Password changed. You are still signed in here.**, empty fields and an enabled Change password button.
+3. Enter an incorrect current password. Expect its error and focus on Current password. Mismatching new passwords focus the confirmation field.
+
+Component checks cover consecutive changes, announcements and current-password field errors. Recovery-link invalidation and database failure mapping are pending the staged credential integration; browser verification remains pending.
