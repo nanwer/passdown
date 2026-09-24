@@ -87,6 +87,8 @@ pnpm build
 
 Bug reports, documentation, accessibility feedback, design improvements, and code contributions are welcome. Start with [Contributing](CONTRIBUTING.md), check the [roadmap](ROADMAP.md), or [open an issue](https://github.com/nanwer/passdown/issues) describing the problem you want to solve.
 
+You can support ongoing development through [GitHub Sponsors](https://github.com/sponsors/nanwer).
+
 ## License
 
 Passdown's source code is licensed under **AGPL-3.0-only**. See [LICENSE](LICENSE) and [third-party notices](THIRD_PARTY_NOTICES.md).

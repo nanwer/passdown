@@ -2,6 +2,13 @@
 
 Start the local app and sign in at [Studio](http://127.0.0.1:3100/studio) using the generated credentials in your private LOCAL_ACCESS.md. Test both Repair collective and Workshop operations. These examples use local test data you create yourself.
 
+## Source readiness checks
+
+1. Open the repository README and follow **GitHub Sponsors**. Expect the `nanwer` sponsorship page. The repository funding configuration points to the same account; GitHub controls whether a Sponsor button appears for that account.
+2. From an up-to-date development checkout, run `pnpm migrations:check`, then `pnpm local:verify` against your configured local database. Expect a matching migration manifest and **Database schema is current (30 migrations applied)**. A fresh local setup uses the same SQL as before the comment cleanup. Existing installations must keep their recorded checksums intact; a mismatch needs investigation, not a schema reset.
+
+These changes do not add authoring features or announce an alpha release. Existing software and contribution licensing remain in force.
+
 ## Catalog picker
 
 | Feature                   | Steps                                                                                                                        | Expected result                                                                                                                                                                                          |
