@@ -54,7 +54,7 @@ For a bug fix, add a focused regression that fails before the fix and checks the
 ```sh
 pnpm check
 pnpm build
-pnpm exec playwright install chromium
+pnpm exec playwright install chromium firefox webkit
 pnpm test:e2e
 pnpm test:database
 pnpm test:authoring
@@ -77,14 +77,28 @@ You can run a focused browser file during development:
 pnpm test:e2e tests/e2e/filter-navigation.spec.ts
 ```
 
-Run the focused editor and management-focus checks in Firefox and WebKit with:
+Run every fixture journey in Firefox and WebKit after the Chromium suite:
 
 ```sh
-pnpm exec playwright install firefox webkit
 pnpm test:cross-browser
+pnpm test:authoring --project=chromium
+pnpm test:authoring --project=firefox
+pnpm test:authoring --project=webkit
 ```
 
-This suite owns port 3105 and a separate build directory. Run it after other browser suites finish. It covers rich-text editing, tables, paste and deferred row focus; it does not certify every application journey in these browsers. The main CI suite continues to use Chromium.
+On Linux, install browser system dependencies with `pnpm exec playwright install --with-deps chromium firefox webkit`. The cross-browser fixture runner owns port 3105 and a separate build directory. Authoring projects share port 3101 and one disposable database locally, so run them sequentially. A plain `pnpm test:authoring` runs all three projects sequentially. Tests must not assume a pristine database beyond the seed.
+
+CI runs checks, each fixture engine, and each authoring engine in separate jobs. Each authoring job owns its database. Every job has a 20-minute cap and retries stay at zero. Monitor setup-inclusive durations in the first five hosted runs: if an engine exceeds 17 minutes twice, split that engine into two isolated shards first, preserving full coverage. A reduced routine `@core` suite requires an explicit documented change; the release gate always requires the full three-engine fixture and authoring runs. Traces and test results are not uploaded as public CI artifacts.
+
+### Writing browser tests
+
+- Find controls by role, label and visible text. Use `ControlOrMeta` shortcuts and the helpers in `tests/support/browser.ts` for selection, synthetic paste, Tab and instant scrolling. Focus a contenteditable before setting its selection. On macOS WebKit, `pressTab` uses Option+Tab to include buttons and links in native traversal. Open a control with the keyboard when testing keyboard traversal. Editor commands such as moving between table cells use plain Tab, not the native focus-traversal helper. Do not access the system clipboard.
+- A pointer click does not necessarily focus a button in Safari. Test keyboard focus after keyboard input or explicit application focus restoration; opening and closing a dialog must return focus to its invoker.
+- Use request gates and polling instead of fixed sleeps. A bounded wait is appropriate only to prove that an action did not occur during an interval, such as an IME debounce. Geometry comparisons allow at least one pixel; scripted scrolling uses `behavior: 'instant'`.
+- Contexts use `en-US` and UTC. Assert machine-readable timestamps rather than localized strings. New contexts created explicitly must use these settings too.
+- Supply file buffers through `setInputFiles`. Touch tests use `hasTouch` and `tap`, not `isMobile`, which Firefox does not support. Read cookies with `context.cookies()`.
+- Request-only tests have `@api` in their title and open no browser; run these once in Chromium. Core authoring journeys carry `@core` so a measured CI fallback can select them without losing the full release gate.
+- An engine-specific skip must cite a named entry in the development status's known browser differences, including the user-visible effect. Fix product defects with a regression in the affected engine.
 
 Format changed files with `pnpm exec prettier --write <paths>`. After editing design tokens, run `pnpm tokens:generate` and include both the source and generated output. Avoid formatting unrelated files.
 
