@@ -75,11 +75,12 @@ export function Label({ className, ...props }: ComponentProps<'label'>) {
  */
 const filledWhenDisabled =
   'disabled:bg-[var(--gp-semantic-action-disabled-background)] disabled:text-[var(--gp-semantic-action-disabled-foreground)]';
+// Switch text and background together: a background-only theme transition
+// passes through unreadable intermediate colors even when both themes pass.
 export const buttonVariants = cva(
   cn(
     'inline-flex shrink-0 items-center justify-center gap-[9px] whitespace-nowrap',
     'border border-solid text-xs leading-normal font-semibold',
-    '[transition:background_var(--gp-semantic-duration-feedback)]',
     'disabled:cursor-not-allowed forced-colors:border-[CanvasText]',
   ),
   {
