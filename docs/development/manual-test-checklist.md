@@ -357,7 +357,7 @@ This section describes local integration work pending release validation, not fu
 2. Set `PASSDOWN_SOURCE_URL=https://example.org/source` and restart. Expect every source link to use the override.
 3. Clear both values and restart. Expect the public repository root. An invalid or non-HTTP(S) override must also fall back safely.
 
-Unit checks cover URL selection and the accessible link. Browser rendering and the production build remain pending integration validation.
+Unit checks cover URL selection and the accessible link. The staged production build passes; direct browser source-link assertions remain pending.
 
 ## Staged Your account form
 
@@ -365,7 +365,7 @@ Unit checks cover URL selection and the accessible link. Browser rendering and t
 2. Change the password twice without reloading. After each success, expect **Password changed. You are still signed in here.**, empty fields and an enabled Change password button.
 3. Enter an incorrect current password. Expect its error and focus on Current password. Mismatching new passwords focus the confirmation field.
 
-Component checks cover consecutive changes, announcements and current-password field errors. Recovery-link invalidation and database failure mapping are implemented in the staged credential integration; browser verification remains pending.
+Component checks cover consecutive changes, announcements and current-password field errors. Recovery-link invalidation and database failure mapping are implemented in the staged credential integration; the staged browser journey passes in Chromium, Firefox and WebKit.
 
 ## Staged publication and recovery database foundation
 
@@ -379,7 +379,7 @@ Developer validation uses only an explicitly named disposable `release_b_*` data
 
 ## Staged product integration: complete manual journeys
 
-These controls now exist on the staged product branch. They remain unmerged; browser validation and the later deployment/operator integration are required before calling them delivered on main.
+These controls now exist on the staged product branch. They remain unmerged. The two focused product journeys pass in Chromium, Firefox and WebKit; broader acceptance verification and the later deployment/operator integration remain required before calling them delivered on main.
 
 ### Withdraw and reinstate
 
@@ -399,4 +399,4 @@ These controls now exist on the staged product branch. They remain unmerged; bro
 
 ### Remaining validation and integration
 
-Automated focused component, route and disposable-database checks cover the implemented foundations. Full browser journeys, concurrent credential races, the complete SQL denial matrix, keyboard/VoiceOver/mobile checks and production build are pending. A sign-in that verified the old password immediately before a reset can still insert a session afterward because Better Auth does not take the credential account lock; this remains a documented residual, without an additional probe result. The server command registry and proxy/logging integration belong to a later deployment slice; only database-level operator adapters exist here. No release, image or deployment is published by this work.
+Automated focused component, route and disposable-database checks cover the implemented foundations. The two journeys in `tests/authoring/release-product.spec.ts` and the staged production build pass. Browser checks cover dirty-text preservation through withdraw/reinstate, generic reader notice/noindex, reset cancellation/redemption/reuse refusal and two consecutive account password changes. Concurrent credential races, the complete SQL denial matrix, wider publication conflict/blocker browser coverage and keyboard/VoiceOver/mobile checks remain pending. A sign-in that verified the old password immediately before a reset can still insert a session afterward because Better Auth does not take the credential account lock; this remains a documented residual, without an additional probe result. The server command registry and proxy/logging integration belong to a later deployment slice; only database-level operator adapters exist here. No release, image or deployment is published by this work.
