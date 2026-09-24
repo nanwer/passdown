@@ -211,3 +211,65 @@ for (const filter of ['Inactive', 'a search'] as const)
     await expect(page.getByText('Showing 51–52 of 52 items', { exact: true })).toBeVisible();
     await expect(page.getByRole('searchbox', { name: 'Search catalog' })).toHaveValue('');
   });
+
+for (const resource of ['catalog', 'categories'] as const) {
+  test(`${resource}: paging keeps keyboard focus while loading and at the last page`, async ({
+    page,
+  }) => {
+    const records = Array.from({ length: 27 }, (_, n) =>
+      item(n, `Page item ${String(n).padStart(2, '0')}`),
+    );
+    await signedIn(page);
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let secondPageRequests = 0;
+    await page.route(`**/api/studio/*/${resource}**`, async (route) => {
+      const url = new URL(route.request().url());
+      if (url.searchParams.get('page') === '2') {
+        secondPageRequests++;
+        await held;
+      }
+      if (resource === 'categories') {
+        return route.fulfill({
+          json: categoryList(
+            url,
+            records.map((record) => thing(record.id, record.name)),
+          ),
+        });
+      }
+      const { records: items, ...metadata } = paged(url, records);
+      return route.fulfill({ json: { ...metadata, items, usage: [] } });
+    });
+    await page.goto(`/studio/${workspace.id}/${resource}`);
+    const next = page.getByRole('button', { name: 'Next', exact: true });
+    await expect(next).toBeEnabled();
+    await next.focus();
+    await page.keyboard.press('Enter');
+    try {
+      await expect(next).toBeDisabled();
+      await expect(next).toBeFocused();
+      await page.keyboard.press('Enter');
+      await page.keyboard.press('Space');
+    } finally {
+      release();
+    }
+    await expect(
+      page.getByRole('navigation', {
+        name: resource === 'catalog' ? 'Items pages' : 'Rows pages',
+      }),
+    ).toContainText('Showing 26–27 of 27');
+    await expect(next).toBeFocused();
+    await expect(next).toBeDisabled();
+    expect(secondPageRequests).toBe(1);
+    await page.keyboard.press('Enter');
+    await expect(next).toBeFocused();
+    await page.getByRole('button', { name: 'Previous', exact: true }).press('Enter');
+    await expect(
+      page.getByRole('navigation', {
+        name: resource === 'catalog' ? 'Items pages' : 'Rows pages',
+      }),
+    ).toContainText('Showing 1–25 of 27');
+  });
+}

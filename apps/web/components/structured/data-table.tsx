@@ -266,6 +266,13 @@ export function Pager({
 }) {
   const pages = Math.max(1, Math.ceil(total / pageSize));
   if (pages === 1) return null;
+  const previousUnavailable = loading || page <= 1;
+  const nextUnavailable = loading || page >= pages;
+  // aria-disabled keeps keyboard focus on the control as its request settles.
+  const pagerButton = cn(
+    buttonVariants({ variant: 'secondary', size: 'sm' }),
+    'aria-disabled:cursor-not-allowed aria-disabled:bg-[var(--gp-semantic-action-disabled-background)] aria-disabled:text-[var(--gp-semantic-action-disabled-foreground)]',
+  );
   const first = (page - 1) * pageSize + 1;
   const last = Math.min(total, page * pageSize);
   return (
@@ -280,17 +287,21 @@ export function Pager({
       <span className="flex gap-2">
         <button
           type="button"
-          className={buttonVariants({ variant: 'secondary', size: 'sm' })}
-          disabled={loading || page <= 1}
-          onClick={() => onPage(page - 1)}
+          className={pagerButton}
+          aria-disabled={previousUnavailable}
+          onClick={() => {
+            if (!previousUnavailable) onPage(page - 1);
+          }}
         >
           Previous
         </button>
         <button
           type="button"
-          className={buttonVariants({ variant: 'secondary', size: 'sm' })}
-          disabled={loading || page >= pages}
-          onClick={() => onPage(page + 1)}
+          className={pagerButton}
+          aria-disabled={nextUnavailable}
+          onClick={() => {
+            if (!nextUnavailable) onPage(page + 1);
+          }}
         >
           Next
         </button>
