@@ -27,9 +27,7 @@ export const guideTypeSchema = z.strictObject({
    * The referent. URLs, search, exports and the API bind to this and never to
    * the label, which is presentational and may be rewritten at any time.
    *
-   * This is the one point every product surveyed agrees on, and the one that is
-   * painful to retrofit: Jira bound saved filters to issue-type names and has
-   * had an open bug since 2010 where renaming a type silently breaks them.
+   * Stable keys let people rename labels without breaking saved references.
    */
   key: z
     .string()

@@ -8,12 +8,9 @@
 -- one tree carries two, and either way the tree means different things in
 -- different rows and stops being browsable.
 --
--- Dozuki's identical feature is instructive about how much of this to make
--- configurable. Across seventeen of their public sites, not one tenant had
--- rewritten a type definition; they only choose which are switched on. But
--- Passdown is software someone deploys themselves, where the operator and the
--- vendor are the same person, so a catalog they cannot change is a catalog
--- they cannot use.
+-- Work types form a small workspace-level vocabulary. Built-in definitions
+-- make a new workspace usable, while operators can replace that vocabulary
+-- when their procedures need different prompts or title templates.
 --
 -- Hence this table is an OVERRIDE, not a seeded copy. A workspace with no rows
 -- gets the catalog the application ships, which is why this migration seeds
@@ -34,9 +31,7 @@ CREATE TABLE app.guide_type (
 
   -- The key is the referent: it is what a stored document, a URL and an export
   -- bind to, and it never changes. Constraining its shape here rather than only
-  -- in the application is what keeps it usable in a URL for good. Jira bound
-  -- saved filters to issue-type names instead and has had an open bug since
-  -- 2010 where renaming one silently breaks them.
+  -- in the application keeps stored references stable when a label changes.
   CONSTRAINT guide_type_key_shape CHECK (key ~ '^[a-z][a-z0-9-]*$'),
   CONSTRAINT guide_type_label_present CHECK (btrim(label) <> ''),
   CONSTRAINT guide_type_template_present CHECK (btrim(title_template) <> ''),
@@ -68,9 +63,8 @@ CREATE POLICY guide_type_write ON app.guide_type
 
 -- Whether the create form offers a title composed from the type's template.
 --
--- One switch for the workspace rather than a question per guide. Dozuki ships
--- exactly this as a site-level toggle, and the tenant whose titles decayed into
--- free text is the one that had it off — so it defaults on.
+-- One workspace-level switch keeps title composition consistent across guides.
+-- It defaults on so new guides benefit from the configured templates.
 ALTER TABLE app.workspace ADD COLUMN compose_titles boolean NOT NULL DEFAULT true;
 
 -- What kind of work this particular guide is, beside the document rather than

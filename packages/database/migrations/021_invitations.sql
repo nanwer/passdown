@@ -1,11 +1,8 @@
 -- Inviting somebody, without a mail server.
 --
--- Nothing in this installation can send email, and self-hosted deployments
--- routinely have no SMTP at all. The projects that treat mail as the delivery
--- mechanism fail badly here: Outline and Directus both report an invitation as
--- sent when nothing was sent and nothing is recoverable, and Ghost strips the
--- token from every API response and only marks an invite usable after delivery
--- succeeds, so without mail it can never be accepted at all.
+-- Invitations must work without an email service. Creating a usable link is
+-- independent of delivery, so the inviter can pass it to the intended person
+-- without configuring SMTP or relying on a delivery confirmation.
 --
 -- So the link is the delivery mechanism. It is shown once, to the person who
 -- created it, to pass on however they like. Email can be layered on later as a
@@ -20,19 +17,15 @@ CREATE TABLE app.invitation (
   -- The token is never stored. What is kept is a SHA-256 of it, so a copy of
   -- this table is not a set of working invitations.
   --
-  -- Better Auth's own invitation table has no token column at all — the link
-  -- carries the row's primary key as its secret, which is why its options warn
-  -- against sequential ids. Of ten self-hosted products surveyed only Metabase
-  -- hashes the token at rest. It costs nothing to be the second.
+  -- Keep the secret independent of the invitation's identifier. Lookup hashes
+  -- the supplied token, so a database copy does not expose the original link.
   token_hash text NOT NULL,
 
   expires_at timestamptz NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
   invited_by text NOT NULL REFERENCES public.auth_user(id),
 
-  -- Single use. Set when the invitation is accepted, and checked before it is
-  -- honoured: Grafana shipped copyable links and then had to fix them still
-  -- working after acceptance and after revocation.
+  -- Single use. Record acceptance and reject subsequent uses of the link.
   accepted_at timestamptz,
   accepted_by text REFERENCES public.auth_user(id),
 

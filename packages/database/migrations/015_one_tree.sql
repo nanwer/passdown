@@ -5,12 +5,10 @@
 -- "categories" on screen. Two of them have never held a row, in any workspace,
 -- since the day they shipped. The guide tree has eleven, all top-level.
 --
--- iFixit runs 48,455 nodes through a single tree with one object type at every
--- depth, and projects parts onto it rather than maintaining a second hierarchy
--- for them. That reuse is the highest-leverage decision in their architecture:
--- one tree, and the store, the forum and the troubleshooting pages all key off
--- it. Three trees bought us nothing and cost a screen that asked which of them
--- you meant before it asked anything else.
+-- One tree gives every thing the same identity and parent relationship at
+-- every depth. Guides can refer to that identity while reusable catalog items
+-- remain independent of the browsing hierarchy. Maintaining unused parallel
+-- trees adds a classification choice without helping people find a guide.
 --
 -- So the tool and material trees go, and a catalog item stops belonging to a
 -- tree at all. What is left is a flat, searchable list of items with a kind and

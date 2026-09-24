@@ -10,14 +10,13 @@ import { createIdentity } from './identity';
  * run, so this happens by itself the first time the application starts against
  * a database with no users. There is no wizard: a first-run page whose only
  * guard is "nobody has signed up yet" is a race anyone on the network can win,
- * which is CVE-2026-55761 against Portainer. By the time this process answers
- * its first request the administrator already exists and its password has only
+ * so the account is created before this process answers its first request.
+ * The administrator already exists and its password has only
  * ever been written where the operator can reach it.
  *
  * The emptiness of the database is the lock. Nothing is written to say setup
  * has happened, so there is no flag to clear and no file that could be restored
- * from a backup into a state where this runs again — the pattern Plausible
- * uses, and stronger than an install lock in a config file.
+ * from a backup into a state where this runs again while accounts still exist.
  */
 export type BootstrapResult =
   | { created: false; reason: 'users-exist' }

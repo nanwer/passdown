@@ -1,10 +1,8 @@
 -- A picture for each thing, so the tree can be browsed by recognition.
 --
--- The tree has been a list of folder icons. iFixit's child lists are always
--- picture grids and never text lists, and they ship each child's thumbnail
--- inline with the child data precisely so a grid renders in one request. That
--- is not decoration: with a deep tree the label may be "Roomba e series
--- i-series j-series", and recognising a photograph is the only way through.
+-- A picture helps readers distinguish similar models in a deep tree. Include
+-- the picture reference with each child so a browsable grid does not need a
+-- separate metadata request for every item.
 --
 -- The interesting part is authorisation. An asset has until now been readable
 -- only through a live reference from a guide — app.asset_reference — and a
