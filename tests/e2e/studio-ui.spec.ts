@@ -96,60 +96,85 @@ const initial = {
     ],
   },
 };
-test('a nested dialog shields its parent and restores the unfinished form', async ({ page }) => {
-  // This used to run through the item-category picker inside the catalog form.
-  // Items no longer belong to a tree, so it now runs through the one nesting
-  // that remains: editing a thing opens a dialog, and the "Sits inside" picker
-  // inside it opens another.
-  await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.route('**/api/studio/session', (route) =>
-    route.fulfill({
-      json: {
-        user: { id: 'user', name: 'Test owner', email: 'owner@test.local' },
-        workspaces: [workspace],
-      },
-    }),
-  );
-  await page.goto(`/studio/${workspace.id}/categories`);
-  await page.getByRole('button', { name: 'Testing', exact: true }).click();
-  // The thing opens in a sheet, and editing it opens a dialog over that.
-  await page.getByRole('button', { name: 'Edit or move', exact: true }).click();
+for (const retainParentEscapeListener of [false, true]) {
+  test(`a nested dialog shields its parent and restores the unfinished form${retainParentEscapeListener ? ' with a retained parent Escape listener' : ''}`, async ({
+    page,
+  }) => {
+    // This used to run through the item-category picker inside the catalog form.
+    // Items no longer belong to a tree, so it now runs through the one nesting
+    // that remains: editing a thing opens a dialog, and the "Sits inside" picker
+    // inside it opens another.
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.route('**/api/studio/session', (route) =>
+      route.fulfill({
+        json: {
+          user: { id: 'user', name: 'Test owner', email: 'owner@test.local' },
+          workspaces: [workspace],
+        },
+      }),
+    );
+    await page.goto(`/studio/${workspace.id}/categories`);
+    await page.getByRole('button', { name: 'Testing', exact: true }).click();
+    // The thing opens in a sheet, and editing it opens a dialog over that.
+    await page.getByRole('button', { name: 'Edit or move', exact: true }).click();
 
-  const parent = page.getByRole('dialog', { name: 'Edit thing', exact: true });
-  await expect(parent).toBeVisible();
-  const parentBounds = (await parent.boundingBox())!;
-  const name = parent.getByRole('textbox', { name: 'Name', exact: true });
-  await name.fill('Keep this draft name');
+    const parent = page.getByRole('dialog', { name: 'Edit thing', exact: true });
+    await expect(parent).toBeVisible();
+    const parentBounds = (await parent.boundingBox())!;
+    const name = parent.getByRole('textbox', { name: 'Name', exact: true });
+    await name.fill('Keep this draft name');
 
-  const inside = page.getByRole('button', { name: /^Sits inside/ });
-  await inside.click();
-  // While a child is open the parent is marked aria-hidden, so it stops being
-  // exposed as a dialog. Identify the child by its own heading rather than by
-  // counting.
-  const child = page.getByRole('dialog', { name: /Choose sits inside/i });
-  await expect(child).toBeVisible();
+    if (retainParentEscapeListener) {
+      // Reproduce the observed Radix registration race deterministically: keep
+      // the parent's native Escape listener while the nested portal mounts.
+      // Tab and focus handlers are unchanged. The context is discarded per test.
+      await page.evaluate(() => {
+        const add = document.addEventListener.bind(document);
+        const remove = document.removeEventListener.bind(document);
+        document.addEventListener = (...args: Parameters<typeof document.addEventListener>) => {
+          if (args[0] !== 'keydown') add(...args);
+        };
+        document.removeEventListener = (
+          ...args: Parameters<typeof document.removeEventListener>
+        ) => {
+          if (args[0] !== 'keydown') remove(...args);
+        };
+      });
+    }
+    const inside = page.getByRole('button', { name: /^Sits inside/ });
+    await inside.click();
+    // While a child is open the parent is marked aria-hidden, so it stops being
+    // exposed as a dialog. Identify the child by its own heading rather than by
+    // counting.
+    const child = page.getByRole('dialog', { name: /Choose sits inside/i });
+    await expect(child).toBeVisible();
 
-  // The backdrop must cover the exposed parent surface, not sit behind it.
-  const exposedParent = { x: parentBounds.x + 30, y: parentBounds.y + 30 };
-  expect(
-    await page.evaluate(
-      ({ x, y }) => document.elementFromPoint(x, y)?.classList.contains('dialog-overlay'),
-      exposedParent,
-    ),
-  ).toBe(true);
+    // The backdrop must cover the exposed parent surface, not sit behind it.
+    const exposedParent = { x: parentBounds.x + 30, y: parentBounds.y + 30 };
+    expect(
+      await page.evaluate(
+        ({ x, y }) => document.elementFromPoint(x, y)?.classList.contains('dialog-overlay'),
+        exposedParent,
+      ),
+    ).toBe(true);
 
-  for (let index = 0; index < 8; index++) {
-    await page.keyboard.press('Tab');
-    expect(await child.evaluate((element) => element.contains(document.activeElement))).toBe(true);
-  }
+    for (let index = 0; index < 8; index++) {
+      await page.keyboard.press('Tab');
+      expect(await child.evaluate((element) => element.contains(document.activeElement))).toBe(
+        true,
+      );
+    }
 
-  await page.keyboard.press('Escape');
-  await expect(child).toHaveCount(0);
-  // The parent is still there, still holding what was typed into it, and focus
-  // is back where it came from.
-  await expect(inside).toBeFocused();
-  await expect(name).toHaveValue('Keep this draft name');
-});
+    await page.keyboard.press('Escape');
+    await expect(child).toHaveCount(0);
+    // The parent is still there, still holding what was typed into it, and focus
+    // is back where it came from.
+    await expect(parent).toBeVisible();
+    await expect(parent).not.toHaveAttribute('aria-hidden', 'true');
+    await expect(inside).toBeFocused();
+    await expect(name).toHaveValue('Keep this draft name');
+  });
+}
 test('synthetic editor preserves typing during save, supports stable step operations and conflict recovery', async ({
   page,
 }) => {

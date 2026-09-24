@@ -5,6 +5,9 @@ import { iconButton } from './primitives';
 import {
   createContext,
   useContext,
+  useState,
+  useCallback,
+  useRef,
   type CSSProperties,
   type ComponentPropsWithoutRef,
   type ReactElement,
@@ -13,6 +16,10 @@ import {
 
 // Portals preserve React context, so each backdrop can cover its parent dialog.
 const DialogDepth = createContext(0);
+// Native Escape listeners can briefly retain the previous Radix layer while
+// React commits a nested portal. Resolve that case from the event's actual
+// dialog, rather than allowing the stale ancestor to discard an unfinished form.
+const dismissDialog = new WeakMap<Element, () => void>();
 
 export function Dialog({
   trigger,
@@ -37,10 +44,27 @@ export function Dialog({
   /** A sheet slides in from the side and leaves what it was opened from in place. */
   size?: 'standard' | 'wide' | 'sheet';
 }) {
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const changeOpen = useCallback(
+    (next: boolean) => {
+      if (open === undefined) setUncontrolledOpen(next);
+      onOpenChange?.(next);
+    },
+    [open, onOpenChange],
+  );
+  const content = useRef<HTMLDivElement | null>(null);
+  const registerContent = useCallback(
+    (node: HTMLDivElement | null) => {
+      if (content.current) dismissDialog.delete(content.current);
+      content.current = node;
+      if (node) dismissDialog.set(node, () => changeOpen(false));
+    },
+    [changeOpen],
+  );
   const depth = useContext(DialogDepth);
   const layer = { '--dialog-depth': depth } as CSSProperties;
   return (
-    <Primitive.Root open={open} onOpenChange={onOpenChange}>
+    <Primitive.Root open={open ?? uncontrolledOpen} onOpenChange={changeOpen}>
       {trigger && <Primitive.Trigger asChild>{trigger}</Primitive.Trigger>}
       <Primitive.Portal>
         <Primitive.Overlay
@@ -48,6 +72,18 @@ export function Dialog({
           style={layer}
         />
         <Primitive.Content
+          ref={registerContent}
+          onEscapeKeyDown={(event) => {
+            const origin =
+              event.target instanceof Element ? event.target.closest('[role="dialog"]') : null;
+            if (!event.defaultPrevented && origin && origin !== content.current) {
+              const dismiss = dismissDialog.get(origin);
+              if (dismiss) {
+                event.preventDefault();
+                dismiss();
+              }
+            }
+          }}
           className="dialog-content fixed top-[50%] left-[50%] z-[calc(51_+_var(--dialog-depth,0)_*_2)] max-h-[calc(100dvh_-_32px)] w-[min(calc(var(--dialog-width)_+_var(--dialog-depth,0)_*_var(--gp-component-dialog-depth-width)),calc(100%_-_32px))] [transform:translate(-50%,-50%)] overflow-auto rounded-dialog border border-solid border-line bg-raised p-10 [--dialog-width:var(--gp-component-dialog-width-standard)] [box-shadow:var(--gp-component-dialog-shadow)] forced-colors:border-[CanvasText] max-[470px]:px-6 max-[470px]:py-8 data-[size=wide]:[--dialog-width:var(--gp-component-dialog-width-wide)] [&:has(.structured-form)]:max-h-[min(90dvh,1000px)] [&:has(.structured-form)]:overflow-y-auto [&:has(.structured-picker-content)]:max-h-[min(90dvh,1000px)] [&:has(.structured-picker-content)]:overflow-y-auto data-[size=sheet]:top-0 data-[size=sheet]:right-0 data-[size=sheet]:bottom-0 data-[size=sheet]:left-auto data-[size=sheet]:h-[100dvh] data-[size=sheet]:max-h-[none] data-[size=sheet]:w-[min(600px,100%)] data-[size=sheet]:[transform:none] data-[size=sheet]:[border-end-end-radius:0] data-[size=sheet]:[border-start-end-radius:0] rtl:data-[size=sheet]:right-auto rtl:data-[size=sheet]:left-0"
           style={layer}
           data-size={size}
