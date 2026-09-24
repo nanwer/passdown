@@ -186,12 +186,16 @@ export function CategoryPicker({
           )}
         </div>
       </Dialog>
-      {privateSelection && (
-        <small id={`${id}-visibility`} className={S.warning} role="status">
-          Only workspace members can see {display.name}. Choose a public {words.thing} before
-          publishing, or keep this guide internal.
-        </small>
-      )}
+      <small
+        id={`${id}-visibility`}
+        className={privateSelection ? S.warning : 'sr-only'}
+        role="status"
+        aria-atomic="true"
+      >
+        {privateSelection
+          ? `Only workspace members can see ${display.name}. Choose a public ${words.thing} before publishing, or keep this guide internal.`
+          : ''}
+      </small>
       {display?.archived && (
         <small className={S.warning}>
           This category is archived. Choose an active category before publishing.

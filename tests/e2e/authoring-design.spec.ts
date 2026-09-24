@@ -104,7 +104,12 @@ test('switching a guide to public explains a private selection without losing it
     .getByRole('dialog')
     .getByRole('button', { name: /Workshop machinery/ })
     .click();
+  const liveRegion = picker.locator('..').getByRole('status');
+  await expect(liveRegion).toBeAttached();
+  await expect(liveRegion).toBeEmpty();
+  const liveNode = await liveRegion.elementHandle();
   await page.getByRole('radio', { name: /Public/ }).check();
+  expect(await liveNode!.evaluate((node) => node.isConnected)).toBe(true);
   const warning = page
     .getByRole('status')
     .filter({ hasText: 'Only workspace members can see Workshop machinery.' });
