@@ -1,6 +1,6 @@
 {
   "name": "@guide/web",
-  "version": "0.0.1",
+  "version": "0.1.0-alpha.1",
   "private": true,
   "scripts": {
     "dev": "NEXT_TELEMETRY_DISABLED=1 GUIDE_DEMO_PREVIEW=1 next dev --hostname 127.0.0.1 --port 3100",

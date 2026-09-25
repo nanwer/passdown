@@ -383,6 +383,27 @@ Use the [container evaluation guide](../self-hosting/development-stack.md) and a
 
 No published images are delivered yet; backup, restore, upgrades, account recovery and nginx have their own sections. Public-domain clean-host and physical-browser release checks remain outstanding.
 
+## Release workflow dry run
+
+The workflow and its steps are described in [cutting a release](releasing.md). A dry run publishes nothing.
+
+1. **Locally, from the repository root:** render install files with stand-in digests.
+
+   ```sh
+   node scripts/render-release-assets.mjs --version 0.1.0-alpha.1 --output /tmp/passdown-assets \
+     --digest passdown=sha256:$(printf 1%.0s $(seq 64)) \
+     --digest passdown-caddy=sha256:$(printf 2%.0s $(seq 64)) \
+     --digest passdown-nginx=sha256:$(printf 3%.0s $(seq 64))
+   ```
+
+   Expect six files: `compose.yaml`, `compose.nginx.yaml`, `init.sh`, `upgrade.sh`, `backup.sh` and `SHA256SUMS`. Every Passdown image reads `ghcr.io/nanwer/<image>:0.1.0-alpha.1@sha256:…`, and postgres keeps its digest. There is no `build:` anywhere. From that directory, `sha256sum --check SHA256SUMS` (or `shasum -a 256 -c SHA256SUMS`) reports every file `OK`. Change one character in `compose.yaml` and run `node scripts/render-release-assets.mjs --check /tmp/passdown-assets --version 0.1.0-alpha.1`. Expect exit 1 naming `compose.yaml`. The script refuses an output directory that already holds files.
+
+2. **Locally, the boot check from rendered files:** build the three images as in CI, render them into an empty directory using `docker image inspect --format '{{.Id}}' <image>` as each digest, then run `PASSDOWN_DEPLOY_DIR=<that directory> PASSDOWN_IMAGE=passdown:local PASSDOWN_PROXY_IMAGE=passdown-caddy:local sh scripts/deployment-boot-check.sh`. Repeat with `PASSDOWN_PROXY=nginx` and `PASSDOWN_PROXY_IMAGE=passdown-nginx:local`. Each run ends with **Deployment boot check passed** and removes its disposable project.
+
+3. **On GitHub (maintainer):** open **Actions → Release → Run workflow** on `main`, leaving **dry_run** ticked. Expect **Check the version**, six **Build** jobs (three images × amd64/arm64) and **Smoke test from the install files** to pass without asking for an environment approval. **Tag the release images** and **Draft the GitHub release** are skipped. Afterwards no new package version appears under the owner's GitHub Packages, no release or tag is created, and the run has no artifacts.
+
+4. **Refusals:** starting the workflow from a branch with **dry_run** cleared fails in **Check the version** with "Only a release tag can publish". A tag whose version differs from `build-info.ts` fails the same job and names the mismatch. Neither run builds anything.
+
 ## Source code link
 
 1. Start the app with `PASSDOWN_REVISION` set to a Git commit hash of 7–40 hexadecimal characters. Open `/`, `/sign-in` and `/studio`. In each footer, Tab to **Source code**. Expect a link to that commit under the public repository's `/tree/` path. `docker compose run --rm -T ops version` reports the same revision in a container.

@@ -123,9 +123,9 @@ jobs:
         run: |
           node scripts/check-image-privacy.mjs
           node scripts/check-image-privacy.mjs --context
-          docker build --build-arg PASSDOWN_REVISION="$GITHUB_SHA" --build-arg PASSDOWN_VERSION=0.0.1 -t passdown:local .
-          docker build -f deploy/caddy/Dockerfile --build-arg PASSDOWN_REVISION="$GITHUB_SHA" --build-arg PASSDOWN_VERSION=0.0.1 -t passdown-caddy:local .
-          docker build -f deploy/nginx/Dockerfile --build-arg PASSDOWN_REVISION="$GITHUB_SHA" --build-arg PASSDOWN_VERSION=0.0.1 -t passdown-nginx:local .
+          docker build --build-arg PASSDOWN_REVISION="$GITHUB_SHA" --build-arg PASSDOWN_VERSION=0.1.0-alpha.1 -t passdown:local .
+          docker build -f deploy/caddy/Dockerfile --build-arg PASSDOWN_REVISION="$GITHUB_SHA" --build-arg PASSDOWN_VERSION=0.1.0-alpha.1 -t passdown-caddy:local .
+          docker build -f deploy/nginx/Dockerfile --build-arg PASSDOWN_REVISION="$GITHUB_SHA" --build-arg PASSDOWN_VERSION=0.1.0-alpha.1 -t passdown-nginx:local .
       - name: Check image contents and proxy protections
         run: |
           sh scripts/check-image.sh passdown:local

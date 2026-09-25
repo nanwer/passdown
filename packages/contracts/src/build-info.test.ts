@@ -16,6 +16,34 @@ describe('build information', () => {
     for (const path of ['package.json', ...packages])
       expect(version(path), path).toBe(passdownVersion);
   });
+  it('names the same version as the images and builds the deployment files refer to', () => {
+    // A release tag publishes exactly these references; a stale one would pull
+    // an older image or none at all.
+    const read = (path: string) => readFileSync(join(root, path), 'utf8');
+    const images = ['deploy/compose.yaml', 'deploy/compose.nginx.yaml'].flatMap((path) =>
+      [...read(path).matchAll(/ghcr\.io\/nanwer\/(passdown(?:-caddy|-nginx)?):([^\s@}'"]+)/g)].map(
+        ([, name, tag]) => ({ path, name, tag }),
+      ),
+    );
+    expect(images.map(({ name }) => name).sort()).toEqual([
+      'passdown',
+      'passdown-caddy',
+      'passdown-nginx',
+    ]);
+    for (const { path, name, tag } of images) expect(tag, `${path} ${name}`).toBe(passdownVersion);
+    const builds = [
+      'deploy/compose.build.yaml',
+      'deploy/compose.nginx.build.yaml',
+      '.github/workflows/ci.yml',
+    ].flatMap((path) =>
+      [...read(path).matchAll(/PASSDOWN_VERSION(?::-|=)([^\s}]+)/g)].map(([, value]) => ({
+        path,
+        value,
+      })),
+    );
+    expect(builds.length).toBeGreaterThanOrEqual(5);
+    for (const { path, value } of builds) expect(value, path).toBe(passdownVersion);
+  });
   it('reports a source revision only when it is a real commit identifier', () => {
     const sha = 'aeb95530846d9c52c5fb22feae69187dd0e9c5bf';
     expect(buildInfo({ PASSDOWN_REVISION: sha })).toEqual({

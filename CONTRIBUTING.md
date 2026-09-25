@@ -138,6 +138,10 @@ Explain the problem and resulting behavior, link any related issue, and list the
 
 Avoid including credentials or sensitive content in screenshots, logs or reports. Security-sensitive reports should not expose working exploit details or private data in a public issue; arrange a private report with a maintainer first.
 
+## Releases
+
+Releases are cut only when the project owner says to publish. Maintainers follow [cutting a release](docs/development/releasing.md). The release workflow publishes exact-version images, then leaves a draft release for the owner to review and publish.
+
 ## License and attribution
 
 Passdown uses the **GNU Affero General Public License v3.0 (AGPL-3.0-only)**. Contributions to the project are provided under the same license; see [LICENSE](LICENSE). Preserve copyright and license notices, and update [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) when incorporating third-party material that requires attribution.

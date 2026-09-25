@@ -1,5 +1,8 @@
 #!/bin/sh
 # Disposable deployment rehearsal. Never use an existing project or data volume.
+# Builds from source by default. PASSDOWN_IMAGE (and PASSDOWN_PROXY_IMAGE) run
+# existing images instead; PASSDOWN_DEPLOY_DIR runs the compose files and
+# init.sh from a rendered release-asset directory rather than deploy/.
 set -eu
 umask 077
 root=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd -P)
@@ -19,6 +22,12 @@ stage=preflight
 started=false
 use_build=true
 [ -z "${PASSDOWN_IMAGE:-}" ] || use_build=false
+deploy=$root/deploy
+if [ -n "${PASSDOWN_DEPLOY_DIR:-}" ]; then
+  # Release assets carry no build files: they run published or preloaded images.
+  deploy=$(CDPATH= cd -- "$PASSDOWN_DEPLOY_DIR" && pwd -P) || exit 2
+  use_build=false
+fi
 # Inherited Compose inputs must not redirect this check into another project.
 unset COMPOSE_FILE COMPOSE_PROJECT_NAME COMPOSE_PROFILES COMPOSE_ENV_FILES
 unset GUIDE_DB_OWNER_PASSWORD GUIDE_DB_RUNTIME_PASSWORD BETTER_AUTH_SECRET PASSDOWN_SETUP_CODE_SHA256
@@ -27,12 +36,12 @@ compose() {
   # Later files override earlier ones; prepend in reverse so the order matches
   # the COMPOSE_FILE that init.sh writes.
   if [ "$proxy" = nginx ]; then
-    [ "$use_build" = false ] || set -- -f "$root/deploy/compose.nginx.build.yaml" "$@"
-    set -- -f "$root/deploy/compose.nginx.yaml" "$@"
+    [ "$use_build" = false ] || set -- -f "$deploy/compose.nginx.build.yaml" "$@"
+    set -- -f "$deploy/compose.nginx.yaml" "$@"
   fi
-  [ "$use_build" = false ] || set -- -f "$root/deploy/compose.build.yaml" "$@"
-  set -- -f "$root/deploy/compose.yaml" "$@"
-  docker compose --project-directory "$root/deploy" --env-file "$work/.env" --project-name "$project" "$@"
+  [ "$use_build" = false ] || set -- -f "$deploy/compose.build.yaml" "$@"
+  set -- -f "$deploy/compose.yaml" "$@"
+  docker compose --project-directory "$deploy" --env-file "$work/.env" --project-name "$project" "$@"
 }
 
 cleanup() {
@@ -82,7 +91,7 @@ if [ "$proxy" = nginx ]; then
     -keyout "$work/tls/privkey.pem" -out "$work/tls/fullchain.pem" > "$work/openssl.log" 2>&1
   set -- "$@" --proxy nginx --tls-dir "$work/tls"
 fi
-sh "$root/deploy/init.sh" "$@" > "$work/init.log" 2>&1
+sh "$deploy/init.sh" "$@" > "$work/init.log" 2>&1
 node --input-type=module - "$work" <<'NODE'
 import { readFileSync, writeFileSync } from 'node:fs';
 const [dir] = process.argv.slice(2);

@@ -4,7 +4,7 @@ x-build: &build
   dockerfile: Dockerfile
   args:
     PASSDOWN_REVISION: ${PASSDOWN_REVISION:-unknown}
-    PASSDOWN_VERSION: ${PASSDOWN_VERSION:-0.0.1}
+    PASSDOWN_VERSION: ${PASSDOWN_VERSION:-0.1.0-alpha.1}
 services:
   web: { image: 'passdown:local', build: *build }
   migrate: { image: 'passdown:local', pull_policy: never }

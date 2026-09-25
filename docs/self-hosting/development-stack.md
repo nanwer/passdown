@@ -69,7 +69,7 @@ If a database contains a workspace but no accounts, setup explains the inconsist
 
 ## Health and the startup summary
 
-`/api/health` answers with the installation's state and version, for example `{"status":"ready","mode":"persistent","schema":"current","media":"ok","version":"0.0.1"}`. It returns 503 for `not-configured`, `unavailable` (database), `schema-behind` and `media-unavailable` (the picture directory is missing or cannot be written), and 200 for `setup-required` and `ready`. `schema` is `ahead` while an older version still serves an upgraded database. The public answer never names migrations, commands or settings.
+`/api/health` answers with the installation's state and version, for example `{"status":"ready","mode":"persistent","schema":"current","media":"ok","version":"0.1.0-alpha.1"}`. It returns 503 for `not-configured`, `unavailable` (database), `schema-behind` and `media-unavailable` (the picture directory is missing or cannot be written), and 200 for `setup-required` and `ready`. `schema` is `ahead` while an older version still serves an upgraded database. The public answer never names migrations, commands or settings.
 
 The details are in the web service's log. At every start it writes one JSON `startup` line with the version, source revision, mode, origin, schema state, picture storage, whether setup is still required and whether a setup code is configured (never the code or its hash). Before it, each problem gets its own line: `config.invalid`, `schema.behind` or `schema.ahead` (naming the migrations and the command to apply), `database.unreachable` and `media.unavailable`:
 

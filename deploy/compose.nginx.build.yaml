@@ -7,4 +7,4 @@ services:
       dockerfile: deploy/nginx/Dockerfile
       args:
         PASSDOWN_REVISION: ${PASSDOWN_REVISION:-unknown}
-        PASSDOWN_VERSION: ${PASSDOWN_VERSION:-0.0.1}
+        PASSDOWN_VERSION: ${PASSDOWN_VERSION:-0.1.0-alpha.1}

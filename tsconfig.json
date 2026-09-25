@@ -33,7 +33,8 @@
     "playwright.config.ts",
     "playwright.authoring.config.ts",
     "apps/operator/**/*.ts",
-    "deploy/**/*.test.ts"
+    "deploy/**/*.test.ts",
+    "scripts/**/*.test.ts"
   ],
   "exclude": ["node_modules", "apps/web/.next", "apps/web/.next-*"]
 }

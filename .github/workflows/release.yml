@@ -1,0 +1,376 @@
+# Publish a Passdown alpha: multi-architecture images on GHCR under the exact
+# version tag only, and a DRAFT GitHub release carrying digest-pinned install
+# files. Every job that writes runs in the protected `release` environment, so
+# a pushed tag publishes nothing until the owner approves. Publishing the draft
+# release stays a manual step.
+#
+# workflow_dispatch defaults to a dry run: it builds both architectures and
+# smoke-tests the amd64 images behind Caddy and nginx from rendered install
+# files, but logs in nowhere, pushes nothing and creates no release.
+name: Release
+on:
+  push:
+    tags: ['v[0-9]+.[0-9]+.[0-9]+-alpha.[0-9]+']
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Build and smoke-test only; push no images and create no release.
+        type: boolean
+        default: true
+permissions: {}
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+env:
+  REGISTRY: ghcr.io/nanwer
+
+jobs:
+  check:
+    name: Check the version
+    if: github.repository == 'nanwer/passdown'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      # Read the release environment's protection rules.
+      actions: read
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      publish: ${{ steps.version.outputs.publish }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version-file: .nvmrc
+      - name: Match the tag to the source version
+        id: version
+        env:
+          EVENT: ${{ github.event_name }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          publish=true
+          if [ "$EVENT" = workflow_dispatch ] && [ "$DRY_RUN" != false ]; then publish=false; fi
+          if [ "$REF_TYPE" = tag ]; then
+            version=$(node scripts/check-release-version.mjs --tag "$REF_NAME")
+          elif [ "$publish" = true ]; then
+            echo '::error::Only a release tag can publish. Run a dry run from a branch.'
+            exit 1
+          else
+            version=$(node scripts/check-release-version.mjs)
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "publish=$publish" >> "$GITHUB_OUTPUT"
+          echo "Passdown $version; publish: $publish" >> "$GITHUB_STEP_SUMMARY"
+      - name: Require an approval before anything is published
+        if: steps.version.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          # An environment that does not exist would be created unprotected.
+          rules=$(gh api "repos/$REPOSITORY/environments/release" --jq '[.protection_rules[]?.type] | join(",")') || rules=
+          case ",$rules," in
+            *,required_reviewers,*) ;;
+            *) echo '::error::The release environment must exist and require a reviewer before a tag can publish.'; exit 1 ;;
+          esac
+      - name: Check that build contexts exclude private files
+        run: |
+          node scripts/check-image-privacy.mjs
+          node scripts/check-image-privacy.mjs --context
+      - run: npm install --global pnpm@10.33.0
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check
+
+  build:
+    name: Build ${{ matrix.image }} (${{ matrix.arch }})
+    needs: check
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    # Dry runs need no approval: they have no registry login and push nothing.
+    environment: ${{ needs.check.outputs.publish == 'true' && 'release' || '' }}
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: true
+      matrix:
+        image: [passdown, passdown-caddy, passdown-nginx]
+        arch: [amd64, arm64]
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+          - image: passdown
+            dockerfile: Dockerfile
+          - image: passdown-caddy
+            dockerfile: deploy/caddy/Dockerfile
+          - image: passdown-nginx
+            dockerfile: deploy/nginx/Dockerfile
+    env:
+      PUBLISH: ${{ needs.check.outputs.publish }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - if: env.PUBLISH == 'true'
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build (and push by digest when publishing)
+        id: build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          platforms: linux/${{ matrix.arch }}
+          build-args: |
+            PASSDOWN_VERSION=${{ needs.check.outputs.version }}
+            PASSDOWN_REVISION=${{ github.sha }}
+          provenance: mode=max
+          sbom: true
+          # Untagged until the smoke test passes; the merge job adds the tag.
+          outputs: ${{ env.PUBLISH == 'true' && format('type=image,name={0}/{1},push-by-digest=true,name-canonical=true,push=true', env.REGISTRY, matrix.image) || 'type=cacheonly' }}
+          # Published images are built without caches other runs wrote.
+          cache-from: ${{ env.PUBLISH != 'true' && format('type=gha,scope={0}-{1}', matrix.image, matrix.arch) || '' }}
+          cache-to: ${{ env.PUBLISH != 'true' && format('type=gha,mode=max,scope={0}-{1}', matrix.image, matrix.arch) || '' }}
+      - name: Record the digest
+        if: env.PUBLISH == 'true'
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+          NAME: ${{ matrix.image }}-${{ matrix.arch }}
+        run: |
+          case "$DIGEST" in sha256:*) ;; *) echo '::error::The build reported no digest.'; exit 1 ;; esac
+          mkdir -p "$RUNNER_TEMP/digests"
+          printf '%s' "$DIGEST" > "$RUNNER_TEMP/digests/$NAME"
+      - if: env.PUBLISH == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: digest-${{ matrix.image }}-${{ matrix.arch }}
+          path: ${{ runner.temp }}/digests/${{ matrix.image }}-${{ matrix.arch }}
+          if-no-files-found: error
+          retention-days: 1
+
+  smoke:
+    name: Smoke test from the install files (amd64, Caddy and nginx)
+    needs: [check, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      packages: read
+    env:
+      PUBLISH: ${{ needs.check.outputs.publish }}
+      VERSION: ${{ needs.check.outputs.version }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version-file: .nvmrc
+      # Publishing: pull exactly the amd64 digests the build pushed.
+      - if: env.PUBLISH == 'true'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: digest-*-amd64
+          path: ${{ runner.temp }}/digests
+          merge-multiple: true
+      - if: env.PUBLISH == 'true'
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Pull the pushed images
+        if: env.PUBLISH == 'true'
+        run: |
+          for image in passdown passdown-caddy passdown-nginx; do
+            digest=$(cat "$RUNNER_TEMP/digests/$image-amd64")
+            docker pull --quiet "$REGISTRY/$image@$digest"
+            printf '%s=%s\n' "$(printf '%s' "$image" | tr a-z- A-Z_)_REF" "$REGISTRY/$image@$digest" >> "$GITHUB_ENV"
+            printf '%s=%s\n' "$(printf '%s' "$image" | tr a-z- A-Z_)_DIGEST" "$digest" >> "$GITHUB_ENV"
+          done
+      # Dry run: rebuild the amd64 images from the build job's cache.
+      - if: env.PUBLISH != 'true'
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - if: env.PUBLISH != 'true'
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: Dockerfile
+          platforms: linux/amd64
+          build-args: |
+            PASSDOWN_VERSION=${{ env.VERSION }}
+            PASSDOWN_REVISION=${{ github.sha }}
+          cache-from: type=gha,scope=passdown-amd64
+          load: true
+          tags: passdown:release-smoke
+      - if: env.PUBLISH != 'true'
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: deploy/caddy/Dockerfile
+          platforms: linux/amd64
+          build-args: |
+            PASSDOWN_VERSION=${{ env.VERSION }}
+            PASSDOWN_REVISION=${{ github.sha }}
+          cache-from: type=gha,scope=passdown-caddy-amd64
+          load: true
+          tags: passdown-caddy:release-smoke
+      - if: env.PUBLISH != 'true'
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: deploy/nginx/Dockerfile
+          platforms: linux/amd64
+          build-args: |
+            PASSDOWN_VERSION=${{ env.VERSION }}
+            PASSDOWN_REVISION=${{ github.sha }}
+          cache-from: type=gha,scope=passdown-nginx-amd64
+          load: true
+          tags: passdown-nginx:release-smoke
+      - name: Use the local images
+        if: env.PUBLISH != 'true'
+        run: |
+          # Local images have no registry digest; their IDs stand in so the
+          # install files render and check exactly as they would for release.
+          for image in passdown passdown-caddy passdown-nginx; do
+            name=$(printf '%s' "$image" | tr a-z- A-Z_)
+            printf '%s_REF=%s\n' "$name" "$image:release-smoke" >> "$GITHUB_ENV"
+            printf '%s_DIGEST=%s\n' "$name" "$(docker image inspect --format '{{.Id}}' "$image:release-smoke")" >> "$GITHUB_ENV"
+          done
+      - name: Check image contents and version labels
+        run: |
+          sh scripts/check-image.sh "$PASSDOWN_REF"
+          sh scripts/check-image.sh "$PASSDOWN_CADDY_REF" proxy
+          sh scripts/check-image.sh "$PASSDOWN_NGINX_REF" proxy
+          for ref in "$PASSDOWN_REF" "$PASSDOWN_CADDY_REF" "$PASSDOWN_NGINX_REF"; do
+            label=$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.version"}}' "$ref")
+            [ "$label" = "$VERSION" ] || { echo "::error::$ref is labelled $label, not $VERSION."; exit 1; }
+          done
+      - name: Render the install files
+        run: |
+          node scripts/render-release-assets.mjs --version "$VERSION" --output "$RUNNER_TEMP/assets" \
+            --digest "passdown=$PASSDOWN_DIGEST" \
+            --digest "passdown-caddy=$PASSDOWN_CADDY_DIGEST" \
+            --digest "passdown-nginx=$PASSDOWN_NGINX_DIGEST"
+      - name: Prove setup and picture persistence through HTTPS (Caddy)
+        run: |
+          PASSDOWN_DEPLOY_DIR="$RUNNER_TEMP/assets" PASSDOWN_IMAGE="$PASSDOWN_REF" \
+            PASSDOWN_PROXY_IMAGE="$PASSDOWN_CADDY_REF" sh scripts/deployment-boot-check.sh
+      - name: Prove setup and picture persistence through HTTPS (nginx)
+        run: |
+          PASSDOWN_DEPLOY_DIR="$RUNNER_TEMP/assets" PASSDOWN_PROXY=nginx PASSDOWN_IMAGE="$PASSDOWN_REF" \
+            PASSDOWN_PROXY_IMAGE="$PASSDOWN_NGINX_REF" sh scripts/deployment-boot-check.sh
+
+  merge:
+    name: Tag the release images
+    needs: [check, build, smoke]
+    if: needs.check.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: release
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      passdown: ${{ steps.merge.outputs.passdown }}
+      passdown-caddy: ${{ steps.merge.outputs.passdown-caddy }}
+      passdown-nginx: ${{ steps.merge.outputs.passdown-nginx }}
+    env:
+      VERSION: ${{ needs.check.outputs.version }}
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: digest-*
+          path: ${{ runner.temp }}/digests
+          merge-multiple: true
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create the multi-architecture version tags
+        id: merge
+        run: |
+          # Only the exact version is tagged: no latest or moving tags, since
+          # every upgrade must pass through upgrade.sh's backup and migration gate.
+          for image in passdown passdown-caddy passdown-nginx; do
+            case "$image" in
+              passdown) licenses=AGPL-3.0-only ;;
+              passdown-caddy) licenses='AGPL-3.0-only AND Apache-2.0' ;;
+              passdown-nginx) licenses='AGPL-3.0-only AND BSD-2-Clause' ;;
+            esac
+            target=$REGISTRY/$image:$VERSION
+            if docker buildx imagetools inspect "$target" > /dev/null 2>&1; then
+              echo "::error::$target already exists; a published version is never replaced."
+              exit 1
+            fi
+            docker buildx imagetools create --tag "$target" \
+              --annotation "index:org.opencontainers.image.source=https://github.com/nanwer/passdown" \
+              --annotation "index:org.opencontainers.image.revision=$GITHUB_SHA" \
+              --annotation "index:org.opencontainers.image.version=$VERSION" \
+              --annotation "index:org.opencontainers.image.licenses=$licenses" \
+              "$REGISTRY/$image@$(cat "$RUNNER_TEMP/digests/$image-amd64")" \
+              "$REGISTRY/$image@$(cat "$RUNNER_TEMP/digests/$image-arm64")"
+            digest=$(docker buildx imagetools inspect "$target" --format '{{json .Manifest}}' | jq -r .digest)
+            case "$digest" in sha256:*) ;; *) echo "::error::No index digest for $target."; exit 1 ;; esac
+            echo "$image=$digest" >> "$GITHUB_OUTPUT"
+            echo "- \`$target@$digest\`" >> "$GITHUB_STEP_SUMMARY"
+          done
+
+  assets:
+    name: Draft the GitHub release
+    needs: [check, merge]
+    if: needs.check.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: release
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.check.outputs.version }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version-file: .nvmrc
+      - name: Render the install files
+        env:
+          PASSDOWN_DIGEST: ${{ needs.merge.outputs.passdown }}
+          PASSDOWN_CADDY_DIGEST: ${{ needs.merge.outputs.passdown-caddy }}
+          PASSDOWN_NGINX_DIGEST: ${{ needs.merge.outputs.passdown-nginx }}
+        run: |
+          node scripts/render-release-assets.mjs --version "$VERSION" --output "$RUNNER_TEMP/assets" \
+            --digest "passdown=$PASSDOWN_DIGEST" \
+            --digest "passdown-caddy=$PASSDOWN_CADDY_DIGEST" \
+            --digest "passdown-nginx=$PASSDOWN_NGINX_DIGEST"
+          node scripts/render-release-assets.mjs --check "$RUNNER_TEMP/assets" --version "$VERSION"
+      - name: Create a draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          notes="$RUNNER_TEMP/notes.md"
+          {
+            echo "Draft created by the release workflow. Replace these notes with the reviewed release notes before publishing."
+            echo
+            echo "Install files pin these images:"
+            echo
+            grep -ho 'ghcr\.io/nanwer/[a-z-]*:[^}]*' "$RUNNER_TEMP/assets/compose.yaml" "$RUNNER_TEMP/assets/compose.nginx.yaml" | sed 's/.*/- `&`/'
+          } > "$notes"
+          cd "$RUNNER_TEMP/assets"
+          gh release create "v$VERSION" --repo "$REPOSITORY" --draft --prerelease --verify-tag \
+            --title "Passdown $VERSION" --notes-file "$notes" \
+            compose.yaml compose.nginx.yaml init.sh upgrade.sh backup.sh SHA256SUMS
