@@ -1,4 +1,4 @@
-# Evaluate the container stack from source
+# Build the containers from source
 
 To install Passdown on a server, follow the [installation guide](install.md); the [configuration reference](configuration.md) and [troubleshooting guide](troubleshooting.md) apply to both. This page covers running the same compose file with images built from a source checkout, and the automated checks contributors run.
 

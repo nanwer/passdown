@@ -2,7 +2,7 @@
 
 Passdown helps people keep practical knowledge and pass it on through clear instructions. Bug reports, documentation, accessibility feedback, design improvements and focused code changes all help.
 
-Start with the [README](README.md) for working features and local setup, and the [roadmap](ROADMAP.md) for direction. For a substantial new feature or architectural change, open an issue describing the user need and proposed scope before implementation.
+Start with the [README](README.md) for working features, [running Passdown locally](docs/getting-started.md) for setup, and the [roadmap](ROADMAP.md) for direction. For a substantial new feature or architectural change, open an issue describing the user need and proposed scope before implementation.
 
 ## Development setup
 
@@ -28,6 +28,22 @@ For shared interfaces, consider both public and private workspaces, keyboard use
 Before adding a field, decide whether it is a reusable shared record, a defined choice or text belonging only to one guide. Shared records need create/select/reuse behavior, permissions, duplicate handling and a clear policy for edits, archiving and published history.
 
 Add comments when they explain an invariant, constraint or non-obvious decision. Keep routine code readable without comments that merely repeat it.
+
+## Project structure
+
+| Location                 | Responsibility                                        |
+| ------------------------ | ----------------------------------------------------- |
+| `apps/web`               | Web application, routes, and authoring interface      |
+| `apps/operator`          | The `passdown` operator command                       |
+| `packages/guide-content` | Versioned guide documents and content transformations |
+| `packages/core`          | Access policy and scoped reads                        |
+| `packages/contracts`     | API schemas and shared contracts                      |
+| `packages/database`      | Persistence, migrations, and identity                 |
+| `packages/design-tokens` | Shared design tokens and themes                       |
+| `packages/ui`            | Reusable interface controls                           |
+| `packages/guide-ui`      | Guide cards and reader components                     |
+| `packages/testing`       | Synthetic fixtures for isolated tests                 |
+| `deploy`                 | Compose file, proxy image, backup and upgrade scripts |
 
 ## Work in the owning package
 

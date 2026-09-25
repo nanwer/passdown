@@ -23,7 +23,7 @@ Starting the workflow by hand (**Actions → Release → Run workflow**) is a dr
 ## Steps
 
 1. Run a dry run from `main` and wait for it to pass.
-2. Make sure the version everywhere is the one being released: `packages/contracts/src/build-info.ts`, every `package.json`, the image tags in `deploy/compose.yaml` (the `x-passdown-image` line and the proxy's `image:`), and the `PASSDOWN_VERSION` defaults. The build-information test fails if these disagree. In the same commit, give the version's `CHANGELOG.md` heading its release date in place of `(unreleased)`, and remove the README's sentence that the release's images are not yet published and the install guide's **Before the first release** note. Copy the new `deploy/compose.yaml` into the install guide's compose-file section; a test fails if they differ. Commit and push that change to `main`.
+2. Make sure the version everywhere is the one being released: `packages/contracts/src/build-info.ts`, every `package.json`, the image tags in `deploy/compose.yaml` (the `x-passdown-image` line and the proxy's `image:`), and the `PASSDOWN_VERSION` defaults. The build-information test fails if these disagree. In the same commit, give the version's `CHANGELOG.md` heading its release date in place of `(unreleased)`. Copy the new `deploy/compose.yaml` into the install guide's compose-file section; a test fails if they differ. Commit and push that change to `main`.
 3. The owner says "publish". Until then, nobody pushes a tag.
 4. Push the annotated tag for that exact commit:
 

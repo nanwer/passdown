@@ -34,7 +34,7 @@ Remove the test project with `docker compose -p passdown-manual down -v` (or del
 
 1. Open `README.md` on GitHub. Expect the Open Alpha notice, an **Install with Docker** section with four steps beside **Run locally**, and features including withdrawal, reset links, Your account and browser setup. Every link opens the right page.
 2. Open `SECURITY.md`. Expect the supported versions, the private reporting route under **Security → Report a vulnerability** (it works once the owner enables private vulnerability reporting), what to include, and the request not to publish exploit details.
-3. Open `CHANGELOG.md`. Expect a `0.1.0-alpha.1 (unreleased)` entry with Added, Changed, Security and Known limitations.
+3. Open `CHANGELOG.md`. Expect a `0.1.0-alpha.1 (26 September 2026)` entry with Added, Changed, Security and Known limitations.
 4. Open `ROADMAP.md` and `docs/development/status.md`. Expect what the alpha delivers to be separate from what remains before production use, and status to list this alpha's limits.
 5. Run `docker compose run --rm -T ops version` in an installation and open `/api/health`. Both report `0.1.0-alpha.1`.
 

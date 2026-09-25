@@ -1,4 +1,4 @@
-# Install and run Passdown locally
+# Run Passdown locally
 
 This guide sets up Passdown for evaluation and development on your own machine. Docker runs the database, while Node.js runs the web application. It is not a production deployment guide.
 
@@ -70,7 +70,13 @@ Use the exact `127.0.0.1:3100` address so it matches the generated authenticatio
 
 Local setup includes **Repair collective** for public examples and **Workshop operations** for private examples. Your generated owner account can access both. These sample workspaces exist for development and testing; creating additional workspaces through the interface is not supported.
 
-For a short authoring walkthrough, see [Try your first guide](../README.md#try-your-first-guide).
+### Try your first guide
+
+1. Sign in to Studio and open the sample public workspace, **Repair collective**.
+2. Create a guide, choose what it describes, and select its kind of work.
+3. Add instructions and a photo to a step. Choose a tool or material from the catalog and assign it to that step.
+4. Save the draft, preview it, and publish with a content license.
+5. Open the published guide. Edit and save its draft again: the reader keeps showing the previous release until you publish again.
 
 ## Stop and return later
 
@@ -149,8 +155,6 @@ To try the compiled app locally, stop the development server first, keep Postgre
 
 See [Contributing](../CONTRIBUTING.md#validate-the-behavior) for the database and browser test commands, their isolated test databases, and required browser installation.
 
-## First-run browser setup and production status
+## Installing on a server
 
-Local setup creates development accounts and examples, and never the default login. A server installation instead starts with one default login, `admin@example.com` / `changeme`, created by `passdown migrate` in its empty database; signing in with it shows only **Finish setting up Passdown**, which creates the first account and workspace and retires it. To install Passdown on a server, follow the [self-hosting guide](self-hosting/install.md).
-
-Production builds refuse sample guides and preview identities, and require valid database and identity settings; the [configuration reference](self-hosting/configuration.md) lists them. Running `pnpm start` without those settings shows an installation page and a 503 `not-configured` health response.
+Local setup is for development: it creates sample workspaces and a generated login. To run Passdown for real, follow the [installation guide](self-hosting/install.md), which starts from an empty installation and the default login.

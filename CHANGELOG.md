@@ -2,7 +2,7 @@
 
 Each alpha release is listed here. Passdown uses [semantic versioning](https://semver.org/) with alpha pre-release labels; while it is in alpha, any release may change behaviour.
 
-## 0.1.0-alpha.1 (unreleased)
+## 0.1.0-alpha.1 (26 September 2026)
 
 The first version you can install on your own server.
 

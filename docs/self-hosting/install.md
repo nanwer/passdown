@@ -4,8 +4,6 @@ Passdown installs from one file, `compose.yaml`. Paste it into Portainer, or sav
 
 Passdown is **alpha software**: read the release notes before installing, keep backups, and expect changes between versions.
 
-> **Before the first release:** the images this file names (`ghcr.io/nanwer/passdown:0.1.0-alpha.1`) are published with the first release. Until then, [build from source](#build-from-source). Everything else in this guide is the same.
-
 ## What you are installing
 
 | Service    | What it does                                                                                                  |
