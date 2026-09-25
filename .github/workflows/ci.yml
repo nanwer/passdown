@@ -110,7 +110,7 @@ jobs:
   container:
     name: Container stack (Linux amd64)
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v6
         with:
@@ -135,3 +135,5 @@ jobs:
         run: PASSDOWN_SKIP_BUILD=1 sh scripts/deployment-boot-check.sh
       - name: Prove setup and picture persistence through HTTPS (nginx)
         run: PASSDOWN_PROXY=nginx PASSDOWN_SKIP_BUILD=1 sh scripts/deployment-boot-check.sh
+      - name: Prove an installation upgrades to a newer build
+        run: sh scripts/check-upgrade.sh

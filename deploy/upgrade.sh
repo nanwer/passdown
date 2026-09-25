@@ -120,10 +120,11 @@ if [ "$mode" = build ]; then
     fail 1 'The build failed. The site is still running the previous version.'
   }
 else
-  printf 'Fetching %s…\n' "$image" >&2
-  docker pull "$image" >&2 || { log 'failed: pull'; fail 1 'The image could not be pulled. Nothing was changed.'; }
+  # Release tags never move, so an image already on this host is the one named.
+  fetch() { docker image inspect "$1" >/dev/null 2>&1 || { printf 'Fetching %s…\n' "$1" >&2; docker pull "$1" >&2; }; }
+  fetch "$image" || { log 'failed: pull'; fail 1 'The image could not be pulled. Nothing was changed.'; }
   if [ -n "$proxy_image" ]; then
-    docker pull "$proxy_image" >&2 || { log 'failed: pull'; fail 1 'The proxy image could not be pulled. Nothing was changed.'; }
+    fetch "$proxy_image" || { log 'failed: pull'; fail 1 'The proxy image could not be pulled. Nothing was changed.'; }
   fi
 fi
 

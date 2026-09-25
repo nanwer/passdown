@@ -33,6 +33,7 @@ case "$*" in
   *' run --rm -T ops version') printf '%s\\n' 'passdown 0.0.2 (revision abc)' ;;
   *' run --rm -T ops status') printf '%s\\n' 'Database schema is current (31 migrations applied).' 'Setup: complete' ;;
   *' up -d --no-deps --wait web proxy') exit "\${UP_STATUS:-0}" ;;
+  'image inspect '*) [ "$IMAGE_PRESENT" = 1 ]; exit $? ;;
   'pull '*) exit "\${PULL_STATUS:-0}" ;;
 esac
 exit 0
@@ -216,6 +217,14 @@ describe('upgrading to a published image', () => {
     expect(result.status).toBe(1);
     expect(readFileSync(join(dir, '.env'), 'utf8')).toBe(before);
     expect(called(result.calls, ' up -d')).toBe(-1);
+  });
+
+  it('uses an image already on the host without pulling it', () => {
+    const dir = installation('compose.yaml', 'ghcr.io/nanwer/passdown:0.1.0-alpha.1');
+    const result = upgrade(dir, ['--image', next], { IMAGE_PRESENT: '1' });
+    expect(result.status, result.stderr).toBe(0);
+    expect(called(result.calls, 'pull ')).toBe(-1);
+    expect(called(result.calls, ' run --rm -T migrate')).toBeGreaterThan(-1);
   });
 
   it('upgrades an nginx installation with its proxy image', () => {

@@ -107,6 +107,24 @@ describe('operator command boundary', () => {
       info: ['The command failed. Check database availability and configuration.'],
     });
   });
+  it('names the error code of an unexpected failure, and nothing else', async () => {
+    for (const [code, shown] of [
+      ['EACCES', ' (EACCES)'],
+      ['42P01', ' (42P01)'],
+      ['secret with spaces', ''],
+    ]) {
+      const h = harness();
+      const c = make({
+        run: async () => {
+          throw Object.assign(Error('postgres://owner:secret@host/db'), { code });
+        },
+      });
+      expect(await runCli(['inspect'], h.io, [c])).toBe(1);
+      expect(h.info).toEqual([
+        `The command failed${shown}. Check database availability and configuration.`,
+      ]);
+    }
+  });
   it('passes validated configuration, arguments and streams to commands', async () => {
     const h = harness({
       NODE_ENV: 'production',

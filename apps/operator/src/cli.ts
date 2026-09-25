@@ -104,7 +104,11 @@ export async function runCli(
       io.info(error.message);
       return error.exitCode;
     }
-    io.info('The command failed. Check database availability and configuration.');
+    // Only a system or PostgreSQL error code: messages can carry connection
+    // strings, but a code such as EACCES or 42P01 says where to look.
+    const code = (error as { code?: unknown } | null)?.code;
+    const shown = typeof code === 'string' && /^[A-Z0-9_]{2,32}$/.test(code) ? ` (${code})` : '';
+    io.info(`The command failed${shown}. Check database availability and configuration.`);
     return 1;
   }
 }

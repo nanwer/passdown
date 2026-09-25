@@ -153,6 +153,8 @@ PASSDOWN_SKIP_BUILD=1 sh scripts/deployment-boot-check.sh
 
 Set `PASSDOWN_PROXY=nginx` on either check to test the nginx proxy instead, after building `passdown-nginx:local` from `deploy/nginx/Dockerfile`.
 
+`sh scripts/check-upgrade.sh` rehearses an upgrade. It installs `passdown:local` from the release files into a disposable project, completes setup and uploads a picture, then builds a newer version from your working tree with one extra migration. A first upgrade is made to fail and must leave the old version serving with the settings unchanged; the second must apply the migration, update `PASSDOWN_IMAGE`, take a backup and keep the setup, session and picture. It removes its project and image afterwards.
+
 The proxy check creates disposable containers and tests certificate trust, headers, upload limits, request throttling and log redaction. The boot check creates a separate project, verifies setup, upload and restart, then removes only its own containers and volumes. It refuses occupied test ports. Failures identify the stage; raw container logs and entered credentials are kept out of console output.
 
 The local stack has been exercised on Linux arm64 under Docker. The separate CI container job exercises Linux amd64. A clean-host public-certificate rehearsal, an upgrade rehearsal from an earlier version and release approval remain required before an Open Alpha publication.

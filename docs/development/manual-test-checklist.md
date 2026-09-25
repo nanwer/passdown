@@ -23,6 +23,8 @@ Use a separate evaluation installation, never your own data.
 2. Run `docker compose run --rm -T ops version`. Expect the revision of your checkout (`git rev-parse --short=12 HEAD`).
 3. Simulate a failing migration: in a copy of the settings file, change `GUIDE_DB_RUNTIME_PASSWORD`, then run `sh upgrade.sh --env-file <that copy> --build --skip-backup`. Expect exit 1 and "Migrations failed; the site is still running the previous version." While it runs, reload the site: it keeps working. Afterwards `docker compose ps` shows the same web container, and `upgrade.log` records the failure.
 4. Stop the stack with `docker compose stop web` and run `sh upgrade.sh --build`. Expect a refusal telling you to use `docker compose up -d`, and no backup or build.
+5. Automated rehearsal: with `passdown:local` and `passdown-caddy:local` built, run `sh scripts/check-upgrade.sh` from the repository root. Expect `Upgrade check passed: a failed migration kept the old version serving; the upgrade applied migration …` after several minutes, and no leftover `passdown-check-upgrade-*` containers or volumes (`docker ps -a`, `docker volume ls`).
+6. `sh upgrade.sh --image REF` uses `REF` without downloading when that exact image is already on the host; otherwise it downloads it first.
 
 ## Self-hosting guides
 

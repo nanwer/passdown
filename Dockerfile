@@ -9,6 +9,9 @@ WORKDIR /src
 COPY pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
 RUN --mount=type=cache,id=passdown-pnpm,target=/root/.local/share/pnpm/store pnpm fetch --frozen-lockfile
 COPY . .
+# Files keep their checkout permissions; the runtime user must be able to read
+# them even when the checkout was made with a private umask.
+RUN chmod -R a+rX .
 RUN --mount=type=cache,id=passdown-pnpm,target=/root/.local/share/pnpm/store pnpm install --offline --frozen-lockfile
 RUN --mount=type=cache,id=passdown-pnpm,target=/root/.local/share/pnpm/store pnpm migrations:check \
  && GUIDE_NEXT_OUTPUT=standalone pnpm build \
@@ -32,7 +35,7 @@ COPY --from=build /src/apps/web/.next/static ./apps/web/.next/static
 COPY --from=build /src/apps/operator/dist/ ./operator/
 COPY --from=build /src/packages/database/migrations/ ./operator/migrations/
 COPY --from=build /src/third-party-licenses.json ./third-party-licenses.json
-COPY LICENSE THIRD_PARTY_NOTICES.md ./
+COPY --chmod=0644 LICENSE THIRD_PARTY_NOTICES.md ./
 RUN printf '#!/bin/sh\nexec node /app/operator/passdown.mjs "$@"\n' > /usr/local/bin/passdown \
  && chmod 0755 /usr/local/bin/passdown \
  && install -d -o passdown -g passdown -m 0700 /app/apps/web/.next/cache
