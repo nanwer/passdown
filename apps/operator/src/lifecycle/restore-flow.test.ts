@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PassThrough } from 'node:stream';
 import { performRestore, restoreDatabaseArgument } from './restore-flow';
+import { receiveBackup } from './backup-check';
+import { runTool } from './run-tool';
 import { writeRestoreState } from './staging';
 const h = vi.hoisted(() => ({
   db: null as any,
@@ -14,7 +16,12 @@ vi.mock('@guide/database', () => ({
   ownerDatabaseTarget: () => ({ database: 'target' }),
   libpqEnvironment: () => ({}),
 }));
-vi.mock('node:fs/promises', () => ({ mkdir: vi.fn(async () => {}) }));
+vi.mock('node:fs/promises', () => ({
+  mkdir: vi.fn(async (path: string) => h.events.push(`mkdir:${path}`)),
+  mkdtemp: vi.fn(async () => '/ops-private/passdown-restore-1'),
+  chmod: vi.fn(async () => {}),
+  rm: vi.fn(async (path: string) => h.events.push(`removed:${path}`)),
+}));
 vi.mock('node:fs', () => ({ createReadStream: () => ({}) }));
 vi.mock('./run-tool', () => ({ runTool: vi.fn(async () => h.events.push('load')) }));
 vi.mock('./backup-check', () => ({
@@ -123,6 +130,36 @@ beforeEach(() => {
   };
 });
 describe('staged restore coordination', () => {
+  it('stages the received archive outside the shared media volume and removes it after loading', async () => {
+    h.db = null;
+    h.file = null;
+    h.session.preflight = vi.fn(async () => state('receiving').previousAccess);
+    vi.mocked(receiveBackup).mockResolvedValueOnce({
+      manifest: manifest as any,
+      backupId: 'b'.repeat(64),
+    });
+    await performRestore({ args: [], options: {} }, context());
+    const directory = vi.mocked(receiveBackup).mock.calls[0]![1].directory;
+    // The web container can write the media volume; the dump must never sit there.
+    expect(directory.startsWith('/safe')).toBe(false);
+    expect(h.events.some((event) => event.startsWith('mkdir:/safe'))).toBe(false);
+    expect(h.events.slice(0, 3)).toEqual(['load', `removed:${directory}`, 'loaded']);
+  });
+  it('removes the private archive when loading the database fails', async () => {
+    h.db = null;
+    h.file = null;
+    h.session.preflight = vi.fn(async () => state('receiving').previousAccess);
+    vi.mocked(receiveBackup).mockResolvedValueOnce({
+      manifest: manifest as any,
+      backupId: 'b'.repeat(64),
+    });
+    vi.mocked(runTool).mockRejectedValueOnce(new Error('pg_restore failed'));
+    await expect(performRestore({ args: [], options: {} }, context())).rejects.toThrow(
+      'pg_restore failed',
+    );
+    const directory = vi.mocked(receiveBackup).mock.calls[0]![1].directory;
+    expect(h.events).toContain(`removed:${directory}`);
+  });
   it('verifies and resets access before moving files and activating', async () => {
     await performRestore({ args: [], options: { activate: true } }, context());
     expect(h.events).toEqual([

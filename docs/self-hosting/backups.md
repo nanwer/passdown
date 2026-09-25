@@ -68,7 +68,9 @@ Expected output: **Backup archive integrity and compatibility checks passed. No 
 
 ## Restore into a separate installation
 
-Use a backup you created or obtained from a trusted operator. A database dump can execute SQL with owner privileges; checksums establish integrity, not trust.
+Only restore a backup you made yourself, or one from an operator you trust completely. Restoring runs the database dump with the database owner's credentials, which in the default deployment is the PostgreSQL superuser: a crafted dump could run any SQL on the database server and commands inside the database container. Checksums prove an archive is complete and undamaged, not who made it.
+
+Restore unpacks the archive in the operator container's own temporary space, never in the shared picture volume, and deletes it as soon as the database has loaded. That space needs room for the whole archive while the restore runs.
 
 Use source with the **same migration list** as the backup. Keep the original installation and backup intact. From that checkout's `deploy` directory:
 

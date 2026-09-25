@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { createReadStream } from 'node:fs';
-import { mkdir } from 'node:fs/promises';
+import { chmod, mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   ownerDatabaseTarget,
@@ -115,49 +116,57 @@ export async function performRestore(input: OperatorInput, context: OperatorCont
       await initializeRestoreState(root, file);
       createdHere = true;
       await session.beginRestore(file.restoreId, file.backupId, previousAccess);
-      const paths = restoreStagingPaths(root, file.restoreId);
-      const archive = join(paths.run, 'archive');
-      await mkdir(archive, { mode: 0o700 });
-      context.info('Receiving and checking the backup. Application connections are closed.');
-      const receipt = await receiveBackup(
-        typeof input.options.from === 'string'
-          ? backupFromDirectory(input.options.from, context.signal)
-          : context.stdin,
-        { directory: archive, signal: context.signal },
-      );
-      file = { ...file, manifest: receipt.manifest, backupId: receipt.backupId };
-      await writeRestoreState(root, file);
-      await session.setBackupId(file.restoreId, file.backupId);
-      await extractRestoreMedia(
-        root,
-        file.restoreId,
-        createReadStream(join(archive, 'media.tar')),
-        { signal: context.signal },
-      );
-      // Extraction journals workspace ownership before writing; don't overwrite it.
-      file = (await readRestoreState(root))!;
-      const target = ownerDatabaseTarget(context.ownerURL, context.policy);
-      await runTool(
-        'pg_restore',
-        [
-          '--single-transaction',
-          '--exit-on-error',
-          '--no-owner',
-          restoreDatabaseArgument(target.database),
-        ],
-        {
-          env: {
-            PATH: process.env.PATH,
-            LANG: 'C',
-            ...libpqEnvironment(target),
-            PGAPPNAME: 'passdown-restore',
-            PGPASSFILE: '/dev/null',
-            PGOPTIONS: ' ',
+      // The received archive, including the database dump, stays in this
+      // command's own temporary space. The media volume is shared with the web
+      // service, which must never be able to read or replace the dump.
+      const archive = await mkdtemp(join(tmpdir(), 'passdown-restore-'));
+      try {
+        await chmod(archive, 0o700);
+        context.info('Receiving and checking the backup. Application connections are closed.');
+        const receipt = await receiveBackup(
+          typeof input.options.from === 'string'
+            ? backupFromDirectory(input.options.from, context.signal)
+            : context.stdin,
+          { directory: archive, signal: context.signal },
+        );
+        file = { ...file, manifest: receipt.manifest, backupId: receipt.backupId };
+        await writeRestoreState(root, file);
+        await session.setBackupId(file.restoreId, file.backupId);
+        await extractRestoreMedia(
+          root,
+          file.restoreId,
+          createReadStream(join(archive, 'media.tar')),
+          { signal: context.signal },
+        );
+        // Extraction journals workspace ownership before writing; don't overwrite it.
+        file = (await readRestoreState(root))!;
+        const target = ownerDatabaseTarget(context.ownerURL, context.policy);
+        await runTool(
+          'pg_restore',
+          [
+            '--single-transaction',
+            '--exit-on-error',
+            '--no-owner',
+            restoreDatabaseArgument(target.database),
+          ],
+          {
+            env: {
+              PATH: process.env.PATH,
+              LANG: 'C',
+              ...libpqEnvironment(target),
+              PGAPPNAME: 'passdown-restore',
+              PGPASSFILE: '/dev/null',
+              PGOPTIONS: ' ',
+            },
+            input: createReadStream(join(archive, 'database.dump')),
+            signal: context.signal,
           },
-          input: createReadStream(join(archive, 'database.dump')),
-          signal: context.signal,
-        },
-      );
+        );
+      } finally {
+        // Resume continues from the loaded database and staged pictures; the
+        // archive is never needed again, and a failed attempt starts over.
+        await rm(archive, { recursive: true, force: true });
+      }
       await session.checkpoint(file.restoreId, 'receiving', 'loaded');
       file = { ...file, checkpoint: 'loaded' };
       await writeRestoreState(root, file);
