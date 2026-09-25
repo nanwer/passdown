@@ -1,6 +1,6 @@
 # Install Passdown on your own server
 
-Passdown installs from one file, `compose.yaml`. Paste it into Portainer, or save it and run `docker compose up -d`. Open `https://your-server:8443`, sign in with the default login, and Passdown asks you to finish setting up. Nothing is built on the server and no settings script runs.
+Passdown installs from one standard Docker Compose file, `compose.yaml`. Save it and run `docker compose up -d`, or give it to any tool that deploys compose files, such as Portainer. Open `https://your-server:8443`, sign in with the default login, and Passdown asks you to finish setting up. Nothing is built on the server and no settings script runs.
 
 Passdown is **alpha software**: read the release notes before installing, keep backups, and expect changes between versions.
 
@@ -18,20 +18,11 @@ A sixth service, `ops`, runs [operator commands](#operator-commands) on demand. 
 
 ## Before you start
 
-- A Linux server (amd64 is tested; arm64 is expected to work) with Docker Engine and Docker Compose 2.24 or later (`docker compose version`), or Portainer managing it.
+- A Linux server (amd64 is tested; arm64 is expected to work) with Docker Engine and Docker Compose 2.24 or later (`docker compose version`).
 - Port 8443 free on the server. If it is taken, pick another port as `PASSDOWN_PORT` below.
 - A synchronised clock (for example `systemd-timesyncd` or `chrony`). Sign-in and reset links depend on it.
 
-## Install with Portainer
-
-1. Open **Stacks → Add stack**. Name it, for example `passdown`. The name becomes the Compose project name, which you need for [operator commands](#operator-commands).
-2. Choose **Web editor** and paste the [compose file](#the-compose-file).
-3. Under **Environment variables**, add `PASSDOWN_URL` with the address people will use, for example `https://192.168.1.20:8443` or `https://nas.home.example:8443`. Leave it out to use `https://localhost:8443`, which works only on the server itself. Add `PASSDOWN_PORT` only if 8443 is taken, and use the same port in `PASSDOWN_URL`.
-4. Choose **Deploy the stack**. The first start pulls the images and takes a minute or two.
-
-You can also edit the address directly in the file: replace `${PASSDOWN_URL:-https://localhost:8443}` on the `x-passdown-url` line with your address.
-
-## Install with docker compose
+## Install
 
 Save the [compose file](#the-compose-file) as `compose.yaml` in an empty folder, for example `~/passdown`. From 0.1.0-alpha.1 each release also attaches it, with `upgrade.sh`, `backup.sh` and `SHA256SUMS`; check a downloaded copy with `sha256sum --check SHA256SUMS`.
 
@@ -45,6 +36,17 @@ docker compose ps --all
 ```
 
 Compose reads `.env` from the same folder; it holds only the address and, if you change it, `PASSDOWN_PORT`. Expect `postgres` and `web` to be healthy, `proxy` running, and `init` and `migrate` exited with code 0.
+
+## Install with a Docker manager such as Portainer
+
+Tools that deploy compose files take the same file. In Portainer:
+
+1. Open **Stacks → Add stack**. Name it, for example `passdown`. The name becomes the Compose project name, which you need for [operator commands](#operator-commands).
+2. Choose **Web editor** and paste the [compose file](#the-compose-file).
+3. Under **Environment variables**, add `PASSDOWN_URL` with the address people will use, for example `https://192.168.1.20:8443` or `https://nas.home.example:8443`. Leave it out to use `https://localhost:8443`, which works only on the server itself. Add `PASSDOWN_PORT` only if 8443 is taken, and use the same port in `PASSDOWN_URL`.
+4. Choose **Deploy the stack**. The first start pulls the images and takes a minute or two.
+
+You can also edit the address directly in the file: replace `${PASSDOWN_URL:-https://localhost:8443}` on the `x-passdown-url` line with your address.
 
 ## The compose file
 

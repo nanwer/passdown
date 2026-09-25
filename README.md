@@ -23,11 +23,11 @@ Saves are manual. Open signup, email, self-service password recovery, non-image 
 
 ## Install
 
-Passdown runs from one file on any Linux server with Docker (amd64 is tested, arm64 is expected to work).
+Passdown runs from one Docker Compose file on any Linux server with Docker (amd64 is tested, arm64 is expected to work).
 
-1. Copy [`compose.yaml`](docs/self-hosting/install.md#the-compose-file) into **Portainer → Stacks → Add stack → Web editor**, or save it and run `docker compose up -d`.
-2. Set `PASSDOWN_URL` to the address people will use, for example `https://192.168.1.20:8443`.
-3. Open that address. Your browser warns about the certificate the first time, as with Portainer.
+1. Save [`compose.yaml`](docs/self-hosting/install.md#the-compose-file) in an empty folder.
+2. Set `PASSDOWN_URL` to the address people will use, for example `https://192.168.1.20:8443`, and run `docker compose up -d`. Tools that deploy compose files, such as Portainer, take the same file.
+3. Open that address. Your browser warns about the certificate the first time, because Passdown makes its own.
 4. Sign in with `admin@example.com` and `changeme`, then choose your own name, email address, password and first workspace. The default login then stops working.
 
 To upgrade, change the version in the file and redeploy. The [installation guide](docs/self-hosting/install.md) covers every step, including a trusted certificate through your own proxy (such as Nginx Proxy Manager), backups and operator commands.

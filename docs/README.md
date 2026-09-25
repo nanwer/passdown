@@ -2,7 +2,7 @@
 
 ## Run Passdown on a server
 
-- [Install](self-hosting/install.md): the compose file, Portainer or `docker compose`, first sign-in, your own proxy, upgrades, backups and operator commands.
+- [Install](self-hosting/install.md): the compose file, `docker compose` or a tool such as Portainer, first sign-in, your own proxy, upgrades, backups and operator commands.
 - [Configuration](self-hosting/configuration.md): every setting and what it does.
 - [Troubleshooting](self-hosting/troubleshooting.md): what each health answer and error message means, and how to fix it.
 - [Backups and restore](self-hosting/backups.md): verified backups, checking an archive, and restoring into a new installation.
