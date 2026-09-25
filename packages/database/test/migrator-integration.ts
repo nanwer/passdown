@@ -11,7 +11,7 @@ import {
   migrationLockKey,
   readSchemaStateAsOwner,
 } from '../src/migrator';
-import { completeSetup, setupStateAsOwner } from '../src/setup';
+import { ensureDefaultLogin, setupStateAsOwner } from '../src/setup';
 import { ownerDatabaseTarget, pgClientConfig } from '../src/config';
 
 /** Every object changed here has a disposable name; the existing runtime role is never altered. */
@@ -64,8 +64,8 @@ export async function verifyMigrator(
     );
   };
   try {
-    await check('reports an unmigrated installation as setup required', async () => {
-      assert.equal(await setupStateAsOwner(owner.href), 'required');
+    await check('reports an unmigrated installation as having no account', async () => {
+      assert.equal(await setupStateAsOwner(owner.href), 'no-account');
     });
     await check('creates a safe disposable role and proves its password', async () => {
       assert.deepEqual(await ensure(), { created: true, passwordChanged: false });
@@ -189,45 +189,32 @@ export async function verifyMigrator(
       },
     );
     await check(
-      'setup bounds a blocked transaction and reads committed state despite a database default',
+      'the default login bounds a blocked lock and reads committed state despite a database default',
       async () => {
         await db.query(
           'ALTER DATABASE "' +
             database +
             "\" SET default_transaction_isolation = 'repeatable read'",
         );
-        const pool = new pg.Pool({
-          connectionString: runtime.href,
-          options: '-c statement_timeout=7000',
-        });
         try {
-          const input = {
-            email: 'migrator-setup@example.org',
-            name: 'Operator',
-            password: 'disposable setup password',
-            workspaceName: 'Migration test',
-          };
-          assert.equal(await setupStateAsOwner(owner.href), 'required');
+          assert.equal(await setupStateAsOwner(owner.href), 'no-account');
           await db.query('BEGIN');
           await db.query('SELECT pg_advisory_xact_lock(719821009)');
           const start = Date.now();
-          assert.equal((await completeSetup(pool, input)).outcome, 'rolled-back');
-          assert.ok(Date.now() - start < 6500, 'setup lock wait must be bounded');
+          await assert.rejects(ensureDefaultLogin(owner.href));
+          assert.ok(Date.now() - start < 6500, 'default login lock wait must be bounded');
           await db.query('ROLLBACK');
           const results = await Promise.all([
-            completeSetup(pool, input),
-            completeSetup(pool, input),
+            ensureDefaultLogin(owner.href),
+            ensureDefaultLogin(owner.href),
           ]);
-          assert.deepEqual(results.map((r) => r.outcome).sort(), ['already-set-up', 'created']);
-          assert.equal(await setupStateAsOwner(owner.href), 'complete');
-          await db.query('TRUNCATE public.auth_user CASCADE');
-          assert.deepEqual(await completeSetup(pool, input), { outcome: 'workspace-exists' });
+          assert.deepEqual(results.sort(), ['created', 'not-needed']);
+          assert.equal(await setupStateAsOwner(owner.href), 'default-login');
           assert.equal(
             (await db.query('SELECT count(*)::int AS count FROM public.auth_user')).rows[0].count,
-            0,
+            1,
           );
         } finally {
-          await pool.end();
           await db.query('ROLLBACK');
         }
       },

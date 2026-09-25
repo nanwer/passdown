@@ -15,6 +15,7 @@ import {
 } from '@guide/ui';
 import type { StudioSession, StudioWorkspace } from '@guide/contracts';
 import { StudioError, studioFetch } from './transport';
+import { FinishSetup } from '../setup/finish-setup';
 import './studio.css';
 export function Frame({
   children,
@@ -189,7 +190,9 @@ export function SessionGate({
 }) {
   const [session, setSession] = useState<StudioSession>();
   const [error, setError] = useState('');
-  const [mustChangePassword, setMustChangePassword] = useState(false);
+  // What a signed-in account must do before anything else: replace the
+  // password it was given, or, as the default login, finish setting up.
+  const [required, setRequired] = useState<'password' | 'setup' | null>(null);
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     let active = true;
@@ -209,7 +212,11 @@ export function SessionGate({
         // until the password it was given has been replaced. Every studio
         // route refuses it, so there is nowhere else to send them.
         if (e instanceof StudioError && e.code === 'PASSWORD_CHANGE_REQUIRED') {
-          setMustChangePassword(true);
+          setRequired('password');
+          return;
+        }
+        if (e instanceof StudioError && e.code === 'SETUP_REQUIRED') {
+          setRequired('setup');
           return;
         }
         setError(e instanceof Error ? e.message : 'Unable to load your session.');
@@ -234,12 +241,14 @@ export function SessionGate({
       workspaceCount={session?.workspaces.length}
       isAdministrator={session?.isAdministrator}
       user={session?.user.name}
-      onSignOut={session ? () => void signOut() : undefined}
+      onSignOut={session || required ? () => void signOut() : undefined}
     >
-      {mustChangePassword ? (
+      {required === 'setup' ? (
+        <FinishSetup />
+      ) : required === 'password' ? (
         <ChangePassword
           onChanged={() => {
-            setMustChangePassword(false);
+            setRequired(null);
             setAttempt(attempt + 1);
           }}
         />

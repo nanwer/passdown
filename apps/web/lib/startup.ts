@@ -5,7 +5,7 @@ import { getApplication, isConfigured } from './application';
 import { deploymentStatus, sampleLibraryEnabled } from './deployment';
 import { describeError, logEvent } from './log';
 import { mediaStatus } from './media';
-import { setupRequired } from './setup';
+import { setupState } from './setup';
 
 /**
  * Runs once when the server starts, before any request is handled.
@@ -26,15 +26,9 @@ export async function reportStartup() {
     logEvent('warn', 'config.ignored', {
       message: 'Preview identities are disabled in production.',
     });
-  if (process.env.PASSDOWN_SETUP_CODE_SHA256 && !status.setupCodeHash)
-    logEvent('error', 'config.invalid', {
-      variable: 'PASSDOWN_SETUP_CODE_SHA256',
-      message: 'The setup code hash is invalid, so browser setup is unavailable.',
-    });
   const summary = {
     ...buildInfo(),
     mode: sampleLibraryEnabled() ? 'sample' : production ? 'production' : 'development',
-    setupCode: status.setupCodeHash ? 'configured' : 'missing',
   };
   if (!isConfigured()) {
     logEvent('info', 'startup', { ...summary, database: 'not-configured' });
@@ -58,12 +52,22 @@ export async function reportStartup() {
     logEvent('error', 'media.unavailable', {
       message: 'The picture directory is missing or cannot be read and written.',
     });
-  let setup: 'required' | 'complete' | 'unknown' = 'unknown';
+  let setup: Awaited<ReturnType<typeof setupState>> | 'unknown' = 'unknown';
   if (schema === 'current' || schema === 'ahead')
     try {
-      setup = (await setupRequired()) ? 'required' : 'complete';
+      setup = await setupState();
     } catch {
       // Already reported by the schema or database line above.
     }
+  // The default login is published; say so on every start until it is gone.
+  if (setup === 'default-login')
+    logEvent('warn', 'setup.default-login', {
+      message: `The default login admin@example.com (password changeme) still works. Open ${application.origin}, sign in with it and finish setting up.`,
+    });
+  if (setup === 'no-account')
+    logEvent('error', 'setup.no-account', {
+      message:
+        'Nobody can sign in: the database has no accounts. Run passdown migrate, which creates the default login in an empty database, or restore a complete backup.',
+    });
   logEvent('info', 'startup', { ...summary, origin: application.origin, schema, media, setup });
 }

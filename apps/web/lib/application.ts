@@ -74,12 +74,20 @@ export async function requireSession(request: Request) {
   // gate every studio route passes through, browser or not. Forcing
   // a reset in the interface while exempting /api leaves the credentials an
   // installation shipped with working indefinitely for anyone who skips the UI.
-  if (session.user.mustChangePassword)
+  if (session.user.mustChangePassword) {
+    // The default login can only finish setting up (migration 033).
+    if ((await getApplication().store.defaultLoginAccount()) === session.user.id)
+      throw new ApplicationError(
+        'SETUP_REQUIRED',
+        'Finish setting up Passdown before continuing.',
+        403,
+      );
     throw new ApplicationError(
       'PASSWORD_CHANGE_REQUIRED',
       'Choose a new password before continuing.',
       403,
     );
+  }
   return { session, actor: { kind: 'user', id: session.user.id, active: true } as const };
 }
 export async function enforceRateLimit(key: string, limit: number, seconds = 60) {

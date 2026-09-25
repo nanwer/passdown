@@ -1,5 +1,5 @@
 import { canonicalAccountEmail } from './credentials';
-import { completeSetup, setupRequired, reconcileSetup, type SetupAccountInput } from './setup';
+import { setupState } from './setup';
 import { runtimeRoleIsSafe } from './runtime-role';
 import { credentialStore } from './credential-store';
 import { managementStore } from './management-store';
@@ -1441,9 +1441,7 @@ export function createApplicationStore(options: {
         client.release();
       }
     },
-    completeSetup: (input: SetupAccountInput) => completeSetup(pool, input),
-    setupRequired: () => setupRequired(pool),
-    reconcileSetup: (email: string) => reconcileSetup(pool, email),
+    setupState: () => setupState(pool),
     async health(): Promise<boolean> {
       try {
         const result = await pool.query(

@@ -1,8 +1,8 @@
-import { createHash } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import pg from 'pg';
 import { readConfig } from './local-config.mjs';
 import { migrate, requireLocal } from './migrate-local.mjs';
+import { ensureDefaultLogin } from '../packages/database/src/setup';
 const source = readConfig();
 const owner = new URL(source.GUIDE_OWNER_DATABASE_URL);
 const runtime = new URL(source.GUIDE_DATABASE_URL);
@@ -19,6 +19,9 @@ try {
   await admin.end();
 }
 await migrate(owner.href, runtime.href);
+// What `passdown migrate` does in a new Docker installation.
+if ((await ensureDefaultLogin(owner.href)) !== 'created')
+  throw new Error('The setup test database did not get the default login.');
 const env = { ...process.env };
 for (const key of Object.keys(env))
   if (/^(GUIDE_|BETTER_AUTH_|PASSDOWN_)/.test(key)) delete env[key];
@@ -26,7 +29,6 @@ Object.assign(env, {
   GUIDE_DATABASE_URL: runtime.href,
   BETTER_AUTH_SECRET: 'synthetic-setup-browser-secret-32-characters',
   BETTER_AUTH_URL: 'http://127.0.0.1:3106',
-  PASSDOWN_SETUP_CODE_SHA256: createHash('sha256').update('1234567890ABCDEFGHJK').digest('hex'),
   GUIDE_NEXT_DIST_DIR: '.next-setup',
   NEXT_TELEMETRY_DISABLED: '1',
 });

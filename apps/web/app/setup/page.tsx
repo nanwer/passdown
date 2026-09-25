@@ -1,8 +1,9 @@
-import { notFound } from 'next/navigation';
-import { setupRequired } from '../../lib/setup';
-import { SetupScreen } from '../../components/setup/setup-screen';
+import { redirect } from 'next/navigation';
 export const dynamic = 'force-dynamic';
-export default async function SetupPage() {
-  if (!(await setupRequired())) notFound();
-  return <SetupScreen />;
+/**
+ * The old setup-code form's address. Setup now happens after signing in with
+ * the default login; the studio shows Finish setting up, or asks to sign in.
+ */
+export default function SetupPage() {
+  redirect('/studio');
 }

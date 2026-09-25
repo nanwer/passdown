@@ -17,7 +17,7 @@ export type RestoreFixtureSnapshot = {
   checkpoint: string | null;
   publicGuides: { id: string; document: unknown }[];
   managerGuides: string[];
-  setup: 'required' | 'complete';
+  setup: 'default-login' | 'no-account' | 'complete';
 };
 
 /** All databases are generated here and dropped here; configured databases are never modified. */

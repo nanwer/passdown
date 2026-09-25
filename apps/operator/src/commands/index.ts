@@ -7,6 +7,7 @@ import { statusCommand } from './status';
 import { versionCommand } from './version';
 import { runtimePasswordCommand } from './runtime-password';
 import { adminCommand, resetPasswordCommand } from './accounts';
+import { initSecretsCommand } from './init-secrets';
 export const commands = [
   backupCommand,
   restoreCommand,
@@ -18,4 +19,5 @@ export const commands = [
   runtimePasswordCommand,
   resetPasswordCommand,
   adminCommand,
+  initSecretsCommand,
 ];

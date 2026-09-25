@@ -44,6 +44,10 @@ After editing the settings file, apply the change by recreating the affected ser
 
 When a required variable is missing, Compose stops with `required variable … is missing a value` and the hint `Run init.sh`. Web explains other problems in its log and on every page; see [troubleshooting](troubleshooting.md).
 
+## Secret files
+
+Instead of a value, web and the operator command accept a file holding it: `GUIDE_DB_OWNER_PASSWORD_FILE` and `GUIDE_DB_RUNTIME_PASSWORD_FILE` build `GUIDE_OWNER_DATABASE_URL` and `GUIDE_DATABASE_URL` for the database at `PASSDOWN_DATABASE_HOST` (default `postgres`), `BETTER_AUTH_SECRET_FILE` supplies `BETTER_AUTH_SECRET`, and `PASSDOWN_URL` supplies `BETTER_AUTH_URL`. A file setting can't be combined with the value it produces.
+
 ## Set by Compose or the image
 
 Operators don't set these. They are listed so you recognise them in `docker compose config` output:

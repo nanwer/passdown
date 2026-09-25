@@ -36,7 +36,8 @@ async function ownerTransaction<T>(
 }
 type Refusal = {
   kind: 'refused';
-  reason: 'no-account' | 'suspended' | 'unverified' | 'no-password' | 'schema-behind';
+  reason:
+    'no-account' | 'suspended' | 'unverified' | 'no-password' | 'schema-behind' | 'default-login';
   message: string;
 };
 export type OperatorResetResult =
@@ -71,17 +72,27 @@ export async function issueOperatorPasswordReset(input: {
   const token = randomBytes(32).toString('base64url');
   const hash = createHash('sha256').update(token).digest('hex');
   try {
-    const row = await ownerTransaction(
-      input.ownerDatabaseURL,
-      input.policy,
-      async (c) =>
-        (
-          await c.query('SELECT * FROM app.operator_issue_password_reset($1,$2)', [
-            canonicalAccountEmail(input.email),
-            hash,
-          ])
-        ).rows[0],
-    );
+    const row = await ownerTransaction(input.ownerDatabaseURL, input.policy, async (c) => {
+      // The default login's password changes only by finishing setup.
+      const isDefault = await c.query(
+        'SELECT EXISTS(SELECT 1 FROM app.default_login d JOIN public.auth_user u ON u.id = d.user_id WHERE u.email = $1) AS yes',
+        [canonicalAccountEmail(input.email)],
+      );
+      if (isDefault.rows[0]?.yes) return 'default-login' as const;
+      return (
+        await c.query('SELECT * FROM app.operator_issue_password_reset($1,$2)', [
+          canonicalAccountEmail(input.email),
+          hash,
+        ])
+      ).rows[0];
+    });
+    if (row === 'default-login')
+      return {
+        kind: 'refused',
+        reason: 'default-login',
+        message:
+          'This is the default login. Sign in with admin@example.com and changeme, then finish setting up.',
+      };
     return row
       ? {
           kind: 'issued',

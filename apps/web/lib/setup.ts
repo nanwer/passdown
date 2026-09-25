@@ -1,14 +1,24 @@
 import 'server-only';
-import { createHash, timingSafeEqual } from 'node:crypto';
+import type { SetupState } from '@guide/database';
 import { getApplication, isConfigured } from './application';
+
+// Setup never becomes unfinished again, so completion is remembered.
 let complete = false;
-export async function setupRequired() {
-  if (complete || !isConfigured()) return false;
-  const required = await getApplication().store.setupRequired();
-  if (!required) complete = true;
-  return required;
+
+/** The first-run state (see migration 033); 'complete' when not configured. */
+export async function setupState(): Promise<SetupState> {
+  if (complete || !isConfigured()) return 'complete';
+  const state = await getApplication().store.setupState();
+  if (state === 'complete') complete = true;
+  return state;
 }
-export function setupCodeMatches(code: string, hash: Buffer) {
-  const normal = code.toUpperCase().replace(/[\s-]/g, '').replace(/[IL]/g, '1').replace(/O/g, '0');
-  return hash.length === 32 && timingSafeEqual(createHash('sha256').update(normal).digest(), hash);
+
+/** Health reports setup-required until the default login has been replaced. */
+export async function setupRequired() {
+  return (await setupState()) !== 'complete';
+}
+
+/** Whether the sign-in page should offer the default login. */
+export async function defaultLoginActive() {
+  return (await setupState()) === 'default-login';
 }

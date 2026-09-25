@@ -19,3 +19,4 @@ export * from './lifecycle';
 
 export * from './restore';
 export * from './password-reset';
+export * from './secret-files';

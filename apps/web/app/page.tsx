@@ -10,12 +10,16 @@ import {
 } from '../lib/queries';
 import { redirect } from 'next/navigation';
 import { resolveCategoryFilter } from '../lib/category-filter';
+import { setupState } from '../lib/setup';
 export const dynamic = 'force-dynamic';
 export default async function Page({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  // A new installation has nothing to read yet: its front page leads to
+  // signing in with the default login and finishing setup.
+  if (isConfigured() && (await setupState()) === 'default-login') redirect('/studio');
   const params = await searchParams;
   // Asked, not assumed. This used to be the name of a development seed, which
   // is why every other installation's front page answered 500.

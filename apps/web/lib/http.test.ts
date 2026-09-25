@@ -17,7 +17,9 @@ describe('mutation transport boundary', () => {
       { Origin: '' },
       { 'Sec-Fetch-Site': 'cross-site' },
     ] as Record<string, string>[])
-      expect(() => assertOrigin(request('{}', headers), origin)).toThrow(/origin/i);
+      expect(() => assertOrigin(request('{}', headers), origin)).toThrow(
+        /Passdown is set up for http:\/\/127\.0\.0\.1:3100\. .*PASSDOWN_URL/,
+      );
   });
   it('uses the configured origin despite internal URLs or forged proxy headers', () => {
     const internal = new Request('http://localhost:3100/api/studio', {
@@ -30,7 +32,9 @@ describe('mutation transport boundary', () => {
       Host: 'evil.test',
       'X-Forwarded-Host': 'evil.test',
     });
-    expect(() => assertOrigin(forged, origin)).toThrow(/origin/i);
+    expect(() => assertOrigin(forged, origin)).toThrow(
+      /Passdown is set up for http:\/\/127\.0\.0\.1:3100\. .*PASSDOWN_URL/,
+    );
   });
   it('bounds actual bytes even when Content-Length is missing or dishonest', async () => {
     await expect(readJSON(request('"abcdefgh"'), 5)).rejects.toMatchObject({ status: 413 });

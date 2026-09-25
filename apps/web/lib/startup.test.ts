@@ -5,14 +5,13 @@ const h = vi.hoisted(() => ({
     production: true,
     problems: [] as { variable: string; message: string }[],
     previewIgnored: false,
-    setupCodeHash: Buffer.alloc(32, 7) as Buffer | undefined,
   },
   configured: true,
   schemaMessage: null as string | null,
   driftMessage: null as string | null,
   schemaError: null as Error | null,
   media: 'ok' as 'ok' | 'unavailable',
-  setupRequired: true,
+  setup: 'default-login' as 'default-login' | 'no-account' | 'complete',
 }));
 vi.mock('server-only', () => ({}));
 vi.mock('./deployment', () => ({
@@ -36,7 +35,7 @@ vi.mock('@guide/database', () => ({
   describeSchemaDrift: () => h.driftMessage,
 }));
 vi.mock('./media', () => ({ mediaStatus: async () => h.media }));
-vi.mock('./setup', () => ({ setupRequired: async () => h.setupRequired }));
+vi.mock('./setup', () => ({ setupState: async () => h.setup }));
 
 import { reportStartup } from './startup';
 
@@ -49,7 +48,6 @@ beforeEach(() => {
     production: true,
     problems: [],
     previewIgnored: false,
-    setupCodeHash: Buffer.alloc(32, 7),
   };
   Object.assign(h, {
     configured: true,
@@ -57,13 +55,13 @@ beforeEach(() => {
     driftMessage: null,
     schemaError: null,
     media: 'ok',
-    setupRequired: true,
+    setup: 'default-login',
   });
 });
 afterEach(() => vi.restoreAllMocks());
 
 describe('startup report', () => {
-  it('summarises the installation in one line without the setup code hash', async () => {
+  it('summarises the installation in one line and warns while the default login works', async () => {
     await reportStartup();
     const startup = entries().find((entry) => entry.event === 'startup');
     expect(startup).toMatchObject({
@@ -72,11 +70,26 @@ describe('startup report', () => {
       origin: 'https://guides.example.org',
       schema: 'current',
       media: 'ok',
-      setup: 'required',
-      setupCode: 'configured',
+      setup: 'default-login',
     });
+    expect(startup).not.toHaveProperty('setupCode');
     expect(startup?.version).toEqual(expect.any(String));
-    expect(JSON.stringify(entries())).not.toContain(Buffer.alloc(32, 7).toString('hex'));
+    expect(entries().find((entry) => entry.event === 'setup.default-login')).toMatchObject({
+      level: 'warn',
+      message:
+        'The default login admin@example.com (password changeme) still works. Open https://guides.example.org, sign in with it and finish setting up.',
+    });
+  });
+  it('does not warn once setup is finished, and names an installation nobody can sign in to', async () => {
+    h.setup = 'complete';
+    await reportStartup();
+    expect(entries().some((entry) => String(entry.event).startsWith('setup.'))).toBe(false);
+    spy.mockClear();
+    h.setup = 'no-account';
+    await reportStartup();
+    expect(entries().find((entry) => entry.event === 'setup.no-account')).toMatchObject({
+      level: 'error',
+    });
   });
   it('names a schema mismatch, unusable pictures and invalid settings as their own lines', async () => {
     h.status.problems = [
@@ -84,7 +97,6 @@ describe('startup report', () => {
     ];
     h.schemaMessage = 'Apply 031_example.sql with ./upgrade.sh.';
     h.media = 'unavailable';
-    h.status.setupCodeHash = undefined;
     await reportStartup();
     const events = entries().map((entry) => `${entry.level}:${entry.event}`);
     expect(events).toEqual(
@@ -98,7 +110,6 @@ describe('startup report', () => {
       schema: 'behind',
       media: 'unavailable',
       setup: 'unknown',
-      setupCode: 'missing',
     });
   });
   it('reports an unreachable database without guessing at the schema', async () => {

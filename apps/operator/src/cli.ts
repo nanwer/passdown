@@ -1,5 +1,5 @@
 import { buildInfo } from '@guide/contracts';
-import { ConfigurationError } from '@guide/database';
+import { ConfigurationError, resolveSecretFiles } from '@guide/database';
 import type { Readable, Writable } from 'node:stream';
 import { OperatorFailure, type OperatorCommand, type OperatorInput } from './command';
 import { readOperatorConfig } from './config';
@@ -79,10 +79,10 @@ export async function runCli(
         );
     };
     checkInterrupted();
-    const config = readOperatorConfig(
-      typeof command.needs === 'function' ? command.needs(input) : command.needs,
-      io.env,
-    );
+    const needs = typeof command.needs === 'function' ? command.needs(input) : command.needs;
+    // The Docker install names secret files rather than values; commands that
+    // need no settings, such as version, never read them.
+    const config = readOperatorConfig(needs, needs.length ? resolveSecretFiles(io.env) : io.env);
     await command.run(input, {
       ...config,
       out: io.out,

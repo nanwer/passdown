@@ -28,9 +28,23 @@ import { CategoryPicker } from '../structured';
 import { words } from '../../lib/vocabulary';
 import { GuideRequirements } from './guide-requirements';
 import { AuthoringSection, authoringPanel } from './authoring-section';
-export function SignIn() {
+export function SignIn({
+  defaultLogin = false,
+  origin,
+}: {
+  /** While the default login is active, the page says what it is. */
+  defaultLogin?: boolean;
+  /** The address Passdown is set up for. */
+  origin?: string;
+}) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
+  // Sign-in only works at the configured address. Known only in the browser,
+  // so it is compared after mounting rather than during rendering.
+  const [openedAt, setOpenedAt] = useState('');
+  useEffect(() => {
+    if (origin && window.location.origin !== origin) setOpenedAt(window.location.origin);
+  }, [origin]);
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (pending) return;
@@ -46,7 +60,12 @@ export function SignIn() {
         safeReturnTo(new URLSearchParams(window.location.search).get('returnTo')),
       );
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Sign in failed.');
+      // The identity library's own refusal names no address; say which one works.
+      if (e instanceof StudioError && e.status === 403 && /origin/i.test(e.message) && origin)
+        setError(
+          `Passdown is set up for ${origin}. Open it at that address, or ask the operator to set PASSDOWN_URL to ${window.location.origin}.`,
+        );
+      else setError(e instanceof Error ? e.message : 'Sign in failed.');
       setPending(false);
     }
   }
@@ -72,6 +91,18 @@ export function SignIn() {
           <span className={X.eyebrow}>Welcome back</span>
           <h2>Sign in to your studio</h2>
           <p>Use the verified local account provided by your operator.</p>
+          {openedAt && (
+            <div className={X.errorNotice} role="alert">
+              Passdown is set up for {origin}. Open it at that address, or ask the operator to set
+              PASSDOWN_URL to {openedAt}.
+            </div>
+          )}
+          {defaultLogin && (
+            <p className={cn(X.notice, 'my-0')}>
+              First time? Sign in with <strong>admin@example.com</strong> and{' '}
+              <strong>changeme</strong>.
+            </p>
+          )}
           <label>
             Email
             <input name="email" type="email" autoComplete="username" required autoFocus />

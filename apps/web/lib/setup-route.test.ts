@@ -1,40 +1,25 @@
-import { createHash } from 'node:crypto';
 import { ApplicationError } from '@guide/contracts';
 import { beforeEach, expect, it, vi } from 'vitest';
 const state = vi.hoisted(() => ({
-  required: true,
-  hash: Buffer.alloc(32) as Buffer | undefined,
-  outcome: { outcome: 'created', workspace: 'workshop' },
-  reconciliation: 'complete',
-  signIn: vi.fn(),
-  completeSetup: vi.fn(),
-  reconcileSetup: vi.fn(),
-  rate: vi.fn(),
+  session: {
+    user: { id: 'default', active: true, mustChangePassword: true },
+    session: { id: 'this-browser' },
+  } as unknown,
+  finishSetup: vi.fn(),
+  limits: vi.fn(),
 }));
 vi.mock('server-only', () => ({}));
 vi.mock('./application', () => ({
-  isConfigured: () => true,
   getApplication: () => ({
     origin: 'https://example.org',
-    store: {
-      setupRequired: async () => state.required,
-      completeSetup: state.completeSetup,
-      reconcileSetup: state.reconcileSetup,
-    },
-    identity: { api: { signInEmail: state.signIn } },
+    store: { finishSetup: state.finishSetup },
   }),
-  enforceRateLimit: state.rate,
+  currentSession: async () => state.session,
+  enforceMutationLimits: state.limits,
 }));
-vi.mock('./deployment', () => ({ deploymentStatus: () => ({ setupCodeHash: state.hash }) }));
-// Keep availability isolated per request; the production helper caches only completion.
-vi.mock('./setup', async (importOriginal) => {
-  const original = await importOriginal<typeof import('./setup')>();
-  return { ...original, setupRequired: async () => state.required };
-});
 import { POST } from '../app/api/setup/route';
-const code = '12345-67890-ABCDE-FGHJK';
+
 const input = {
-  code,
   name: 'Owner',
   email: 'Owner@Example.org',
   password: 'a long test password',
@@ -48,134 +33,67 @@ const request = (body: unknown = input, origin = 'https://example.org') =>
   });
 beforeEach(() => {
   vi.clearAllMocks();
-  state.required = true;
-  state.rate.mockResolvedValue(undefined);
-  state.hash = createHash('sha256').update(code.replaceAll('-', '')).digest();
-  state.completeSetup.mockResolvedValue({ outcome: 'created', workspace: 'workshop' });
-  state.reconcileSetup.mockResolvedValue('complete');
-  state.signIn.mockResolvedValue(
-    new Response('{}', { headers: { 'Set-Cookie': 'session=test; HttpOnly' } }),
-  );
-});
-it('requires a configured origin and correct code before account creation', async () => {
-  expect((await POST(request(input, 'https://attacker.org'))).status).toBe(403);
-  expect((await POST(request({ ...input, code: 'wrong' }))).status).toBe(403);
-  expect(state.completeSetup).not.toHaveBeenCalled();
-});
-it('throttles incorrect codes before creating accounts or sessions', async () => {
-  state.rate.mockRejectedValue(new ApplicationError('RATE_LIMITED', 'Wait before retrying.', 429));
-  const response = await POST(request({ ...input, code: 'wrong' }));
-  expect(response.status).toBe(429);
-  expect(response.headers.get('Retry-After')).toBe('60');
-  expect(state.completeSetup).not.toHaveBeenCalled();
-  expect(state.signIn).not.toHaveBeenCalled();
-});
-it('keeps correct-code setup available after incorrect attempts exhaust the shared limit', async () => {
-  let attempts = 0;
-  state.rate.mockImplementation(async () => {
-    if (++attempts > 30) throw new ApplicationError('RATE_LIMITED', 'Wait before retrying.', 429);
-  });
-  const statuses = [];
-  for (let attempt = 0; attempt < 31; attempt++)
-    statuses.push((await POST(request({ ...input, code: 'wrong' }))).status);
-  const response = await POST(request());
-  expect({
-    statuses,
-    completed: response.status,
-    accountsCreated: state.completeSetup.mock.calls.length,
-    sessionsCreated: state.signIn.mock.calls.length,
-    buckets: state.rate.mock.calls,
-  }).toEqual({
-    statuses: [...Array(30).fill(403), 429],
-    completed: 201,
-    accountsCreated: 1,
-    sessionsCreated: 1,
-    buckets: Array.from({ length: 31 }, () => ['setup:failures', 30]),
-  });
-});
-it('refuses setup when the operator has not configured a code hash', async () => {
-  state.hash = undefined;
-  const response = await POST(request());
-  expect(response.status).toBe(503);
-  expect((await response.json()).error.code).toBe('SETUP_CODE_MISSING');
-  expect(state.completeSetup).not.toHaveBeenCalled();
-});
-it.each([
-  [
-    'missing field',
-    JSON.stringify({ ...input, workspaceName: undefined }),
-    'application/json',
-    422,
-  ],
-  ['unknown field', JSON.stringify({ ...input, administrator: true }), 'application/json', 422],
-  ['non-JSON media', JSON.stringify(input), 'text/plain', 415],
-  ['malformed JSON', '{', 'application/json', 400],
-  [
-    'oversized streamed body',
-    JSON.stringify({ ...input, code: 'x'.repeat(17_000) }),
-    'application/json',
-    413,
-  ],
-])('rejects %s before creating accounts', async (_name, body, contentType, status) => {
-  const response = await POST(
-    new Request('https://example.org/api/setup', {
-      method: 'POST',
-      headers: { origin: 'https://example.org', 'Content-Type': contentType },
-      // No Content-Length: enforce the size while consuming the body itself.
-      body,
-    }),
-  );
-  expect(response.status).toBe(status);
-  expect(state.completeSetup).not.toHaveBeenCalled();
-  expect(state.signIn).not.toHaveBeenCalled();
-});
-it('normalizes a pasted setup code before verifying it', async () => {
-  expect((await POST(request({ ...input, code: ' l2345 6789o abcde fghjk ' }))).status).toBe(201);
-});
-it('canonicalizes email and returns the sign-in session', async () => {
-  const result = await POST(request());
-  expect(result.status).toBe(201);
-  expect(result.headers.get('set-cookie')).toContain('HttpOnly');
-  expect(state.completeSetup).toHaveBeenCalledWith(
-    expect.objectContaining({ email: 'owner@example.org' }),
-  );
-  expect(state.completeSetup.mock.calls[0][0]).not.toHaveProperty('code');
-});
-it('closes setup permanently after an account exists', async () => {
-  state.required = false;
-  expect((await POST(request())).status).toBe(404);
-  expect(state.completeSetup).not.toHaveBeenCalled();
-});
-it.each(['complete', 'empty', 'other-account'])(
-  'reconciles uncertain commits: %s',
-  async (value) => {
-    state.completeSetup.mockResolvedValue({ outcome: 'uncertain' });
-    state.reconcileSetup.mockResolvedValue(value);
-    const response = await POST(request());
-    expect(response.status).toBe(value === 'complete' ? 201 : value === 'empty' ? 503 : 404);
-    expect(state.completeSetup).toHaveBeenCalledTimes(1);
-    expect(state.signIn).not.toHaveBeenCalled();
-  },
-);
-it('tells the person to reload if commit reconciliation is unavailable', async () => {
-  state.completeSetup.mockResolvedValue({ outcome: 'uncertain' });
-  state.reconcileSetup.mockRejectedValue(Error('private detail'));
-  const response = await POST(request());
-  expect((await response.json()).error.code).toBe('SETUP_OUTCOME_UNKNOWN');
-});
-it('keeps a committed account when automatic sign-in fails', async () => {
-  state.signIn.mockRejectedValue(Error('session unavailable'));
-  const response = await POST(request());
-  expect(response.status).toBe(201);
-  expect(await response.json()).toEqual({ signIn: 'manual' });
+  state.session = {
+    user: { id: 'default', active: true, mustChangePassword: true },
+    session: { id: 'this-browser' },
+  };
+  state.limits.mockResolvedValue(undefined);
+  state.finishSetup.mockResolvedValue({ workspace: 'workshop', sessionsEnded: 0 });
 });
 
-it('explains a workspace without accounts without signing in or reporting success', async () => {
-  state.completeSetup.mockResolvedValue({ outcome: 'workspace-exists' });
+it('finishes setting up for the signed-in default login and keeps this session', async () => {
   const response = await POST(request());
-  expect({
-    status: response.status,
-    code: (await response.json()).error?.code,
-    signIns: state.signIn.mock.calls.length,
-  }).toEqual({ status: 503, code: 'SETUP_WORKSPACE_EXISTS', signIns: 0 });
+  expect(response.status).toBe(201);
+  expect(await response.json()).toEqual({ workspace: 'workshop' });
+  expect(state.limits).toHaveBeenCalledWith('default');
+  expect(state.finishSetup).toHaveBeenCalledWith(
+    { kind: 'user', id: 'default', active: true },
+    { ...input, keepSessionId: 'this-browser' },
+  );
+});
+
+it('refuses another origin and a signed-out request before touching the account', async () => {
+  const foreign = await POST(request(input, 'https://attacker.example'));
+  expect(foreign.status).toBe(403);
+  // The message says which address Passdown is set up for.
+  expect((await foreign.json()).error.message).toContain('https://example.org');
+  state.session = null;
+  expect((await POST(request())).status).toBe(401);
+  expect(state.finishSetup).not.toHaveBeenCalled();
+});
+
+it('refuses the default address and a short password with field issues', async () => {
+  for (const [body, path] of [
+    [{ ...input, email: 'ADMIN@example.com' }, 'email'],
+    [{ ...input, password: 'short' }, 'password'],
+    [{ ...input, code: 'OLD-SETUP-CODE' }, ''],
+  ] as const) {
+    const response = await POST(request(body));
+    expect(response.status).toBe(422);
+    const error = (await response.json()).error;
+    if (path) expect(error.issues.map((issue: { path: string }) => issue.path)).toContain(path);
+  }
+  expect(state.finishSetup).not.toHaveBeenCalled();
+});
+
+it('says setup is already finished when the account is not the default login', async () => {
+  state.finishSetup.mockRejectedValue(new ApplicationError('NOT_FOUND', 'Account not found.', 404));
+  const response = await POST(request());
+  expect(response.status).toBe(404);
+  expect((await response.json()).error).toMatchObject({
+    code: 'SETUP_FINISHED',
+    message: 'Passdown is already set up. Sign in with your own email address.',
+  });
+});
+
+it('passes on a taken address and a busy account unchanged', async () => {
+  for (const error of [
+    new ApplicationError('EMAIL_TAKEN', 'Another account already uses that email address.', 409),
+    new ApplicationError('BUSY', 'This account is busy. Try again shortly.', 503),
+  ]) {
+    state.finishSetup.mockRejectedValueOnce(error);
+    const response = await POST(request());
+    expect(response.status).toBe(error.status);
+    expect((await response.json()).error.code).toBe(error.code);
+  }
 });

@@ -1,10 +1,9 @@
 import { connection } from 'next/server';
 import { SourceLinkProvider } from '@guide/ui';
 import { deploymentStatus } from '../lib/deployment';
-import { setupRequired } from '../lib/setup';
+import { setupState } from '../lib/setup';
 import { sourceCodeURL } from '../lib/source';
-import { SetupScreen } from '../components/setup/setup-screen';
-import { NotConfigured } from '../components/setup/not-configured';
+import { NoAccount, NotConfigured } from '../components/setup/not-configured';
 import type { Metadata } from 'next';
 import '@fontsource/geist-sans/400.css';
 import '@fontsource/geist-sans/500.css';
@@ -23,11 +22,13 @@ const themeBoot = `(function(){try{var t=localStorage.getItem('guide-theme');doc
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const status = deploymentStatus();
   if (status.production) await connection();
+  // While the default login is active, pages render normally: the studio
+  // itself asks that account to finish setting up (SessionGate).
   const gate =
     status.production && !status.configured
       ? 'not-configured'
-      : (await setupRequired())
-        ? 'setup'
+      : (await setupState()) === 'no-account'
+        ? 'no-account'
         : null;
   return (
     <html lang="en" data-theme="light" suppressHydrationWarning>
@@ -38,8 +39,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <SourceLinkProvider href={sourceCodeURL()}>
           {gate === 'not-configured' ? (
             <NotConfigured />
-          ) : gate === 'setup' ? (
-            <SetupScreen />
+          ) : gate === 'no-account' ? (
+            <NoAccount />
           ) : (
             children
           )}

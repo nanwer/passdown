@@ -9,12 +9,17 @@ export function assertOrigin(request: Request, trustedOrigin: string) {
     request.headers.get('origin') !== trustedOrigin ||
     request.headers.get('sec-fetch-site') === 'cross-site'
   ) {
-    throw new ApplicationError(
-      'INVALID_ORIGIN',
-      'This request came from an untrusted origin. Reload this page and try again.',
-      403,
-    );
+    throw new ApplicationError('INVALID_ORIGIN', untrustedOriginMessage(trustedOrigin), 403);
   }
+}
+
+/**
+ * Passdown answers only at the one address it is set up for. Someone who
+ * opened it at another (an IP address, another host name, another port) needs
+ * to know which address that is, or which setting to change.
+ */
+export function untrustedOriginMessage(trustedOrigin: string) {
+  return `Passdown is set up for ${trustedOrigin}. Open it at that address, or ask the operator to set PASSDOWN_URL to the address you are using.`;
 }
 
 export async function readJSON(request: Request, limit = 1024 * 1024): Promise<unknown> {

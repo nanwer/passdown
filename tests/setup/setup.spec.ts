@@ -1,99 +1,144 @@
 import { join } from 'node:path';
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
-test('complete a new installation, recover invalid inputs, and close setup forever', async ({
-  page,
-  request,
-}) => {
-  const urls: string[] = [];
-  page.on('request', (r) => urls.push(r.url()));
-  expect((await request.get('/api/health')).ok()).toBe(true);
-  await page.goto('/studio');
-  await expect(page.getByRole('heading', { name: 'Set up Passdown' })).toBeVisible();
+
+const origin = 'http://127.0.0.1:3106';
+const owner = {
+  name: 'Owner',
+  email: 'Owner@Example.org',
+  password: 'a long synthetic browser password',
+  workspace: 'Workshop',
+};
+
+/** Light and dark, phone and desktop: readable, no sideways scrolling, no axe findings. */
+async function checkLayouts(page: Page, name: string, ready: () => Promise<void>) {
   for (const theme of ['light', 'dark']) {
     await page.evaluate((t) => {
       document.documentElement.dataset.theme = t;
     }, theme);
     for (const width of [320, 390, 1280]) {
       await page.setViewportSize({ width, height: 900 });
-      await expect(page.getByLabel('Setup code')).toHaveCSS(
-        'color',
-        theme === 'dark' ? 'rgb(255, 255, 255)' : 'rgb(24, 24, 25)',
-      );
-      await expect(page.getByRole('button', { name: 'Create installation' })).toHaveCSS(
-        'background-color',
-        theme === 'dark' ? 'rgb(69, 145, 247)' : 'rgb(0, 100, 224)',
-      );
+      await ready();
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
         true,
       );
       expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
-      if (process.env.SETUP_EVIDENCE_DIR)
+      if (process.env.SETUP_EVIDENCE_DIR && width !== 320)
         await page.screenshot({
-          path: join(process.env.SETUP_EVIDENCE_DIR, `setup-${theme}-${width}.png`),
+          path: join(process.env.SETUP_EVIDENCE_DIR, `${name}-${theme}-${width}.png`),
           fullPage: true,
         });
     }
   }
-  await page.getByLabel('Setup code').fill('wrong');
-  await page.getByLabel('Your name').fill('Owner');
-  await page.getByLabel('Email', { exact: true }).fill('Owner@Example.org');
-  await page.getByLabel('Password', { exact: true }).fill('a long synthetic browser password');
-  await page.getByLabel('Confirm password').fill('mismatched password');
-  await page.getByLabel('Workspace name').fill('Workshop');
-  await page.getByRole('button', { name: 'Create installation' }).click();
-  await expect(page.getByLabel('Confirm password')).toBeFocused();
-  await page.getByLabel('Confirm password').fill('a long synthetic browser password');
-  await page.getByRole('button', { name: 'Create installation' }).click();
-  await expect(page.getByRole('main').getByRole('alert')).toContainText(
-    "That setup code isn't right",
-  );
-  await expect(page.getByLabel('Setup code')).toBeFocused();
-  const crossOrigin = await request.post('/api/setup', {
+  await page.evaluate(() => {
+    document.documentElement.dataset.theme = 'light';
+  });
+}
+
+test('sign in with the default login, finish setting up, and retire the default login', async ({
+  page,
+}) => {
+  const urls: string[] = [];
+  page.on('request', (r) => urls.push(r.url()));
+  expect(await (await page.request.get('/api/health')).json()).toMatchObject({
+    status: 'setup-required',
+  });
+
+  // A new installation's front page leads to signing in.
+  await page.goto('/');
+  await expect(page).toHaveURL(/\/sign-in\?returnTo=%2Fstudio$/);
+  const hint = page.getByText('First time? Sign in with admin@example.com and changeme.');
+  await checkLayouts(page, 'sign-in-hint', () => expect(hint).toBeVisible());
+
+  // Keyboard only, at phone width.
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.getByLabel('Email', { exact: true })).toBeFocused();
+  await page.keyboard.type('admin@example.com');
+  await page.keyboard.press('Tab');
+  await expect(page.getByLabel('Password', { exact: true })).toBeFocused();
+  await page.keyboard.type('changeme');
+  await page.keyboard.press('Enter');
+
+  const heading = page.getByRole('heading', { name: 'Finish setting up Passdown' });
+  await expect(heading).toBeVisible();
+  await expect(page).toHaveURL('/studio');
+  await expect(page.getByLabel('Your name')).toBeFocused();
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await checkLayouts(page, 'finish-setting-up', () => expect(heading).toBeVisible());
+
+  // Nothing else is reachable: pages show the same form, and the API refuses.
+  for (const path of ['/account', '/admin/accounts', '/studio/warm-up']) {
+    await page.goto(path);
+    await expect(heading).toBeVisible();
+    await expect(page.getByRole('link', { name: /^(Studio|Administration)$/ })).toHaveCount(0);
+  }
+  const session = await page.request.get('/api/studio/session');
+  expect([session.status(), (await session.json()).error.code]).toEqual([403, 'SETUP_REQUIRED']);
+  const password = await page.request.post('/api/studio/password', {
+    headers: { origin },
+    data: { currentPassword: 'changeme', newPassword: 'a different long password' },
+  });
+  expect(password.status()).toBe(422);
+  expect((await password.json()).error.message).toContain('finish setting up');
+  const foreign = await page.request.post('/api/setup', {
     headers: { origin: 'https://attacker.example' },
     data: {},
   });
-  expect(crossOrigin.status()).toBe(403);
-  // Saturate the shared bucket through real requests, then finish with the
-  // correct code. The operator must not be locked out by incorrect guesses.
-  const failures = [];
-  for (let attempt = 0; attempt < 31; attempt++) {
-    const response = await request.post('/api/setup', {
-      headers: { origin: 'http://127.0.0.1:3106' },
-      data: {
-        code: 'wrong',
-        name: 'Owner',
-        email: 'owner@example.org',
-        password: 'a long synthetic browser password',
-        workspaceName: 'Workshop',
-      },
-    });
-    failures.push(response.status());
-  }
-  await page.getByLabel('Setup code').fill('12345-67890-ABCDE-FGHJK');
+  expect(foreign.status()).toBe(403);
+  expect((await foreign.json()).error.message).toContain(`Passdown is set up for ${origin}`);
+
+  // Refusals keep what was typed and focus the field to fix, at phone width.
+  await page.goto('/studio');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.getByLabel('Your name')).toBeFocused();
+  await page.keyboard.type(owner.name);
+  await page.keyboard.press('Tab');
+  await page.keyboard.type('admin@example.com');
+  await page.keyboard.press('Tab');
+  await page.keyboard.type(owner.password);
+  await page.keyboard.press('Tab');
+  await page.keyboard.type('a mismatched long password');
+  await page.keyboard.press('Tab');
+  await page.keyboard.type(owner.workspace);
+  await page.keyboard.press('Enter');
+  const email = page.getByLabel('Your email address');
+  await expect(email).toBeFocused();
+  await expect(email).toHaveAccessibleDescription(
+    'Use your own email address, not admin@example.com.',
+  );
+  await email.fill(owner.email);
+  await page.keyboard.press('Enter');
+  const again = page.getByLabel('New password again');
+  await expect(again).toBeFocused();
+  await again.fill(owner.password);
   const submitted = page.waitForResponse(
     (response) => response.url().endsWith('/api/setup') && response.request().method() === 'POST',
   );
-  await page.getByRole('button', { name: 'Create installation' }).click();
-  expect({ rateLimited: failures.includes(429), submitted: (await submitted).status() }).toEqual({
-    rateLimited: true,
-    submitted: 201,
-  });
-  // A single-workspace installation redirects to that workspace immediately.
+  await page.keyboard.press('Enter');
+  expect((await submitted).status()).toBe(201);
+
+  // A single-workspace installation opens that workspace.
   await expect(page).toHaveURL('/studio/workshop');
-  await expect(page.getByRole('heading', { name: 'Set up Passdown' })).toHaveCount(0);
-  expect((await request.get('/api/health')).ok()).toBe(true);
-  expect((await request.get('/setup')).status()).toBe(404);
-  expect(
-    (
-      await request.post('/api/setup', { headers: { origin: 'http://127.0.0.1:3106' }, data: {} })
-    ).status(),
-  ).toBe(404);
-  expect(urls.some((url) => url.includes('12345') || url.includes('synthetic'))).toBe(false);
+  await expect(heading).toHaveCount(0);
+  expect(await (await page.request.get('/api/health')).json()).toMatchObject({ status: 'ready' });
+  expect((await page.request.get('/api/studio/session')).status()).toBe(200);
+  await page.goto('/setup');
+  await expect(page).toHaveURL('/studio/workshop');
+  expect(urls.some((url) => url.includes('synthetic') || url.includes('changeme'))).toBe(false);
+
+  // The default login is gone, and the sign-in page no longer offers it.
   await page.context().clearCookies();
   await page.goto('/sign-in');
-  await page.getByLabel('Email', { exact: true }).fill('Owner@Example.org');
-  await page.getByLabel('Password', { exact: true }).fill('a long synthetic browser password');
+  await expect(page.getByRole('heading', { name: 'Sign in to your studio' })).toBeVisible();
+  await expect(hint).toHaveCount(0);
+  await page.getByLabel('Email', { exact: true }).fill('admin@example.com');
+  await page.getByLabel('Password', { exact: true }).fill('changeme');
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+  await expect(page.getByRole('alert')).toBeVisible();
+  await expect(page).toHaveURL(/\/sign-in/);
+  await page.getByLabel('Email', { exact: true }).fill(owner.email);
+  await page.getByLabel('Password', { exact: true }).fill(owner.password);
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await expect(page).toHaveURL(/\/studio/);
+  await expect(heading).toHaveCount(0);
 });

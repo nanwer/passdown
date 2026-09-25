@@ -1,7 +1,9 @@
 import { createHash, randomBytes } from 'node:crypto';
 import pg from 'pg';
 import { actorSchema, type Actor } from '@guide/core';
-import { ApplicationError } from '@guide/contracts';
+import { ApplicationError, finishSetupSchema, type FinishSetupInput } from '@guide/contracts';
+import { canonicalAccountEmail, hashCredentialPassword } from './credentials';
+import { workspaceSlug } from './setup';
 
 import type { AdminAccount } from '@guide/contracts';
 const tokenPattern = /^[A-Za-z0-9_-]{43}$/;
@@ -115,6 +117,56 @@ export function credentialStore(pool: pg.Pool) {
             ])
           ).rows[0].who,
       );
+    },
+    /** The default login's account id while it is active (migration 033), otherwise null. */
+    async defaultLoginAccount(): Promise<string | null> {
+      return (await pool.query('SELECT app.default_login_account() AS id')).rows[0]?.id ?? null;
+    },
+    /**
+     * Finish setting up as the signed-in default login: the account takes the
+     * person's own name, address and password, the first workspace is
+     * created, and the default login stops working, all in one transaction.
+     * Only the session that finished stays signed in.
+     */
+    async finishSetup(
+      actor: Actor,
+      input: FinishSetupInput & { keepSessionId: string },
+    ): Promise<{ workspace: string; sessionsEnded: number }> {
+      const { keepSessionId, ...fields } = input;
+      const parsed = finishSetupSchema.safeParse(fields);
+      if (!parsed.success)
+        throw new ApplicationError(
+          'VALIDATION_ERROR',
+          parsed.error.issues[0]?.message ?? 'Check the form and try again.',
+          422,
+        );
+      const workspace = workspaceSlug(parsed.data.workspaceName);
+      const newHash = await hashCredentialPassword(parsed.data.password);
+      try {
+        const ended = await transaction(actor, async (c) =>
+          Number(
+            (
+              await c.query('SELECT app.finish_setup($1,$2,$3,$4,$5,$6) AS ended', [
+                parsed.data.name,
+                canonicalAccountEmail(parsed.data.email.trim()),
+                newHash,
+                keepSessionId,
+                workspace,
+                parsed.data.workspaceName,
+              ])
+            ).rows[0].ended,
+          ),
+        );
+        return { workspace, sessionsEnded: ended };
+      } catch (error) {
+        if ((error as { code?: string }).code === '23505')
+          throw new ApplicationError(
+            'EMAIL_TAKEN',
+            'Another account already uses that email address.',
+            409,
+          );
+        throw error;
+      }
     },
     async isInstallationAdministrator(actor: Actor): Promise<boolean> {
       return transaction(

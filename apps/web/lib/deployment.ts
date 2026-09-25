@@ -3,6 +3,7 @@ import {
   ConfigurationError,
   describeDatabaseTarget,
   identityOrigin,
+  resolveSecretFiles,
   runtimeDatabaseTarget,
   type ConnectionPolicy,
 } from '@guide/database';
@@ -15,10 +16,9 @@ export type DeploymentStatus = {
   previewIgnored: boolean;
   origin?: string;
   database?: string;
-  setupCodeHash?: Buffer;
 };
 export function readDeploymentStatus(
-  env: Environment,
+  input: Environment,
   nodeEnv: string | undefined,
 ): DeploymentStatus {
   const production = nodeEnv === 'production';
@@ -28,7 +28,7 @@ export function readDeploymentStatus(
     policy,
     configured: false,
     problems: [],
-    previewIgnored: production && env.GUIDE_DEMO_PREVIEW === '1',
+    previewIgnored: production && input.GUIDE_DEMO_PREVIEW === '1',
   };
   const check = (run: () => void) => {
     try {
@@ -38,6 +38,12 @@ export function readDeploymentStatus(
       status.problems.push({ variable: error.variable, message: error.message });
     }
   };
+  // Settings the Docker install passes as files (see secret-files.ts). The
+  // web process applies them at startup; one that cannot be read is named here.
+  let env = input;
+  check(() => {
+    env = resolveSecretFiles(input);
+  });
   check(() => {
     status.database = describeDatabaseTarget(runtimeDatabaseTarget(env.GUIDE_DATABASE_URL, policy));
   });
@@ -45,12 +51,14 @@ export function readDeploymentStatus(
     authSecret(env.BETTER_AUTH_SECRET);
   });
   check(() => {
-    status.origin = identityOrigin(env.BETTER_AUTH_URL, policy);
+    // Named after the setting a Docker install actually edits.
+    status.origin = identityOrigin(
+      env.BETTER_AUTH_URL,
+      policy,
+      input.PASSDOWN_URL ? 'PASSDOWN_URL' : 'BETTER_AUTH_URL',
+    );
   });
   status.configured = status.problems.length === 0;
-  status.setupCodeHash = /^[a-f0-9]{64}$/i.test(env.PASSDOWN_SETUP_CODE_SHA256 ?? '')
-    ? Buffer.from(env.PASSDOWN_SETUP_CODE_SHA256!, 'hex')
-    : undefined;
   return status;
 }
 let cached: DeploymentStatus | undefined;
