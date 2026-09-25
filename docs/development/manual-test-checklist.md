@@ -2,6 +2,19 @@
 
 Start the local app and sign in at [Studio](http://127.0.0.1:3100/studio) using the generated credentials in your private LOCAL_ACCESS.md. Test both Repair collective and Workshop operations. These examples use local test data you create yourself.
 
+## Remove a step with prerequisites
+
+Use **Studio → a guide → step editor**, preferably a test draft with two or more steps.
+
+1. Make step 2 depend on step 1 using its earlier-step prerequisites. Select step 1 and click **Remove**. Expect an in-app confirmation naming the affected step, with **Cancel**, a review action and **Remove step and prerequisite links**. No recovery JSON or sign-in controls should appear.
+2. Choose **Cancel**, then repeat using Escape. Expect both steps and their links unchanged, with keyboard focus returned to **Remove**.
+3. Open the confirmation and choose the affected step's review action. Expect the dialog to close, that step to open and its title field to receive focus. Nothing is deleted.
+4. Return to step 1, choose **Remove**, then **Remove step and prerequisite links**. Expect the step removed from the draft, its links removed from dependent steps, and focus on the next remaining step's title. Other prerequisites and instructions remain intact.
+5. Choose **Save draft**, reload, and confirm the change persists. A previously published release must stay unchanged until you publish again. With one step left, **Remove** is unavailable. A step without dependents uses a simple **Remove step** confirmation.
+6. Repeat the confirmation at a narrow phone width. Content and actions should fit without horizontal scrolling; the affected-step list can scroll inside the dialog if necessary.
+
+This fixes step removal, not whole-guide deletion. Draft saving remains manual.
+
 ## Picture checks and backup archives
 
 Use a disposable container evaluation with the operator image rebuilt from the current source. These are operator commands; the Studio does not gain a backup screen.

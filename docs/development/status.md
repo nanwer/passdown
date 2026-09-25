@@ -4,6 +4,8 @@ Passdown is an early, working application for public community guides and privat
 
 ## Working now
 
+- Step removal uses an in-app confirmation with affected prerequisites, direct links to review dependent steps, and explicit removal of the step and its links. Cancellation preserves the draft and keyboard focus. Ordinary step removal no longer opens draft-recovery or sign-in controls.
+
 - Operator picture-integrity checks, consistent database-and-picture backups, private host backup files, offline archive verification, and staged restore into an empty installation. Restore verifies data and pictures before opening access, cancels pending invitations, and supports resume or guarded discard. Backups exclude active sessions and environment secrets; see [backup instructions](../self-hosting/backups.md).
 
 - Container settings isolate projects by settings path, with explicit project names available and existing-storage checks before generating credentials. Build contexts exclude private notes/settings; runtime images reject authored source and tests. Picture paths retain a visible file suffix so standalone builds do not trace unrelated project files. Proxy circuit breakers group IPv6 by /64, with a documented peer-address requirement for deployment.

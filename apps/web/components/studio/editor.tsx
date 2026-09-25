@@ -39,6 +39,7 @@ import type {
 import { SessionGate, ErrorNotice, StudioTrail } from './frame';
 import { MetadataFields } from './pages';
 import { moveBy, newStep, reorder } from './model';
+import { RemoveStepDialog } from './remove-step-dialog';
 import { RichTextEditor } from './rich-text-editor';
 import { StepRequirements } from './step-requirements';
 import { StudioError, studioFetch, studioUpload } from './transport';
@@ -1031,6 +1032,7 @@ function Editor({ workspace, guideId }: { workspace: StudioWorkspace; guideId: s
   const [releaseUrl, setReleaseUrl] = useState('');
   const [publishOpen, setPublishOpen] = useState(false);
   const publishedLink = useRef<HTMLAnchorElement>(null);
+  const stepTitle = useRef<HTMLInputElement>(null);
   const focusPublishedLink = useRef(false);
   const [copyStatus, setCopyStatus] = useState('');
   const [retry, setRetry] = useState(0);
@@ -1639,35 +1641,42 @@ function Editor({ workspace, guideId }: { workspace: StudioWorkspace; guideId: s
                       <Copy size={16} />
                       Duplicate
                     </Button>
-                    <Button
-                      variant="quiet"
-                      size="tool"
-                      disabled={steps.length <= 1}
-                      onClick={() => {
-                        const dependents = steps.filter((item) =>
-                          (item as GuideStep).earlierStepIds?.includes(step.id),
+                    <RemoveStepDialog
+                      step={step}
+                      steps={steps}
+                      onReview={setSelected}
+                      focusStep={() => requestAnimationFrame(() => stepTitle.current?.focus())}
+                      onRemove={() => {
+                        changeSteps(
+                          steps
+                            .filter((item) => item.id !== step.id)
+                            .map((item) => ({
+                              ...item,
+                              earlierStepIds: ((item as GuideStep).earlierStepIds ?? []).filter(
+                                (id) => id !== step.id,
+                              ),
+                            })),
                         );
-                        if (dependents.length) {
-                          setError(
-                            `This step is a prerequisite for ${dependents.map((item) => `“${item.title}”`).join(', ')}. Remove those prerequisites before deleting it.`,
-                          );
-                          return;
-                        }
-                        if (window.confirm(`Remove “${step.title}”? This cannot be undone.`)) {
-                          changeSteps(steps.filter((item) => item.id !== step.id));
-                          setSelected(steps[index === 0 ? 1 : index - 1]!.id);
-                        }
+                        setEditorDrafts((previous) => {
+                          const next = { ...previous };
+                          delete next[step.id];
+                          return next;
+                        });
+                        setEditorErrors((previous) => {
+                          const next = { ...previous };
+                          delete next[step.id];
+                          return next;
+                        });
+                        setSelected(steps[index === 0 ? 1 : index - 1]!.id);
                       }}
-                    >
-                      <Trash2 size={16} />
-                      Remove
-                    </Button>
+                    />
                   </div>
                 </div>
                 <div className={cn(X.form, 'mt-6')}>
                   <label className="gap-2 text-[12px] text-editor-muted [&_input]:-ml-2.5 [&_input]:w-[calc(100%_+_10px)] [&_input]:rounded-[6px] [&_input]:border [&_input]:border-solid [&_input]:border-transparent [&_input]:bg-transparent [&_input]:px-2.5 [&_input]:py-2 [&_input]:text-[clamp(22px,2vw,28px)] [&_input]:leading-[1.35] [&_input]:font-[650] [&_input]:tracking-[-0.025em] [&_input]:text-editor-ink [&_input:hover:not(:focus)]:border-editor-line [&_input:focus]:border-action [&_input:focus]:bg-editor-canvas">
                     Step title
                     <input
+                      ref={stepTitle}
                       maxLength={160}
                       required
                       value={step.title}

@@ -2723,3 +2723,72 @@ test('a picture finishing loading does not steal the reuse control click', async
     release();
   }
 });
+
+test('removing a prerequisite step explains affected steps without recovery controls', async ({
+  page,
+}) => {
+  await login(page.request);
+  const workspace = 'repair-collective';
+  const categoryRecord = await category(
+    page.request,
+    workspace,
+    `Removal ${randomUUID().slice(0, 7)}`,
+  );
+  const created = await draft(page.request, workspace, categoryRecord.id, 'Step removal review');
+  const document = toStructuredDocument(created.document);
+  document.steps[1]!.earlierStepIds = [document.steps[0]!.id];
+  const endpoint = `/api/studio/${workspace}/guides/${created.id}`;
+  const { guide: saved } = await api<{ guide: DraftGuide }>(page.request, endpoint, 'PUT', {
+    document,
+    categoryId: categoryRecord.id,
+    expectedVersion: created.version,
+  });
+  await api(page.request, `${endpoint}/publish`, 'POST', {
+    expectedVersion: saved.version,
+    expectedRelease: saved.currentRelease,
+    license: 'CC-BY-4.0',
+  });
+  await page.goto(`/studio/${workspace}/${created.id}`);
+  const remove = page.getByRole('button', { name: 'Remove', exact: true });
+  await remove.click();
+  const dialog = page.getByRole('dialog', { name: 'Remove this step?' });
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toContainText('Check the arrangement');
+  await expect(page.getByRole('button', { name: 'Copy recovery draft' })).toHaveCount(0);
+  await expect(page.getByText('Sign in in a new tab')).toHaveCount(0);
+  await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await expect(remove).toBeFocused();
+  await expect(page.getByRole('textbox', { name: 'Step title', exact: true })).toHaveValue(
+    'Prepare the items',
+  );
+  await remove.click();
+  await dialog.getByRole('button', { name: 'Review step 2: Check the arrangement' }).click();
+  await expect(page.getByRole('textbox', { name: 'Step title', exact: true })).toHaveValue(
+    'Check the arrangement',
+  );
+  await expect(page.getByRole('textbox', { name: 'Step title', exact: true })).toBeFocused();
+  await page
+    .locator('.studio-outline')
+    .getByRole('button', { name: /Prepare the items/ })
+    .click();
+  await remove.click();
+  await dialog
+    .getByRole('button', { name: 'Remove step and prerequisite links', exact: true })
+    .click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByRole('textbox', { name: 'Step title', exact: true })).toBeFocused();
+  await expect(page.getByRole('textbox', { name: 'Step title', exact: true })).toHaveValue(
+    'Check the arrangement',
+  );
+  await page.getByRole('button', { name: 'Save draft', exact: true }).click();
+  await expect(page.getByText('All changes saved', { exact: true })).toBeVisible();
+  const { guide: after } = await api<{ guide: DraftGuide }>(page.request, endpoint);
+  expect(after.document.steps).toHaveLength(1);
+  expect(toStructuredDocument(after.document).steps[0]!.earlierStepIds).toEqual([]);
+  expect(after.currentRelease).toBe(1);
+  await page.reload();
+  await expect(page.getByRole('textbox', { name: 'Step title', exact: true })).toHaveValue(
+    'Check the arrangement',
+  );
+  await expect(remove).toBeDisabled();
+});
