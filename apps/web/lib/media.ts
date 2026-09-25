@@ -54,9 +54,12 @@ function mediaRoot() {
  */
 export async function mediaStatus({ production }: { production: boolean }) {
   try {
+    // The root is runtime data: without the marker, Next's file tracer copies
+    // everything this path could name, the whole application, into the build.
     const root = mediaRoot();
-    if (!(await stat(root)).isDirectory()) return 'unavailable' as const;
-    await access(root, constants.R_OK | constants.W_OK);
+    if (!(await stat(/* turbopackIgnore: true */ root)).isDirectory())
+      return 'unavailable' as const;
+    await access(/* turbopackIgnore: true */ root, constants.R_OK | constants.W_OK);
     return 'ok' as const;
   } catch (error) {
     const missing = (error as NodeJS.ErrnoException).code === 'ENOENT';
