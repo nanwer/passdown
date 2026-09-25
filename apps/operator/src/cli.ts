@@ -1,3 +1,4 @@
+import { buildInfo } from '@guide/contracts';
 import { ConfigurationError } from '@guide/database';
 import type { Readable, Writable } from 'node:stream';
 import { OperatorFailure, type OperatorCommand, type OperatorInput } from './command';
@@ -90,6 +91,7 @@ export async function runCli(
       stdout: io.stdout,
       signal: io.signal,
       migrationsDirectory: io.migrationsDirectory,
+      revision: buildInfo(io.env).revision,
     });
     checkInterrupted();
     return 0;

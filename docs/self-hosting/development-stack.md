@@ -50,11 +50,14 @@ Run these from the same `deploy` directory:
 
 ```sh
 docker compose run --rm -T ops help
+docker compose run --rm -T ops version
+docker compose run --rm -T ops status
 docker compose run --rm -T ops setup-state
 docker compose run --rm -T ops migrate
+docker compose run --rm -T ops runtime-password
 ```
 
-`setup-state` prints `required` or `complete`. A second migration run should report `0 applied now`. Missing settings, unsafe runtime roles, changed migrations and failed migrations return nonzero exit codes with an explanation. Command results go to stdout; progress and errors go to stderr. Exit codes are 0 success, 1 operation failure, 2 usage error, 3 configuration error and 4 refused operation.
+`version` prints the version and the source revision the image was built from. `status` prints whether the database schema matches this version, with the number of applied migrations, and whether setup is complete; it exits 1 and names the pending or changed migrations when it does not match. `setup-state` prints `required` or `complete`. `runtime-password` gives the runtime database role the password in `GUIDE_DATABASE_URL` and proves it can sign in; after changing that password in your settings, run it and then recreate web with `docker compose up -d --force-recreate web`. A second migration run should report `0 applied now`. Missing settings, unsafe runtime roles, changed migrations and failed migrations return nonzero exit codes with an explanation. Command results go to stdout; progress and errors go to stderr. Exit codes are 0 success, 1 operation failure, 2 usage error, 3 configuration error and 4 refused operation.
 
 Applied migrations are immutable. A checksum error means the database and files differ; do not edit migration receipts to make the error disappear. A failed migration is rolled back. If its commit cannot be confirmed, check the database state before retrying.
 

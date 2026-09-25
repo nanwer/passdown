@@ -9,6 +9,8 @@ export type OperatorContext = {
   mediaRoot?: string;
   policy: ConnectionPolicy;
   migrationsDirectory: string;
+  /** The source revision this build came from, when known. */
+  revision?: string | null;
   out: (message: string) => void;
   info: (message: string) => void;
   stdin: Readable;
