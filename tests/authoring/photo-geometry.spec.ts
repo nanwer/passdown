@@ -7,7 +7,11 @@ import type { DraftGuide } from '@guide/contracts';
 
 const credentials = readConfig();
 const workspace = 'repair-collective';
-const headers = { Origin: 'http://127.0.0.1:3101' };
+// Connection: close gives each helper request its own connection. The test
+// server drops a connection that has been idle for about six seconds (Node's
+// five-second keep-alive plus a one-second grace), and a request sent on a
+// reused connection at that moment fails with ECONNRESET.
+const headers = { Origin: 'http://127.0.0.1:3101', Connection: 'close' };
 const photos = [
   { name: 'portrait', width: 3000, height: 4000 },
   { name: 'square', width: 1000, height: 1000 },

@@ -8,7 +8,11 @@ import { toStructuredDocument } from '../../packages/guide-content/src/index';
 import type { Category, CatalogItem, DraftGuide } from '@guide/contracts';
 const credentials = readConfig();
 const origin = 'http://127.0.0.1:3101';
-const headers = { Origin: origin };
+// Connection: close gives each helper request its own connection. The test
+// server drops a connection that has been idle for about six seconds (Node's
+// five-second keep-alive plus a one-second grace), and a request sent on a
+// reused connection at that moment fails with ECONNRESET.
+const headers = { Origin: origin, Connection: 'close' };
 async function login(request: APIRequestContext) {
   expect(
     (
@@ -22,10 +26,9 @@ async function login(request: APIRequestContext) {
     ).status(),
   ).toBe(200);
 }
-// When each context last finished a request. A connection reset has occurred
-// intermittently in hosted runs without a known cause; reporting how long the
-// context was idle, and which request failed, is evidence for the next
-// occurrence. The test still fails; nothing is retried.
+// When each context last finished a request. If a request ever fails, the
+// message says which one and how long the context had been idle — the
+// evidence that identified the keep-alive race above. Nothing is retried.
 const lastRequestEnded = new WeakMap<APIRequestContext, number>();
 async function api<T>(
   request: APIRequestContext,

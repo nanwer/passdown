@@ -7,7 +7,11 @@ import AxeBuilder from '@axe-core/playwright';
 import { readConfig } from '../../scripts/local-config.mjs';
 const credentials = readConfig();
 const origin = 'http://127.0.0.1:3101';
-const headers = { Origin: origin };
+// Connection: close gives each helper request its own connection. The test
+// server drops a connection that has been idle for about six seconds (Node's
+// five-second keep-alive plus a one-second grace), and a request sent on a
+// reused connection at that moment fails with ECONNRESET.
+const headers = { Origin: origin, Connection: 'close' };
 const guideDocument = (title: string) => ({
   schemaVersion: 1,
   title,

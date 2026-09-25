@@ -97,16 +97,6 @@ requires green runs in all three engines.
   `/guides/mechanical-keyboard`. Not reproduced; a click before hydration keeps
   the fragment locally. It was probably the first test to open a reader on a
   cold server, which the route warm-up now prevents, but that is unconfirmed.
-- **Test API requests occasionally reset.** The authoring helpers' requests to
-  the test server fail with a connection reset in Chromium and Firefox, with no
-  server error logged (the server's memory and configuration restarts log to
-  stderr, which the runs capture). Three occurrences, all before the helper
-  began reporting idle time; none in the five hosted runs since. Playwright's
-  request client keeps connections alive with no idle timeout of its own, so
-  reuse of a socket the development server closes after 5 s idle remains the
-  leading candidate; each failure was the first helper request after a stretch
-  of browser-only steps. A keep-alive race was tested against a plain Node
-  server and did not reproduce. Don't add retries.
 - **The authoring suite can reach the write limit of its single account.**
   Every authoring test signs in as the same owner, and the API allows 120
   writes per account per minute. With route warm-up and the faster Things
