@@ -127,6 +127,9 @@ test('sign in with the default login, finish setting up, and retire the default 
   expect(urls.some((url) => url.includes('synthetic') || url.includes('changeme'))).toBe(false);
 
   // The default login is gone, and the sign-in page no longer offers it.
+  // Leave the studio first: a studio page still loading when the cookies go
+  // redirects itself to sign-in and aborts the navigation below.
+  await page.goto('about:blank');
   await page.context().clearCookies();
   await page.goto('/sign-in');
   await expect(page.getByRole('heading', { name: 'Sign in to your studio' })).toBeVisible();
