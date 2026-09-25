@@ -20,7 +20,8 @@ RUN --mount=type=cache,id=passdown-pnpm,target=/root/.local/share/pnpm/store pnp
  && GUIDE_NEXT_OUTPUT=standalone pnpm build \
  && node scripts/check-production-bundle.mjs apps/web/.next \
  && node scripts/check-image-files.mjs apps/web/.next/standalone --prune-metadata \
- && pnpm licenses list --prod --json > /src/third-party-licenses.json
+ && { pnpm licenses list --prod --json > /src/third-party-licenses.json \
+      || { echo 'The licence inventory failed:' >&2; head -c 4000 /src/third-party-licenses.json >&2; exit 1; }; }
 
 FROM ${NODE_IMAGE} AS runtime
 RUN apk add --no-cache postgresql17-client \
