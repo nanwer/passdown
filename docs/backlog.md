@@ -81,8 +81,12 @@ requires green runs in all three engines.
 
 ### Browser test reliability
 
-- **The five-level category journey once timed out in WebKit.** Hosted run
-  36124541652 waited out the test's 120 s budget for the Name field of the
+- **The five-level category journey times out in WebKit now and then.** It
+  recurred after the warm-up and JIT fixes (run 36193524832, commit 318cf89),
+  again waiting for a dialog's Name field at line 168, so an exhausted time
+  budget is ruled out: a dialog doesn't open after its button is clicked.
+  Suspect a click landing before the page responds. Hosted run
+  36124541652 first waited out the test's 120 s budget for the Name field of the
   next category dialog. Which level is unknown: CI deliberately keeps no
   traces, so only the pending step is reported. It passed 34 of 35 local
   WebKit runs; the output of the one early failure was not kept. Two costs
