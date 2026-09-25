@@ -5,7 +5,7 @@ import { getApplication, isConfigured } from '../../../lib/application';
 import { apiResponse } from '../../../lib/http';
 export const dynamic = 'force-dynamic';
 export function GET() {
-  return apiResponse(async () => {
+  return apiResponse({ route: '/api/health', method: 'GET' }, async () => {
     if (sampleLibraryEnabled()) return Response.json({ status: 'ready', mode: 'sample' });
     if (!isConfigured()) return Response.json({ status: 'not-configured' }, { status: 503 });
     const store = getApplication().store;

@@ -11,7 +11,7 @@ type Context = { params: Promise<{ workspace: string }> };
  * whether it is going to fill itself in.
  */
 export function GET(request: Request, context: Context) {
-  return apiResponse(async () => {
+  return apiResponse({ route: '/api/studio/[workspace]/guide-types', method: 'GET' }, async () => {
     const { actor } = await requireSession(request);
     const { workspace } = await context.params;
     assertIdentifier(workspace);

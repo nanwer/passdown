@@ -60,6 +60,16 @@ Applied migrations are immutable. A checksum error means the database and files 
 
 If a database contains a workspace but no accounts, setup explains the inconsistency and leaves its data untouched. Restore a complete backup using your existing database procedure or choose a new empty evaluation database. Setup does not delete the workspace to make room.
 
+## Trace a reported failure
+
+When a request fails unexpectedly, people see a message with a request ID, and a page that fails to load shows an error reference. Find the matching line in the web service's log:
+
+```sh
+docker compose logs web | grep '<request ID or reference>'
+```
+
+Each failure is one JSON line with the time, the route pattern (for example `/api/studio/[workspace]/guides`, never the address that was requested), the method, and the error's name, database error code and message. Request bodies, cookies, addresses, guide content, passwords, tokens and connection strings are never logged, and error messages have connection strings, long tokens, hashes and email addresses removed. Refusals such as missing permissions or invalid input are not logged.
+
 ## Renew a lost setup code
 
 Before setup is complete:

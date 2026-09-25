@@ -15,6 +15,12 @@ Use **Studio → a guide → step editor**, preferably a test draft with two or 
 
 This fixes step removal, not whole-guide deletion. Draft saving remains manual.
 
+## Tracing a failure by its request ID
+
+1. With the evaluation stack running, stop the database for a moment: `docker compose stop postgres`. In Studio, open **Things**. Expect "The service is unavailable…" with a request ID.
+2. Run `docker compose logs web | grep '<that request ID>'`. Expect exactly one JSON line with `"event":"request.failed"`, the route pattern `/api/studio/[workspace]/categories`, `"method":"GET"` and the error name. It must not contain your email address, a cookie, a connection string or the requested address.
+3. Start the database again with `docker compose start postgres`, then open a Studio address for a guide that doesn't exist, such as `/studio/<workspace>/00000000-0000-4000-8000-000000000000`. Expect a not-found message and no new `request.failed` line: refusals are not logged.
+
 ## Picture checks and backup archives
 
 Use a disposable container evaluation with the operator image rebuilt from the current source. These are operator commands; the Studio does not gain a backup screen.

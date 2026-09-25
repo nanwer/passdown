@@ -15,14 +15,14 @@ const globalFailureLimit = 500;
 const globalFailureKey = 'sign-in-failures:global';
 type Context = { params: Promise<{ all: string[] }> };
 export function GET(request: Request, context: Context) {
-  return apiResponse(async () => {
+  return apiResponse({ route: '/api/auth/[...all]', method: 'GET' }, async () => {
     if ((await context.params).all.join('/') !== 'get-session')
       throw new ApplicationError('NOT_FOUND', 'Not found.', 404);
     return getApplication().identity.handler(request);
   });
 }
 export function POST(request: Request, context: Context) {
-  return apiResponse(async () => {
+  return apiResponse({ route: '/api/auth/[...all]', method: 'POST' }, async () => {
     const path = (await context.params).all.join('/');
     let emailHash = '';
     if (!['sign-in/email', 'sign-out'].includes(path))

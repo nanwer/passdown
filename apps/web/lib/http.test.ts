@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { assertOrigin, readJSON, apiResponse } from './http';
 const origin = 'http://127.0.0.1:3100';
+const route = { route: '/api/studio/[workspace]/guides', method: 'POST' };
 const request = (body: string, extra: Record<string, string> = {}) =>
   new Request(origin + '/api/studio', {
     method: 'POST',
@@ -45,7 +46,7 @@ describe('mutation transport boundary', () => {
     await expect(readJSON(request('{"title":"A"}'))).resolves.toEqual({ title: 'A' });
   });
   it('returns safe stable error envelopes and no-store request identifiers', async () => {
-    const response = await apiResponse(async () => {
+    const response = await apiResponse(route, async () => {
       throw new Error('password=secret');
     });
     expect(response.status).toBe(503);
@@ -67,7 +68,7 @@ describe('deliberate errors survive the bundler boundary', () => {
       code: 'CONFLICT',
       status: 409,
     });
-    const response = await apiResponse(async () => {
+    const response = await apiResponse(route, async () => {
       throw fromOtherCopy;
     });
     expect(response.status).toBe(409);
@@ -77,7 +78,7 @@ describe('deliberate errors survive the bundler boundary', () => {
   });
 
   it('still reports an unexpected failure as unavailable', async () => {
-    const response = await apiResponse(async () => {
+    const response = await apiResponse(route, async () => {
       throw new Error('connection reset');
     });
     expect(response.status).toBe(503);
@@ -85,9 +86,69 @@ describe('deliberate errors survive the bundler boundary', () => {
   });
 
   it('does not mistake a plain object for one of our errors', async () => {
-    const response = await apiResponse(async () => {
+    const response = await apiResponse(route, async () => {
       throw { name: 'ApplicationError', status: 'nonsense', code: 'CONFLICT' };
     });
     expect(response.status).toBe(503);
+  });
+});
+
+describe('operator diagnostics', () => {
+  afterEach(() => vi.restoreAllMocks());
+  const lines = () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    return () => spy.mock.calls.map((call) => JSON.parse(String(call[0])));
+  };
+  it('logs one line with the request ID people see for an unexpected failure', async () => {
+    const logged = lines();
+    const response = await apiResponse(route, async () => {
+      throw Object.assign(new Error('relation "app.missing" does not exist'), { code: '42P01' });
+    });
+    const requestId = (await response.json()).error.requestId;
+    const entries = logged();
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toMatchObject({
+      level: 'error',
+      event: 'request.failed',
+      requestId,
+      method: 'POST',
+      route: '/api/studio/[workspace]/guides',
+      status: 503,
+      error: { name: 'Error', code: '42P01', message: 'relation "app.missing" does not exist' },
+    });
+    expect(Date.parse(entries[0].time)).not.toBeNaN();
+  });
+  it('never logs connection strings, tokens, hashes or email addresses from an error', async () => {
+    const logged = lines();
+    const token = 'A'.repeat(43);
+    const hash = 'f'.repeat(64);
+    await apiResponse(route, async () => {
+      throw new Error(
+        `failed for postgresql://guide_owner:pw@db:5432/guide_app ${token} ${hash} owner@example.org`,
+      );
+    });
+    const text = JSON.stringify(logged());
+    for (const secret of ['postgresql://', 'pw@db', token, hash, 'owner@example.org'])
+      expect(text).not.toContain(secret);
+  });
+  it('warns once for a deliberate server-side refusal and stays silent for client errors', async () => {
+    const logged = lines();
+    await apiResponse(route, async () => {
+      throw Object.assign(new Error('Setup did not finish.'), {
+        name: 'ApplicationError',
+        code: 'SETUP_FAILED',
+        status: 503,
+      });
+    });
+    await apiResponse(route, async () => {
+      throw Object.assign(new Error('Not found'), {
+        name: 'ApplicationError',
+        code: 'NOT_FOUND',
+        status: 404,
+      });
+    });
+    const entries = logged();
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toMatchObject({ level: 'warn', code: 'SETUP_FAILED', status: 503 });
   });
 });

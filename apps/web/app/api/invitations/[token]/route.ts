@@ -16,7 +16,7 @@ type Context = { params: Promise<{ token: string }> };
  * Expired, already used, and never existed all return the same nothing.
  */
 export function GET(request: Request, context: Context) {
-  return apiResponse(async () => {
+  return apiResponse({ route: '/api/invitations/[token]', method: 'GET' }, async () => {
     const { token } = await context.params;
     await enforceRateLimit('invitation:lookup', 120);
     const invitation = await getApplication().store.describeInvitation(token);
@@ -49,7 +49,7 @@ export function GET(request: Request, context: Context) {
  * service was unavailable.
  */
 export function POST(request: Request, context: Context) {
-  return apiResponse(async () => {
+  return apiResponse({ route: '/api/invitations/[token]', method: 'POST' }, async () => {
     const app = getApplication();
     assertOrigin(request, app.origin);
     const { token } = await context.params;

@@ -25,3 +25,12 @@ export async function register() {
   const { reportSchemaState } = await import('./lib/schema-report');
   await reportSchemaState();
 }
+
+/** Page and server-action failures, logged with the reference the error page shows. */
+export async function onRequestError(
+  ...args: Parameters<typeof import('./lib/log').logRenderError>
+) {
+  if (process.env.NEXT_RUNTIME !== 'nodejs') return;
+  const { logRenderError } = await import('./lib/log');
+  logRenderError(...args);
+}

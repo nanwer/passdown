@@ -16,7 +16,7 @@ export const dynamic = 'force-dynamic';
  * what they were given.
  */
 export function POST(request: Request) {
-  return apiResponse(async () => {
+  return apiResponse({ route: '/api/studio/password', method: 'POST' }, async () => {
     const app = getApplication();
     assertOrigin(request, app.origin);
     const session = await currentSession(request.headers);

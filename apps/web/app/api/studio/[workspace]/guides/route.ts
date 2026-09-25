@@ -4,7 +4,7 @@ import { apiResponse, assertIdentifier, parseInput, readJSON } from '../../../..
 export const dynamic = 'force-dynamic';
 type Context = { params: Promise<{ workspace: string }> };
 export function GET(request: Request, context: Context) {
-  return apiResponse(async () => {
+  return apiResponse({ route: '/api/studio/[workspace]/guides', method: 'GET' }, async () => {
     const { actor } = await requireSession(request);
     const { workspace } = await context.params;
     assertIdentifier(workspace);
@@ -12,7 +12,7 @@ export function GET(request: Request, context: Context) {
   });
 }
 export function POST(request: Request, context: Context) {
-  return apiResponse(async () => {
+  return apiResponse({ route: '/api/studio/[workspace]/guides', method: 'POST' }, async () => {
     const { store, actor } = await mutationContext(request);
     const { workspace } = await context.params;
     assertIdentifier(workspace);

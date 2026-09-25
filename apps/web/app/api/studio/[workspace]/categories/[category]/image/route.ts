@@ -13,17 +13,20 @@ type Context = { params: Promise<{ workspace: string; category: string }> };
  * thing it belongs to is, and that rule lives in the database.
  */
 export function PUT(request: Request, context: Context) {
-  return apiResponse(async () => {
-    const { store, actor } = await mutationContext(request);
-    const { workspace, category } = await context.params;
-    assertIdentifier(workspace);
-    assertIdentifier(category);
-    const body = (await readJSON(request)) as { assetId?: unknown };
-    const assetId = body?.assetId ?? null;
-    if (assetId !== null && (typeof assetId !== 'string' || !/^[0-9a-f-]{36}$/.test(assetId)))
-      throw new ApplicationError('VALIDATION_ERROR', 'Choose a picture, or none.', 422);
-    return Response.json({
-      category: await store.setCategoryImage(actor, workspace, category, assetId),
-    });
-  });
+  return apiResponse(
+    { route: '/api/studio/[workspace]/categories/[category]/image', method: 'PUT' },
+    async () => {
+      const { store, actor } = await mutationContext(request);
+      const { workspace, category } = await context.params;
+      assertIdentifier(workspace);
+      assertIdentifier(category);
+      const body = (await readJSON(request)) as { assetId?: unknown };
+      const assetId = body?.assetId ?? null;
+      if (assetId !== null && (typeof assetId !== 'string' || !/^[0-9a-f-]{36}$/.test(assetId)))
+        throw new ApplicationError('VALIDATION_ERROR', 'Choose a picture, or none.', 422);
+      return Response.json({
+        category: await store.setCategoryImage(actor, workspace, category, assetId),
+      });
+    },
+  );
 }

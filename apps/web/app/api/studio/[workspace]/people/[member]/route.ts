@@ -5,23 +5,29 @@ export const dynamic = 'force-dynamic';
 type Context = { params: Promise<{ workspace: string; member: string }> };
 
 export function PATCH(request: Request, context: Context) {
-  return apiResponse(async () => {
-    const { store, actor } = await mutationContext(request);
-    const { workspace, member } = await context.params;
-    assertIdentifier(workspace);
-    const body = (await readJSON(request)) as { role?: unknown };
-    const role = parseInput(workspaceRoleSchema, body.role);
-    await store.setMemberRole(actor, workspace, member, role);
-    return Response.json({ role });
-  });
+  return apiResponse(
+    { route: '/api/studio/[workspace]/people/[member]', method: 'PATCH' },
+    async () => {
+      const { store, actor } = await mutationContext(request);
+      const { workspace, member } = await context.params;
+      assertIdentifier(workspace);
+      const body = (await readJSON(request)) as { role?: unknown };
+      const role = parseInput(workspaceRoleSchema, body.role);
+      await store.setMemberRole(actor, workspace, member, role);
+      return Response.json({ role });
+    },
+  );
 }
 
 export function DELETE(request: Request, context: Context) {
-  return apiResponse(async () => {
-    const { store, actor } = await mutationContext(request);
-    const { workspace, member } = await context.params;
-    assertIdentifier(workspace);
-    await store.removeMember(actor, workspace, member);
-    return Response.json({ removed: true });
-  });
+  return apiResponse(
+    { route: '/api/studio/[workspace]/people/[member]', method: 'DELETE' },
+    async () => {
+      const { store, actor } = await mutationContext(request);
+      const { workspace, member } = await context.params;
+      assertIdentifier(workspace);
+      await store.removeMember(actor, workspace, member);
+      return Response.json({ removed: true });
+    },
+  );
 }

@@ -5,11 +5,14 @@ export function GET(
   request: Request,
   context: { params: Promise<{ workspace: string; item: string }> },
 ) {
-  return apiResponse(async () => {
-    const { actor } = await requireSession(request);
-    const { workspace, item } = await context.params;
-    assertIdentifier(workspace);
-    assertIdentifier(item);
-    return Response.json(await getApplication().store.getCatalogUsage(actor, workspace, item));
-  });
+  return apiResponse(
+    { route: '/api/studio/[workspace]/catalog/[item]/usage', method: 'GET' },
+    async () => {
+      const { actor } = await requireSession(request);
+      const { workspace, item } = await context.params;
+      assertIdentifier(workspace);
+      assertIdentifier(item);
+      return Response.json(await getApplication().store.getCatalogUsage(actor, workspace, item));
+    },
+  );
 }

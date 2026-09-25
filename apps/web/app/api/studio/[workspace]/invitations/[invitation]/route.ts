@@ -5,11 +5,14 @@ type Context = { params: Promise<{ workspace: string; invitation: string }> };
 
 /** Revoking a pending invitation makes its link stop working immediately. */
 export function DELETE(request: Request, context: Context) {
-  return apiResponse(async () => {
-    const { store, actor } = await mutationContext(request);
-    const { workspace, invitation } = await context.params;
-    assertIdentifier(workspace);
-    await store.revokeInvitation(actor, workspace, invitation);
-    return Response.json({ revoked: true });
-  });
+  return apiResponse(
+    { route: '/api/studio/[workspace]/invitations/[invitation]', method: 'DELETE' },
+    async () => {
+      const { store, actor } = await mutationContext(request);
+      const { workspace, invitation } = await context.params;
+      assertIdentifier(workspace);
+      await store.revokeInvitation(actor, workspace, invitation);
+      return Response.json({ revoked: true });
+    },
+  );
 }

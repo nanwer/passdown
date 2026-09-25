@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { describeError, logEvent } from './log';
 import { ApplicationError } from '@guide/contracts';
 
 export function assertOrigin(request: Request, trustedOrigin: string) {
@@ -70,7 +71,16 @@ function isApplicationError(error: unknown): error is ApplicationError {
     typeof candidate.code === 'string'
   );
 }
-export async function apiResponse(run: () => Promise<Response>): Promise<Response> {
+/**
+ * The route pattern and method a handler serves, for its error log. The
+ * pattern (never the concrete address, which can carry tokens) is enforced for
+ * every handler by `route-patterns.test.ts`.
+ */
+export type RouteContext = { route: string; method: string };
+export async function apiResponse(
+  context: RouteContext,
+  run: () => Promise<Response>,
+): Promise<Response> {
   const requestId = randomUUID();
   let response: Response;
   try {
@@ -78,6 +88,17 @@ export async function apiResponse(run: () => Promise<Response>): Promise<Respons
   } catch (error) {
     const known = isApplicationError(error);
     const status = known ? error.status : 503;
+    // One line per failure an operator may be asked about: unexpected errors,
+    // and deliberate refusals on the server's side. Client errors are routine.
+    if (!known)
+      logEvent('error', 'request.failed', {
+        requestId,
+        ...context,
+        status,
+        error: describeError(error),
+      });
+    else if (status >= 500)
+      logEvent('warn', 'request.failed', { requestId, ...context, status, code: error.code });
     response = Response.json(
       {
         error: {

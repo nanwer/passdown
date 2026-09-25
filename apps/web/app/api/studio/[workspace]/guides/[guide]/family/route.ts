@@ -9,32 +9,38 @@ export const dynamic = 'force-dynamic';
 type Context = { params: Promise<{ workspace: string; guide: string }> };
 
 export function GET(request: Request, context: Context) {
-  return apiResponse(async () => {
-    const { actor } = await requireSession(request);
-    const { workspace, guide } = await context.params;
-    assertIdentifier(workspace);
-    assertIdentifier(guide);
-    const store = getApplication().store;
-    return Response.json({
-      family: await store.getGuideFamily(actor, workspace, guide),
-      // The exact parent, published or not. `family` is the reader's view and
-      // drops an unpublished one, which is not what an author chose.
-      parent: await store.getGuideParent(actor, workspace, guide),
-    });
-  });
+  return apiResponse(
+    { route: '/api/studio/[workspace]/guides/[guide]/family', method: 'GET' },
+    async () => {
+      const { actor } = await requireSession(request);
+      const { workspace, guide } = await context.params;
+      assertIdentifier(workspace);
+      assertIdentifier(guide);
+      const store = getApplication().store;
+      return Response.json({
+        family: await store.getGuideFamily(actor, workspace, guide),
+        // The exact parent, published or not. `family` is the reader's view and
+        // drops an unpublished one, which is not what an author chose.
+        parent: await store.getGuideParent(actor, workspace, guide),
+      });
+    },
+  );
 }
 
 export function PUT(request: Request, context: Context) {
-  return apiResponse(async () => {
-    const { store, actor } = await mutationContext(request);
-    const { workspace, guide } = await context.params;
-    assertIdentifier(workspace);
-    assertIdentifier(guide);
-    const input = parseInput(guideFamilySchema, await readJSON(request));
-    await store.setGuideParent(actor, workspace, guide, input.parentGuideId, input.sortOrder);
-    return Response.json({
-      family: await store.getGuideFamily(actor, workspace, guide),
-      parent: await store.getGuideParent(actor, workspace, guide),
-    });
-  });
+  return apiResponse(
+    { route: '/api/studio/[workspace]/guides/[guide]/family', method: 'PUT' },
+    async () => {
+      const { store, actor } = await mutationContext(request);
+      const { workspace, guide } = await context.params;
+      assertIdentifier(workspace);
+      assertIdentifier(guide);
+      const input = parseInput(guideFamilySchema, await readJSON(request));
+      await store.setGuideParent(actor, workspace, guide, input.parentGuideId, input.sortOrder);
+      return Response.json({
+        family: await store.getGuideFamily(actor, workspace, guide),
+        parent: await store.getGuideParent(actor, workspace, guide),
+      });
+    },
+  );
 }

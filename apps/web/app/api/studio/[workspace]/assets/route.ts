@@ -15,7 +15,7 @@ type Context = { params: Promise<{ workspace: string }> };
  * upload never leaves a reference to something that is not there.
  */
 export function POST(request: Request, context: Context) {
-  return apiResponse(async () => {
+  return apiResponse({ route: '/api/studio/[workspace]/assets', method: 'POST' }, async () => {
     const { store, actor } = await mutationContext(request);
     const { workspace } = await context.params;
     assertIdentifier(workspace);
@@ -71,7 +71,7 @@ export function POST(request: Request, context: Context) {
  * of uploading the same photograph to a second step.
  */
 export function GET(request: Request, context: Context) {
-  return apiResponse(async () => {
+  return apiResponse({ route: '/api/studio/[workspace]/assets', method: 'GET' }, async () => {
     const { actor } = await requireSession(request);
     const { workspace } = await context.params;
     assertIdentifier(workspace);

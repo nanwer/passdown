@@ -6,7 +6,7 @@ import { apiResponse, assertOrigin, parseInput, readJSON } from '../../../lib/ht
 import { setupCodeMatches, setupRequired } from '../../../lib/setup';
 export const dynamic = 'force-dynamic';
 export function POST(request: Request) {
-  return apiResponse(async () => {
+  return apiResponse({ route: '/api/setup', method: 'POST' }, async () => {
     const app = getApplication();
     assertOrigin(request, app.origin);
     if (!(await setupRequired()))

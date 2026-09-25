@@ -14,7 +14,7 @@ type Context = { params: Promise<{ workspace: string; asset: string }> };
  * root is statically served, so this is the only way bytes leave.
  */
 export function GET(request: Request, context: Context) {
-  return apiResponse(async () => {
+  return apiResponse({ route: '/api/media/[workspace]/[asset]', method: 'GET' }, async () => {
     const { workspace, asset } = await context.params;
     assertIdentifier(workspace);
     const notFound = () =>
