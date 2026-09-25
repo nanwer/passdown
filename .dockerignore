@@ -30,12 +30,6 @@
 !deploy/caddy/Caddyfile
 !deploy/caddy/NOTICE
 !deploy/caddy/LICENSE-APACHE-2.0
-!deploy/nginx/Dockerfile
-!deploy/nginx/nginx.conf.template
-!deploy/nginx/passdown.js
-!deploy/nginx/entrypoint.sh
-!deploy/nginx/NOTICE
-!deploy/nginx/LICENSE-BSD-2-CLAUSE
 
 # Exclusions still apply inside an allowed source directory.
 **/*.md

@@ -26,9 +26,9 @@ export function releaseVersionProblems(root, tag) {
     const found = JSON.parse(read(path)).version;
     if (found !== version) problems.push(`${path} names ${found}, not ${version}`);
   }
-  for (const path of ['deploy/compose.yaml', 'deploy/compose.nginx.yaml'])
+  for (const path of ['deploy/compose.yaml'])
     for (const [, name, found] of read(path).matchAll(
-      /ghcr\.io\/nanwer\/(passdown(?:-caddy|-nginx)?):([^\s@}'"]+)/g,
+      /ghcr\.io\/nanwer\/(passdown(?:-caddy)?):([^\s@}'"]+)/g,
     ))
       if (found !== version) problems.push(`${path} tags ${name} ${found}, not ${version}`);
   return { version, problems };

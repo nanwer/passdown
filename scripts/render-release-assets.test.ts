@@ -26,7 +26,6 @@ const version = passdownVersion;
 const digests = {
   passdown: `sha256:${'a'.repeat(64)}`,
   'passdown-caddy': `sha256:${'b'.repeat(64)}`,
-  'passdown-nginx': `sha256:${'c'.repeat(64)}`,
 };
 const pinned = (name: keyof typeof digests) => `ghcr.io/nanwer/${name}:${version}@${digests[name]}`;
 const directories: string[] = [];
@@ -41,33 +40,33 @@ afterEach(() => {
 const sha256 = (path: string) => createHash('sha256').update(readFileSync(path)).digest('hex');
 
 describe('release assets', () => {
-  it('pins every Passdown image in the shipped compose files to its release digest', () => {
+  it('pins every Passdown image in the shipped compose file to its release digest', () => {
     const output = join(temporary(), 'assets');
     renderReleaseAssets({ source: join(root, 'deploy'), output, version, digests });
     expect(readdirSync(output).sort()).toEqual([
       'SHA256SUMS',
       'backup.sh',
-      'compose.nginx.yaml',
       'compose.yaml',
-      'init.sh',
       'upgrade.sh',
     ]);
     const compose = readFileSync(join(output, 'compose.yaml'), 'utf8');
-    const nginx = readFileSync(join(output, 'compose.nginx.yaml'), 'utf8');
-    // The override stays: upgrade.sh --image and the smoke run rely on it.
-    expect(compose).toContain(`image: \${PASSDOWN_IMAGE:-${pinned('passdown')}}`);
-    expect(compose).toContain(`image: \${PASSDOWN_PROXY_IMAGE:-${pinned('passdown-caddy')}}`);
-    expect(nginx).toContain(`image: \${PASSDOWN_PROXY_IMAGE:-${pinned('passdown-nginx')}}`);
-    expect(compose).not.toMatch(/Development candidate|init\.sh --build/);
+    // One line names the application image for every service that runs it.
+    expect(compose).toContain(`x-passdown-image: &passdown-image ${pinned('passdown')}\n`);
+    expect(compose.match(/image: \*passdown-image/g)).toHaveLength(4);
+    expect(compose).toContain(`image: ${pinned('passdown-caddy')}\n`);
+    expect(compose.startsWith(`# Passdown ${version}. Every image is pinned by digest.\n`)).toBe(
+      true,
+    );
+    // Still pasteable as-is: no settings file, no build, no host folders.
+    expect(compose).not.toMatch(/init\.sh|env_file|build:|^\s+- \.?\//m);
     expect(composeProblems(compose, { version })).toEqual([]);
-    expect(composeProblems(nginx, { version })).toEqual([]);
-    for (const file of ['init.sh', 'upgrade.sh', 'backup.sh'])
+    for (const file of ['upgrade.sh', 'backup.sh'])
       expect(readFileSync(join(output, file), 'utf8')).toBe(
         readFileSync(join(root, 'deploy', file), 'utf8'),
       );
     const sums = readFileSync(join(output, 'SHA256SUMS'), 'utf8');
     expect(sums).toBe(
-      ['backup.sh', 'compose.nginx.yaml', 'compose.yaml', 'init.sh', 'upgrade.sh']
+      ['backup.sh', 'compose.yaml', 'upgrade.sh']
         .map((file) => `${sha256(join(output, file))}  ${file}\n`)
         .join(''),
     );
@@ -75,7 +74,7 @@ describe('release assets', () => {
   });
 
   it('refuses to render without a well-formed digest for every image', () => {
-    const { 'passdown-nginx': _missing, ...partial } = digests;
+    const { 'passdown-caddy': _missing, ...partial } = digests;
     expect(() =>
       renderReleaseAssets({
         source: join(root, 'deploy'),
@@ -83,7 +82,7 @@ describe('release assets', () => {
         version,
         digests: partial,
       }),
-    ).toThrow(/passdown-nginx/);
+    ).toThrow(/passdown-caddy/);
     expect(() =>
       renderReleaseAssets({
         source: join(root, 'deploy'),
@@ -111,6 +110,17 @@ describe('release assets', () => {
     expect(problems(`ghcr.io/nanwer/passdown:0.0.9@${digests.passdown}`)).not.toEqual([]);
     expect(problems(`ghcr.io/nanwer/passdown@${digests.passdown}`)).not.toEqual([]);
     expect(problems('${PASSDOWN_IMAGE}')).not.toEqual([]);
+    // Anchors: checked where defined; a reference must name one.
+    const anchored = (value: string) =>
+      composeProblems(
+        `x-passdown-image: &passdown-image ${value}\nservices:\n  web:\n    image: *passdown-image\n`,
+        {
+          version,
+        },
+      );
+    expect(anchored(pinned('passdown'))).toEqual([]);
+    expect(anchored(`ghcr.io/nanwer/passdown:${version}`)).not.toEqual([]);
+    expect(problems('*missing-anchor')).not.toEqual([]);
     expect(problems(pinned('passdown'), '    build: { context: .. }\n')).not.toEqual([]);
     expect(composeProblems('services:\n  web: { build: . }\n', { version })).not.toEqual([]);
     expect(composeProblems('services: {}\n', { version })).not.toEqual([]);
@@ -119,8 +129,8 @@ describe('release assets', () => {
   it('notices a changed, missing or unexpected file after rendering', () => {
     const output = join(temporary(), 'assets');
     renderReleaseAssets({ source: join(root, 'deploy'), output, version, digests });
-    appendFileSync(join(output, 'init.sh'), '\n# changed\n');
-    expect(releaseAssetProblems(output, { version }).join('\n')).toMatch(/init\.sh/);
+    appendFileSync(join(output, 'upgrade.sh'), '\n# changed\n');
+    expect(releaseAssetProblems(output, { version }).join('\n')).toMatch(/upgrade\.sh/);
 
     const second = join(temporary(), 'assets');
     renderReleaseAssets({ source: join(root, 'deploy'), output: second, version, digests });
@@ -149,19 +159,16 @@ describe('release assets', () => {
       args.push('--digest', `${name}=${digest}`);
     const rendered = spawnSync(process.execPath, [script, ...args], { encoding: 'utf8' });
     expect(rendered.status, rendered.stderr).toBe(0);
-    expect(rendered.stdout).toContain(pinned('passdown-nginx'));
+    expect(rendered.stdout).toContain(pinned('passdown-caddy'));
     const check = () =>
       spawnSync(process.execPath, [script, '--check', output, '--version', version], {
         encoding: 'utf8',
       });
     expect(check().status).toBe(0);
-    const compose = join(output, 'compose.nginx.yaml');
-    writeFileSync(
-      compose,
-      readFileSync(compose, 'utf8').replace(`@${digests['passdown-nginx']}`, ''),
-    );
+    const compose = join(output, 'compose.yaml');
+    writeFileSync(compose, readFileSync(compose, 'utf8').replace(`@${digests.passdown}`, ''));
     const refused = check();
     expect(refused.status).toBe(1);
-    expect(refused.stderr).toMatch(/compose\.nginx\.yaml/);
+    expect(refused.stderr).toMatch(/compose\.yaml/);
   });
 });

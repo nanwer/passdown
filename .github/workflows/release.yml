@@ -5,8 +5,8 @@
 # release stays a manual step.
 #
 # workflow_dispatch defaults to a dry run: it builds both architectures and
-# smoke-tests the amd64 images behind Caddy and nginx from rendered install
-# files, but logs in nowhere, pushes nothing and creates no release.
+# smoke-tests the amd64 images from the rendered compose file, but logs in
+# nowhere, pushes nothing and creates no release.
 name: Release
 on:
   push:
@@ -98,7 +98,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        image: [passdown, passdown-caddy, passdown-nginx]
+        image: [passdown, passdown-caddy]
         arch: [amd64, arm64]
         include:
           - arch: amd64
@@ -109,8 +109,6 @@ jobs:
             dockerfile: Dockerfile
           - image: passdown-caddy
             dockerfile: deploy/caddy/Dockerfile
-          - image: passdown-nginx
-            dockerfile: deploy/nginx/Dockerfile
     env:
       PUBLISH: ${{ needs.check.outputs.publish }}
     steps:
@@ -159,7 +157,7 @@ jobs:
           retention-days: 1
 
   smoke:
-    name: Smoke test from the install files (amd64, Caddy and nginx)
+    name: Smoke test from the install file (amd64)
     needs: [check, build]
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -192,7 +190,7 @@ jobs:
       - name: Pull the pushed images
         if: env.PUBLISH == 'true'
         run: |
-          for image in passdown passdown-caddy passdown-nginx; do
+          for image in passdown passdown-caddy; do
             digest=$(cat "$RUNNER_TEMP/digests/$image-amd64")
             docker pull --quiet "$REGISTRY/$image@$digest"
             printf '%s=%s\n' "$(printf '%s' "$image" | tr a-z- A-Z_)_REF" "$REGISTRY/$image@$digest" >> "$GITHUB_ENV"
@@ -225,24 +223,12 @@ jobs:
           cache-from: type=gha,scope=passdown-caddy-amd64
           load: true
           tags: passdown-caddy:release-smoke
-      - if: env.PUBLISH != 'true'
-        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
-        with:
-          context: .
-          file: deploy/nginx/Dockerfile
-          platforms: linux/amd64
-          build-args: |
-            PASSDOWN_VERSION=${{ env.VERSION }}
-            PASSDOWN_REVISION=${{ github.sha }}
-          cache-from: type=gha,scope=passdown-nginx-amd64
-          load: true
-          tags: passdown-nginx:release-smoke
       - name: Use the local images
         if: env.PUBLISH != 'true'
         run: |
           # Local images have no registry digest; their IDs stand in so the
           # install files render and check exactly as they would for release.
-          for image in passdown passdown-caddy passdown-nginx; do
+          for image in passdown passdown-caddy; do
             name=$(printf '%s' "$image" | tr a-z- A-Z_)
             printf '%s_REF=%s\n' "$name" "$image:release-smoke" >> "$GITHUB_ENV"
             printf '%s_DIGEST=%s\n' "$name" "$(docker image inspect --format '{{.Id}}' "$image:release-smoke")" >> "$GITHUB_ENV"
@@ -251,8 +237,7 @@ jobs:
         run: |
           sh scripts/check-image.sh "$PASSDOWN_REF"
           sh scripts/check-image.sh "$PASSDOWN_CADDY_REF" proxy
-          sh scripts/check-image.sh "$PASSDOWN_NGINX_REF" proxy
-          for ref in "$PASSDOWN_REF" "$PASSDOWN_CADDY_REF" "$PASSDOWN_NGINX_REF"; do
+          for ref in "$PASSDOWN_REF" "$PASSDOWN_CADDY_REF"; do
             label=$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.version"}}' "$ref")
             [ "$label" = "$VERSION" ] || { echo "::error::$ref is labelled $label, not $VERSION."; exit 1; }
           done
@@ -260,16 +245,11 @@ jobs:
         run: |
           node scripts/render-release-assets.mjs --version "$VERSION" --output "$RUNNER_TEMP/assets" \
             --digest "passdown=$PASSDOWN_DIGEST" \
-            --digest "passdown-caddy=$PASSDOWN_CADDY_DIGEST" \
-            --digest "passdown-nginx=$PASSDOWN_NGINX_DIGEST"
-      - name: Prove setup and picture persistence through HTTPS (Caddy)
+            --digest "passdown-caddy=$PASSDOWN_CADDY_DIGEST"
+      - name: Prove the default login, Finish setting up and picture persistence through HTTPS
         run: |
           PASSDOWN_DEPLOY_DIR="$RUNNER_TEMP/assets" PASSDOWN_IMAGE="$PASSDOWN_REF" \
             PASSDOWN_PROXY_IMAGE="$PASSDOWN_CADDY_REF" sh scripts/deployment-boot-check.sh
-      - name: Prove setup and picture persistence through HTTPS (nginx)
-        run: |
-          PASSDOWN_DEPLOY_DIR="$RUNNER_TEMP/assets" PASSDOWN_PROXY=nginx PASSDOWN_IMAGE="$PASSDOWN_REF" \
-            PASSDOWN_PROXY_IMAGE="$PASSDOWN_NGINX_REF" sh scripts/deployment-boot-check.sh
 
   merge:
     name: Tag the release images
@@ -284,7 +264,6 @@ jobs:
     outputs:
       passdown: ${{ steps.merge.outputs.passdown }}
       passdown-caddy: ${{ steps.merge.outputs.passdown-caddy }}
-      passdown-nginx: ${{ steps.merge.outputs.passdown-nginx }}
     env:
       VERSION: ${{ needs.check.outputs.version }}
     steps:
@@ -302,13 +281,13 @@ jobs:
       - name: Create the multi-architecture version tags
         id: merge
         run: |
-          # Only the exact version is tagged: no latest or moving tags, since
-          # every upgrade must pass through upgrade.sh's backup and migration gate.
-          for image in passdown passdown-caddy passdown-nginx; do
+          # Only the exact version is tagged: no latest or moving tags, so an
+          # installation changes version only when its compose file names a
+          # new one, and an image already on a server is the one it names.
+          for image in passdown passdown-caddy; do
             case "$image" in
               passdown) licenses=AGPL-3.0-only ;;
               passdown-caddy) licenses='AGPL-3.0-only AND Apache-2.0' ;;
-              passdown-nginx) licenses='AGPL-3.0-only AND BSD-2-Clause' ;;
             esac
             target=$REGISTRY/$image:$VERSION
             if docker buildx imagetools inspect "$target" > /dev/null 2>&1; then
@@ -350,12 +329,10 @@ jobs:
         env:
           PASSDOWN_DIGEST: ${{ needs.merge.outputs.passdown }}
           PASSDOWN_CADDY_DIGEST: ${{ needs.merge.outputs.passdown-caddy }}
-          PASSDOWN_NGINX_DIGEST: ${{ needs.merge.outputs.passdown-nginx }}
         run: |
           node scripts/render-release-assets.mjs --version "$VERSION" --output "$RUNNER_TEMP/assets" \
             --digest "passdown=$PASSDOWN_DIGEST" \
-            --digest "passdown-caddy=$PASSDOWN_CADDY_DIGEST" \
-            --digest "passdown-nginx=$PASSDOWN_NGINX_DIGEST"
+            --digest "passdown-caddy=$PASSDOWN_CADDY_DIGEST"
           node scripts/render-release-assets.mjs --check "$RUNNER_TEMP/assets" --version "$VERSION"
       - name: Create a draft release
         env:
@@ -368,9 +345,9 @@ jobs:
             echo
             echo "Install files pin these images:"
             echo
-            grep -ho 'ghcr\.io/nanwer/[a-z-]*:[^}]*' "$RUNNER_TEMP/assets/compose.yaml" "$RUNNER_TEMP/assets/compose.nginx.yaml" | sed 's/.*/- `&`/'
+            grep -ho 'ghcr\.io/nanwer/[a-z-]*:[^} ]*' "$RUNNER_TEMP/assets/compose.yaml" | sed 's/.*/- `&`/'
           } > "$notes"
           cd "$RUNNER_TEMP/assets"
           gh release create "v$VERSION" --repo "$REPOSITORY" --draft --prerelease --verify-tag \
             --title "Passdown $VERSION" --notes-file "$notes" \
-            compose.yaml compose.nginx.yaml init.sh upgrade.sh backup.sh SHA256SUMS
+            compose.yaml upgrade.sh backup.sh SHA256SUMS

@@ -6,17 +6,16 @@ import { deflateSync } from 'node:zlib';
 // This destructive first-run probe is restricted to the boot check's local,
 // disposable stack. It never prints credentials, cookies, bodies, or URLs.
 let stage = 'arguments';
+// Check labels are fixed strings written here, so they are safe to print.
+class CheckFailure extends Error {}
 const check = (condition, label) => {
-  if (!condition) throw new Error(label);
+  if (!condition) throw new CheckFailure(label);
 };
 const args = process.argv.slice(2);
 const options = new Map();
 for (let i = 0; i < args.length; i++) {
   if (args[i] === '--resume') options.set('resume', true);
-  else if (
-    ['--origin', '--code-file', '--state-file', '--ca-file'].includes(args[i]) &&
-    args[i + 1]
-  )
+  else if (['--origin', '--state-file', '--ca-file'].includes(args[i]) && args[i + 1])
     options.set(args[i].slice(2), args[++i]);
   else {
     console.error('Deployment flow failed: arguments.');
@@ -81,20 +80,24 @@ try {
     'State and certificate files required',
   );
   const ca = readFileSync(options.get('ca-file'));
-  function request(path, { method = 'GET', body, cookie, headers = {} } = {}) {
+  // `host` reaches the same server by another name, as a browser opening
+  // https://<server-address>:<port> would: same certificate, other address.
+  function request(path, { method = 'GET', body, cookie, headers = {}, host } = {}) {
     return new Promise((resolve, reject) => {
       const req = https.request(
         {
           hostname: '127.0.0.1',
           port: origin.port,
-          servername: 'localhost',
+          servername: host ? host : 'localhost',
           ca,
           rejectUnauthorized: true,
+          // The one certificate names localhost; any other address gets it too.
+          ...(host ? { checkServerIdentity: () => undefined } : {}),
           path,
           method,
           headers: {
-            Host: origin.host,
-            Origin: origin.origin,
+            Host: host ? `${host}:${origin.port}` : origin.host,
+            Origin: host ? `https://${host}:${origin.port}` : origin.origin,
             ...(body ? { 'Content-Length': body.length } : {}),
             ...(cookie ? { Cookie: cookie } : {}),
             ...headers,
@@ -123,12 +126,15 @@ try {
     });
   }
   const json = (response) => JSON.parse(response.body.toString('utf8'));
-  const post = (path, value) =>
+  const post = (path, value, options = {}) =>
     request(path, {
       method: 'POST',
       body: Buffer.from(JSON.stringify(value)),
-      headers: { 'Content-Type': 'application/json' },
+      ...options,
+      headers: { 'Content-Type': 'application/json', ...options.headers },
     });
+  const cookiesOf = (response) =>
+    (response.headers['set-cookie'] || []).map((entry) => entry.split(';')[0]).join('; ');
   async function verifyPicture(state) {
     const picture = await request(state.assetPath, { cookie: state.cookie });
     check(picture.status === 200, 'Owner media read');
@@ -146,31 +152,24 @@ try {
     stage = 'preserved setup and media after recreation';
     const state = JSON.parse(privateFile(options.get('state-file')));
     check(state.origin === origin.origin, 'Original installation required');
-    check((await request('/setup')).status === 404, 'Setup stays closed');
     check(json(await request('/api/health')).status === 'ready', 'Recreated stack ready');
+    const signIn = await request('/sign-in');
+    check(!signIn.body.includes(Buffer.from('First time?')), 'Default login no longer offered');
+    const retired = await post('/api/auth/sign-in/email', {
+      email: 'admin@example.com',
+      password: 'changeme',
+    });
+    check(retired.status === 401, 'Default login stays retired');
     await verifyPicture(state);
     console.log('Recreation preserved setup, session access, and the private picture.');
   } else {
-    const setupCode = privateFile(options.get('code-file')).trim();
-    check(
-      /^[0-9A-HJKMNP-TV-Z]{5}(?:-[0-9A-HJKMNP-TV-Z]{5}){3}$/.test(setupCode),
-      'Setup code format',
-    );
     const account = {
-      code: setupCode,
       name: 'Deployment check',
       email: 'deployment-check@example.org',
       password: randomBytes(24).toString('hex'),
       workspaceName: 'Deployment check',
     };
-    stage = 'first-run page gates';
-    for (const path of ['/', '/studio']) {
-      const response = await request(path);
-      check(
-        response.status === 200 && response.body.includes(Buffer.from('Set up Passdown')),
-        'Setup page gate',
-      );
-    }
+    stage = 'first-run pages';
     const initialHealth = await request('/api/health');
     check(
       initialHealth.status === 200 &&
@@ -178,13 +177,55 @@ try {
         json(initialHealth).mode === 'persistent',
       'Initial setup health',
     );
-    stage = 'invalid setup requests';
-    const wrong = await post('/api/setup', { ...account, code: 'this-is-not-the-code' });
+    const front = await request('/');
     check(
-      wrong.status === 403 && json(wrong).error?.code === 'SETUP_CODE_INVALID',
-      'Wrong code refused',
+      front.status === 307 && front.headers.location === '/studio',
+      'Front page leads to studio',
     );
-    const weak = await post('/api/setup', { ...account, password: 'weak' });
+    const signInPage = await request('/sign-in');
+    check(
+      signInPage.status === 200 &&
+        signInPage.body.includes(Buffer.from('First time?')) &&
+        signInPage.body.includes(Buffer.from('admin@example.com')),
+      'Sign-in page offers the default login',
+    );
+    stage = 'another address';
+    // Caddy answers any address; sign-in there is refused with the address to use.
+    const elsewhere = await request('/sign-in', { host: 'passdown-check.lan' });
+    check(elsewhere.status === 200, 'Any address reaches Passdown');
+    const foreign = await post('/api/setup', {}, { host: 'passdown-check.lan' });
+    check(
+      foreign.status === 403 && json(foreign).error?.message?.includes(origin.origin),
+      'Another address is told which address to use',
+    );
+    stage = 'default login';
+    const signedIn = await post('/api/auth/sign-in/email', {
+      email: 'admin@example.com',
+      password: 'changeme',
+    });
+    check(signedIn.status === 200, 'Default login signs in');
+    const session = (signedIn.headers['set-cookie'] || []).find(
+      (cookie) =>
+        cookie.startsWith('__Secure-') &&
+        /;\s*Secure(?:;|$)/i.test(cookie) &&
+        /;\s*HttpOnly(?:;|$)/i.test(cookie) &&
+        /;\s*SameSite=Lax(?:;|$)/i.test(cookie),
+    );
+    check(session, 'Secure authenticated session cookie');
+    const cookie = cookiesOf(signedIn);
+    const blocked = await request('/api/studio/session', { cookie });
+    check(
+      blocked.status === 403 && json(blocked).error?.code === 'SETUP_REQUIRED',
+      'Default login can only finish setting up',
+    );
+    stage = 'invalid finish requests';
+    const defaultAddress = await post(
+      '/api/setup',
+      { ...account, email: 'admin@example.com' },
+      { cookie },
+    );
+    check(defaultAddress.status === 422, 'Default address refused');
+    const weak = await post('/api/setup', { ...account, password: 'weak' }, { cookie });
     check(
       weak.status === 422 &&
         json(weak).error?.issues?.some(
@@ -192,29 +233,26 @@ try {
         ),
       'Weak password refused',
     );
-    stage = 'race-safe setup and secure session';
-    const race = await Promise.all([post('/api/setup', account), post('/api/setup', account)]);
+    check((await post('/api/setup', account)).status === 401, 'Signed-out finish refused');
+    stage = 'race-safe finish';
+    const race = await Promise.all([
+      post('/api/setup', account, { cookie }),
+      post('/api/setup', account, { cookie }),
+    ]);
     check(
       race
         .map((response) => response.status)
         .sort()
         .join(',') === '201,404',
-      'Exactly one setup success',
+      'Exactly one finish succeeds',
     );
-    const successful = race.find((response) => response.status === 201);
-    const cookies = successful.headers['set-cookie'] || [];
-    const session = cookies.find(
-      (cookie) =>
-        cookie.startsWith('__Secure-') &&
-        /;\s*Secure(?:;|$)/i.test(cookie) &&
-        /;\s*HttpOnly(?:;|$)/i.test(cookie) &&
-        /;\s*SameSite=Lax(?:;|$)/i.test(cookie),
-    );
-    check(session, 'Secure authenticated setup cookie');
-    const cookie = cookies.map((entry) => entry.split(';')[0]).join('; ');
-    stage = 'completed setup closed';
-    check((await request('/setup')).status === 404, 'Setup page closed');
-    check((await post('/api/setup', account)).status === 404, 'Setup mutation closed');
+    stage = 'default login retired';
+    check((await request('/setup')).status === 307, 'Old setup address redirects');
+    const retired = await post('/api/auth/sign-in/email', {
+      email: 'admin@example.com',
+      password: 'changeme',
+    });
+    check(retired.status === 401, 'Default login refused afterwards');
     const ready = await request('/api/health');
     check(ready.status === 200 && json(ready).status === 'ready', 'Ready health');
     stage = 'workspace and image upload';
@@ -252,7 +290,8 @@ try {
     });
     console.log('First-run setup, secure session, workspace, and private image upload passed.');
   }
-} catch {
-  console.error(`Deployment flow failed: ${stage}.`);
+} catch (error) {
+  const label = error instanceof CheckFailure ? ` (${error.message})` : '';
+  console.error(`Deployment flow failed: ${stage}${label}.`);
   process.exitCode = 1;
 }

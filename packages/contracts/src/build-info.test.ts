@@ -20,28 +20,20 @@ describe('build information', () => {
     // A release tag publishes exactly these references; a stale one would pull
     // an older image or none at all.
     const read = (path: string) => readFileSync(join(root, path), 'utf8');
-    const images = ['deploy/compose.yaml', 'deploy/compose.nginx.yaml'].flatMap((path) =>
-      [...read(path).matchAll(/ghcr\.io\/nanwer\/(passdown(?:-caddy|-nginx)?):([^\s@}'"]+)/g)].map(
+    const images = ['deploy/compose.yaml'].flatMap((path) =>
+      [...read(path).matchAll(/ghcr\.io\/nanwer\/(passdown(?:-caddy)?):([^\s@}'"]+)/g)].map(
         ([, name, tag]) => ({ path, name, tag }),
       ),
     );
-    expect(images.map(({ name }) => name).sort()).toEqual([
-      'passdown',
-      'passdown-caddy',
-      'passdown-nginx',
-    ]);
+    expect(images.map(({ name }) => name).sort()).toEqual(['passdown', 'passdown-caddy']);
     for (const { path, name, tag } of images) expect(tag, `${path} ${name}`).toBe(passdownVersion);
-    const builds = [
-      'deploy/compose.build.yaml',
-      'deploy/compose.nginx.build.yaml',
-      '.github/workflows/ci.yml',
-    ].flatMap((path) =>
+    const builds = ['deploy/compose.build.yaml', '.github/workflows/ci.yml'].flatMap((path) =>
       [...read(path).matchAll(/PASSDOWN_VERSION(?::-|=)([^\s}]+)/g)].map(([, value]) => ({
         path,
         value,
       })),
     );
-    expect(builds.length).toBeGreaterThanOrEqual(5);
+    expect(builds.length).toBeGreaterThanOrEqual(4);
     for (const { path, value } of builds) expect(value, path).toBe(passdownVersion);
   });
   it('reports a source revision only when it is a real commit identifier', () => {

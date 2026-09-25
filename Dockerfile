@@ -1,5 +1,8 @@
 # syntax=docker/dockerfile:1.7
 # Web server and operator command. Build locally; publication is a separate step.
+# Secrets arrive as files in /run/passdown (see deploy/compose.yaml): the owner
+# password for PostgreSQL (group 70) and operator commands, the runtime password
+# and session secret for web.
 ARG NODE_IMAGE=node:22.22.2-alpine3.22@sha256:b77017c37f430e4466ff497058948a2f16e8b59779600d53711eeb7b999b0f4e
 FROM ${NODE_IMAGE} AS toolchain
 RUN apk add --no-cache libc6-compat && npm install --global pnpm@10.33.0
@@ -24,7 +27,9 @@ RUN apk add --no-cache postgresql17-client \
  && rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx /opt/yarn* \
  && addgroup -S -g 10001 passdown \
  && adduser -S -D -H -u 10001 -G passdown -h /nonexistent passdown \
- && install -d -o passdown -g passdown -m 0700 /var/lib/passdown/media
+ && install -d -o passdown -g passdown -m 0700 /var/lib/passdown/media \
+ && install -d -o passdown -g 70 -m 0750 /run/passdown/owner \
+ && install -d -o passdown -g passdown -m 0700 /run/passdown/app
 ARG PASSDOWN_REVISION=unknown
 ARG PASSDOWN_VERSION=0.0.0-dev
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 HOSTNAME=0.0.0.0 PORT=3000 \

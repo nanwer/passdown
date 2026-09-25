@@ -25,7 +25,7 @@ function harness() {
   for (const dir of [deploy, bin, caller]) mkdirSync(dir);
   const script = join(deploy, 'backup.sh');
   copyFileSync(resolve('deploy/backup.sh'), script);
-  writeFileSync(join(deploy, '.env'), 'COMPOSE_PROJECT_NAME=synthetic-project\n');
+  writeFileSync(join(deploy, 'compose.yaml'), 'services: {}\n');
   const log = join(root, 'docker.log');
   writeFileSync(join(bin, 'date'), '#!/bin/sh\nprintf "20260925T100000Z\\n"\n', { mode: 0o700 });
   writeFileSync(
@@ -39,7 +39,10 @@ printf 'SYNC\\n' >> "$BACKUP_LOG"
   writeFileSync(
     join(bin, 'docker'),
     `#!/bin/sh
-printf '%s\\n' CALL "PWD=$PWD" "$@" >> "$BACKUP_LOG"
+printf '%s\\n' CALL "project=\${COMPOSE_PROJECT_NAME-unset}" "$@" >> "$BACKUP_LOG"
+for argument in "$@"; do
+  case "$argument" in */image.yaml) cat "$argument" >> "$BACKUP_LOG" ;; esac
+done
 case "$*" in
   *' ops backup')
     printf 'synthetic-complete-archive'
@@ -56,7 +59,12 @@ esac
 `,
     { mode: 0o700 },
   );
-  const env = { ...process.env, PATH: `${bin}:${process.env.PATH}`, BACKUP_LOG: log };
+  const env = {
+    ...process.env,
+    PATH: `${bin}:${process.env.PATH}`,
+    BACKUP_LOG: log,
+    COMPOSE_PROJECT_NAME: 'someone-elses-project',
+  };
   const run = (args: string[] = [], extra: Record<string, string | undefined> = {}) =>
     spawnSync('sh', [script, ...args], {
       cwd: caller,
@@ -71,7 +79,7 @@ const completion = (child: ChildProcess) =>
     child.once('close', resolve);
   });
 describe('host backup wrapper', () => {
-  it('checks before publishing private bytes and anchors default settings to the script directory', () => {
+  it('checks before publishing private bytes and defaults to the compose file beside it', () => {
     const h = harness();
     const result = h.run();
     expect(result.status).toBe(0);
@@ -84,24 +92,38 @@ describe('host backup wrapper', () => {
     const calls = readFileSync(h.log, 'utf8').split('CALL\n').slice(1);
     expect(calls).toHaveLength(2);
     for (const call of calls) {
-      expect(call).toContain(
-        `compose\n--project-directory\n${h.deploy}\n--env-file\n${h.deploy}/.env\n`,
-      );
-      // Settings name their Compose files relatively; Compose resolves them
-      // against the working directory, so run from the installation directory.
-      expect(call.startsWith(`PWD=${h.deploy}\n`)).toBe(true);
+      // An unrelated shell setting never chooses the project.
+      expect(call.startsWith(`project=unset\ncompose\n-f\n${h.deploy}/compose.yaml\n`)).toBe(true);
     }
     expect(calls[0]).toContain('run\n--rm\n-T\nops\nbackup\n');
     expect(calls[1]).toContain('run\n--rm\n--no-deps\n-T\nops\nrestore\n--check\n');
     expect(readdirSync(join(h.deploy, 'backups'))).toEqual(['passdown-20260925T100000Z.tar']);
-    const settings = join(h.caller, 'alternate.env');
-    writeFileSync(settings, 'COMPOSE_PROJECT_NAME=other-project\n');
-    const explicit = h.run(['--env-file', 'alternate.env', 'relative backups']);
+    // A Portainer stack: its file, its name, and the image upgrade.sh passes.
+    const stack = join(h.caller, 'stack file.yml');
+    writeFileSync(stack, 'services: {}\n');
+    writeFileSync(h.log, '');
+    const explicit = h.run([
+      '--file',
+      'stack file.yml',
+      '--project',
+      'passdown-home',
+      '--image',
+      'sha256:previous',
+      'relative backups',
+    ]);
     expect(explicit.status).toBe(0);
     expect(explicit.stdout.trim()).toBe(
       join(h.caller, 'relative backups', 'passdown-20260925T100000Z.tar'),
     );
-    expect(readFileSync(h.log, 'utf8')).toContain(`--env-file\n${settings}\n`);
+    const log = readFileSync(h.log, 'utf8');
+    expect(log).toMatch(
+      new RegExp(
+        `compose\\n-f\\n${stack}\\n-f\\n[^\\n]+/image\\.yaml\\n--project-name\\npassdown-home\\nrun\\n`,
+      ),
+    );
+    expect(log).toContain('services:\n  ops:\n    image: "sha256:previous"');
+    expect(h.run(['--project', 'Not Valid']).status).toBe(2);
+    expect(h.run(['--image', 'bad image']).status).toBe(2);
   });
   it.each(['backup-fail', 'check-fail'])('removes only its own partial after %s', (mode) => {
     const h = harness();

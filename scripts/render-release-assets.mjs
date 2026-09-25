@@ -1,10 +1,10 @@
 #!/usr/bin/env node
-// Render the files a Passdown release attaches for installation: the compose
-// files with every image pinned to its published digest, the three operator
-// scripts unchanged, and SHA256SUMS. Also checks a rendered directory (T27).
+// Render the files a Passdown release attaches for installation: compose.yaml
+// with every image pinned to its published digest, the two operator scripts
+// unchanged, and SHA256SUMS. Also checks a rendered directory (T27).
 //
 //   node scripts/render-release-assets.mjs --version V --output DIR \
-//     --digest passdown=sha256:… --digest passdown-caddy=sha256:… --digest passdown-nginx=sha256:…
+//     --digest passdown=sha256:… --digest passdown-caddy=sha256:…
 //   node scripts/render-release-assets.mjs --check DIR --version V
 import { createHash } from 'node:crypto';
 import {
@@ -19,15 +19,18 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const registry = 'ghcr.io/nanwer';
-export const releaseImages = ['passdown', 'passdown-caddy', 'passdown-nginx'];
-const composeFiles = ['compose.yaml', 'compose.nginx.yaml'];
-const scripts = ['init.sh', 'upgrade.sh', 'backup.sh'];
+export const releaseImages = ['passdown', 'passdown-caddy'];
+const composeFiles = ['compose.yaml'];
+const scripts = ['upgrade.sh', 'backup.sh'];
 export const releaseFiles = [...composeFiles, ...scripts].sort();
 
 const digestPattern = /^sha256:[0-9a-f]{64}$/;
 const versionPattern = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(-alpha\.(0|[1-9]\d*))?$/;
-// `image: value`, `image: 'value'` or `image: ${VARIABLE:-value}`.
+// `image: value`, `image: 'value'`, `image: ${VARIABLE:-value}` or `image: *alias`.
 const imageLine = /^(\s*image:\s*)(['"]?)(.*?)\2\s*$/;
+// A top-level anchor naming one image for several services, such as
+// `x-passdown-image: &passdown-image ghcr.io/nanwer/passdown:V`.
+const anchorLine = /^(x-[a-z0-9-]*image:\s*&([A-Za-z0-9_-]+)\s+)(['"]?)(.*?)\3\s*$/;
 const buildKey = /(^|[\s{,])build\s*:/m;
 const pinnedReference =
   /^([a-z0-9]+(?:[._/-][a-z0-9]+)*):([A-Za-z0-9_][A-Za-z0-9._-]{0,127})@(sha256:[0-9a-f]{64})$/;
@@ -55,28 +58,29 @@ export function renderCompose(text, { version, digests }) {
   for (const name of releaseImages)
     if (!digestPattern.test(digests?.[name] ?? ''))
       throw new Error(`Missing or malformed digest for ${name}; expected sha256:<64 hex>.`);
-  const lines = text.split('\n').map((line) => {
-    const image = line.match(imageLine);
-    if (!image) return line;
-    const { prefix, reference, suffix } = splitImage(image[3]);
+  const pin = (value) => {
+    const { prefix, reference, suffix } = splitImage(value);
     const own = passdownImage(reference);
-    if (!own) return line;
+    if (!own) return null;
     if (!releaseImages.includes(own.name)) throw new Error(`Unknown Passdown image ${own.name}.`);
     if (own.tag !== version)
       throw new Error(
         `${reference} is not tagged ${version}; the source version must match the release.`,
       );
-    const pinned = `${registry}/${own.name}:${version}@${digests[own.name]}`;
-    return `${image[1]}${image[2]}${prefix}${pinned}${suffix}${image[2]}`;
+    return `${prefix}${registry}/${own.name}:${version}@${digests[own.name]}${suffix}`;
+  };
+  const lines = text.split('\n').map((line) => {
+    const anchor = line.match(anchorLine);
+    if (anchor) {
+      const pinned = pin(anchor[4]);
+      return pinned ? `${anchor[1]}${anchor[3]}${pinned}${anchor[3]}` : line;
+    }
+    const image = line.match(imageLine);
+    if (!image) return line;
+    const pinned = pin(image[3]);
+    return pinned ? `${image[1]}${image[2]}${pinned}${image[2]}` : line;
   });
-  // The development header points at source builds; a release file does not.
-  while (lines[0]?.startsWith('#') && /Development candidate|init\.sh --build/.test(lines[0]))
-    lines.shift();
-  return [
-    `# Passdown ${version}. Every image is pinned by digest. Upgrade with upgrade.sh;`,
-    '# see https://github.com/nanwer/passdown/tree/main/docs/self-hosting',
-    ...lines,
-  ].join('\n');
+  return [`# Passdown ${version}. Every image is pinned by digest.`, ...lines].join('\n');
 }
 
 /** Problems that make a rendered compose file unfit to ship (T27). */
@@ -84,11 +88,20 @@ export function composeProblems(text, { version }) {
   const problems = [];
   if (buildKey.test(text)) problems.push('contains a build: key');
   let images = 0;
-  for (const line of text.split('\n')) {
+  const lines = text.split('\n');
+  const anchors = new Set(lines.map((line) => line.match(anchorLine)?.[2]).filter(Boolean));
+  for (const line of lines) {
+    const anchor = line.match(anchorLine);
     const image = line.match(imageLine);
-    if (!image) continue;
+    const value = anchor ? anchor[4] : image?.[3];
+    if (value === undefined) continue;
+    // A service naming an anchor is checked where the anchor is defined.
+    if (value.startsWith('*')) {
+      if (!anchors.has(value.slice(1))) problems.push(`${value} names no image anchor`);
+      continue;
+    }
     images++;
-    const { reference, unresolved } = splitImage(image[3]);
+    const { reference, unresolved } = splitImage(value);
     if (unresolved) {
       problems.push(`${unresolved} has no digest-pinned default`);
       continue;
@@ -193,7 +206,8 @@ function main(argv) {
   renderReleaseAssets({ ...options, source });
   for (const file of composeFiles)
     for (const line of readFileSync(join(options.output, file), 'utf8').split('\n'))
-      if (imageLine.test(line)) console.log(`${file}:${line.replace(/^\s*image:\s*/, ' ')}`);
+      if (/@sha256:/.test(line) && (imageLine.test(line) || anchorLine.test(line)))
+        console.log(`${file}: ${line.trim()}`);
   process.stdout.write(readFileSync(join(options.output, 'SHA256SUMS'), 'utf8'));
   return 0;
 }

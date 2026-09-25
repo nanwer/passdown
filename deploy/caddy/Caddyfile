@@ -1,8 +1,25 @@
-# Passdown default reverse proxy (Caddy). HTTPS for PASSDOWN_DOMAIN, request-size
-# limits, broad per-network circuit breakers, and no
-# tokens or setup codes in its logs.
+# Passdown's bundled reverse proxy (Caddy). HTTPS on one port for whatever
+# address the server is reached by, request-size limits, broad per-network
+# circuit breakers, and no tokens in its logs.
+#
+# The certificate is made by Caddy's own local authority, never a public one:
+# no ACME, no ports 80/443, no on-demand issuing. Caddy manages one
+# certificate, for "localhost", and serves it for every name and IP address
+# (fallback_sni and default_sni), so the site answers at any address with the
+# usual first-visit browser warning, as Portainer does. Put a proxy with a
+# trusted certificate in front for a public address.
+#
+# No Strict-Transport-Security header: browsers ignore it from a certificate
+# they do not trust (RFC 6797, section 8.1), nothing here listens on plain
+# HTTP for it to protect, and once someone trusts this authority it would pin
+# every port of localhost. A proxy in front with a trusted certificate should
+# send it (in Nginx Proxy Manager: HSTS Enabled).
 {
 	order rate_limit before basic_auth
+	auto_https disable_redirects
+	skip_install_trust
+	default_sni localhost
+	fallback_sni localhost
 	# Requires preserved peer addresses for per-client isolation. See the
 	# deployment guide before adding another proxy; never trust arbitrary XFF.
 	log {
@@ -16,8 +33,9 @@
 	}
 }
 
-{$PASSDOWN_DOMAIN} {
-	tls {$PASSDOWN_TLS}
+# "localhost" names the one certificate; the bare address answers every host.
+https://localhost, https:// {
+	tls internal
 
 	# By route, not by what a token looks like: a protected route keeps only its
 	# prefix; a URI with a percent-escape is cut at the first %; any other query
@@ -33,7 +51,6 @@
 	}
 
 	header {
-		Strict-Transport-Security "max-age={$PASSDOWN_HSTS_MAX_AGE:31536000}"
 		-Server
 	}
 

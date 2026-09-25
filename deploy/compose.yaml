@@ -1,25 +1,47 @@
-# Development candidate: use init.sh --build until release images are published.
-name: ${COMPOSE_PROJECT_NAME:?Run init.sh to choose an installation project}
+# Passdown. Paste this file into Portainer (Stacks > Add stack > Web editor),
+# or save it as compose.yaml and run: docker compose up -d
+#
+# Change PASSDOWN_URL to the address people will use, either here or as a
+# stack environment variable. Then open that address and sign in with
+# admin@example.com / changeme; Passdown asks you to finish setting up.
+# Guide: https://github.com/nanwer/passdown/blob/main/docs/self-hosting/install.md
+x-passdown-url: &passdown-url ${PASSDOWN_URL:-https://localhost:8443}
+x-passdown-image: &passdown-image ghcr.io/nanwer/passdown:0.1.0-alpha.1
 x-logging: &logging
   driver: json-file
   options: { max-size: '10m', max-file: '5' }
-x-passdown: &passdown
-  image: ${PASSDOWN_IMAGE:-ghcr.io/nanwer/passdown:0.1.0-alpha.1}
+# Secrets live in two private volumes, written once by the init service.
+# Web never mounts the owner volume, so it never holds the owner password.
 x-operator-environment: &operator-environment
-  GUIDE_OWNER_DATABASE_URL: postgresql://guide_owner:${GUIDE_DB_OWNER_PASSWORD:?Run init.sh}@postgres:5432/guide_app
-  GUIDE_DATABASE_URL: postgresql://guide_runtime:${GUIDE_DB_RUNTIME_PASSWORD:?Run init.sh}@postgres:5432/guide_app
-  BETTER_AUTH_URL: ${BETTER_AUTH_URL:?Run init.sh}
+  GUIDE_DB_OWNER_PASSWORD_FILE: /run/passdown/owner/database-owner-password
+  GUIDE_DB_RUNTIME_PASSWORD_FILE: /run/passdown/app/database-runtime-password
+  PASSDOWN_URL: *passdown-url
   GUIDE_MEDIA_ROOT: /var/lib/passdown/media
 services:
+  init:
+    image: *passdown-image
+    # Root only to hand the secret files to the users that read them.
+    user: '0:0'
+    entrypoint: ['passdown']
+    command: ['init-secrets']
+    restart: 'no'
+    network_mode: none
+    volumes:
+      - owner-secrets:/run/passdown/owner
+      - app-secrets:/run/passdown/app
+    logging: *logging
   postgres:
     image: postgres:17-alpine@sha256:f02121de6f74d30d8a94cd1d9584125e2178d7e6c377d8130112d4e52d867995
     restart: unless-stopped
     environment:
       POSTGRES_DB: guide_app
       POSTGRES_USER: guide_owner
-      POSTGRES_PASSWORD: ${GUIDE_DB_OWNER_PASSWORD:?Run init.sh}
-    volumes: [database:/var/lib/postgresql/data]
+      POSTGRES_PASSWORD_FILE: /run/passdown/owner/database-owner-password
+    volumes:
+      - database:/var/lib/postgresql/data
+      - owner-secrets:/run/passdown/owner:ro
     networks: [backend]
+    depends_on: { init: { condition: service_completed_successfully } }
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U guide_owner -d guide_app']
       interval: 5s
@@ -28,26 +50,31 @@ services:
     stop_grace_period: 30s
     logging: *logging
   migrate:
-    <<: *passdown
+    image: *passdown-image
     entrypoint: ['passdown']
     command: ['migrate']
     restart: 'no'
     environment: *operator-environment
+    volumes:
+      - owner-secrets:/run/passdown/owner:ro
+      - app-secrets:/run/passdown/app:ro
     networks: [backend]
     depends_on: { postgres: { condition: service_healthy } }
     logging: *logging
   web:
-    <<: *passdown
+    image: *passdown-image
     restart: unless-stopped
     init: true
     environment:
-      GUIDE_DATABASE_URL: postgresql://guide_runtime:${GUIDE_DB_RUNTIME_PASSWORD:?Run init.sh}@postgres:5432/guide_app
-      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?Run init.sh}
-      BETTER_AUTH_URL: ${BETTER_AUTH_URL:?Run init.sh}
-      PASSDOWN_SETUP_CODE_SHA256: ${PASSDOWN_SETUP_CODE_SHA256:-}
+      GUIDE_DB_RUNTIME_PASSWORD_FILE: /run/passdown/app/database-runtime-password
+      BETTER_AUTH_SECRET_FILE: /run/passdown/app/session-secret
+      PASSDOWN_URL: *passdown-url
       PASSDOWN_SOURCE_URL: ${PASSDOWN_SOURCE_URL:-}
-    volumes: [media:/var/lib/passdown/media]
+    volumes:
+      - media:/var/lib/passdown/media
+      - app-secrets:/run/passdown/app:ro
     networks: [backend, frontend]
+    # Web starts only after this version's migrations succeeded.
     depends_on:
       postgres: { condition: service_healthy }
       migrate: { condition: service_completed_successfully }
@@ -65,31 +92,41 @@ services:
       retries: 3
     logging: *logging
   proxy:
-    image: ${PASSDOWN_PROXY_IMAGE:-ghcr.io/nanwer/passdown-caddy:0.1.0-alpha.1}
+    image: ghcr.io/nanwer/passdown-caddy:0.1.0-alpha.1
     restart: unless-stopped
     environment:
-      PASSDOWN_DOMAIN: ${PASSDOWN_DOMAIN:?Run init.sh}
-      PASSDOWN_TLS: ${PASSDOWN_TLS:?Run init.sh}
-      PASSDOWN_HSTS_MAX_AGE: ${PASSDOWN_HSTS_MAX_AGE:-31536000}
       PASSDOWN_SIGN_IN_LIMIT: ${PASSDOWN_SIGN_IN_LIMIT:-300}
       PASSDOWN_LINK_LIMIT: ${PASSDOWN_LINK_LIMIT:-300}
       PASSDOWN_ADMIN_LIMIT: ${PASSDOWN_ADMIN_LIMIT:-300}
-    ports: ['${PASSDOWN_HTTP_PORT:-80}:80', '${PASSDOWN_HTTPS_PORT:-443}:443']
-    volumes: [proxy-data:/data, proxy-config:/config]
+    # HTTPS with a certificate Caddy makes itself. Nothing on ports 80 or 443.
+    ports: ['${PASSDOWN_PORT:-8443}:443']
+    volumes:
+      - proxy-data:/data
+      - proxy-config:/config
     networks: [frontend]
     depends_on: { web: { condition: service_started } }
     logging: *logging
+  # Operator commands: docker compose run --rm ops help
   ops:
-    <<: *passdown
+    image: *passdown-image
     profiles: ['ops']
     entrypoint: ['passdown']
     command: ['help']
     environment: *operator-environment
-    volumes: [media:/var/lib/passdown/media]
+    volumes:
+      - media:/var/lib/passdown/media
+      - owner-secrets:/run/passdown/owner:ro
+      - app-secrets:/run/passdown/app:ro
     networks: [backend]
     depends_on: { postgres: { condition: service_healthy } }
     logging: *logging
 networks:
   backend: { internal: true }
   frontend: {}
-volumes: { database: {}, media: {}, proxy-data: {}, proxy-config: {} }
+volumes:
+  database: {}
+  media: {}
+  owner-secrets: {}
+  app-secrets: {}
+  proxy-data: {}
+  proxy-config: {}
