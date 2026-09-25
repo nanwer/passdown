@@ -45,6 +45,7 @@ services:
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?Run init.sh}
       BETTER_AUTH_URL: ${BETTER_AUTH_URL:?Run init.sh}
       PASSDOWN_SETUP_CODE_SHA256: ${PASSDOWN_SETUP_CODE_SHA256:-}
+      PASSDOWN_SOURCE_URL: ${PASSDOWN_SOURCE_URL:-}
     volumes: [media:/var/lib/passdown/media]
     networks: [backend, frontend]
     depends_on:

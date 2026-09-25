@@ -6,7 +6,7 @@ Passdown is open-source software for creating and sharing step-by-step guides. U
 
 An installation brings together a **public library** and a **members-only library**. Authors use the same editor for both, and readers see the guides they have access to.
 
-[Get started](#run-locally) · [Installation guide](docs/getting-started.md) · [Roadmap](ROADMAP.md) · [Contribute](CONTRIBUTING.md)
+[Get started](#run-locally) · [Installation guide](docs/getting-started.md) · [Self-host](docs/self-hosting/install.md) · [Roadmap](ROADMAP.md) · [Contribute](CONTRIBUTING.md)
 
 > **Early development:** Passdown is available for local evaluation and development. Features are still being refined, and production deployment and recovery procedures are not yet supported.
 
@@ -62,7 +62,7 @@ A larger, optional example library is available. Read the [showcase instructions
 
 ## Development
 
-A separate [source-built container stack](docs/self-hosting/development-stack.md) is available for evaluation with HTTPS, browser setup and persistent storage. Published images and production operating procedures are still in development.
+To run Passdown on a server, follow the [self-hosting guide](docs/self-hosting/install.md): Docker Compose with HTTPS through Caddy or nginx, setup in the browser, backups and upgrades. Until published images arrive with the first alpha release, it builds the images from source. The [configuration reference](docs/self-hosting/configuration.md) and [troubleshooting guide](docs/self-hosting/troubleshooting.md) cover the details.
 
 ```sh
 pnpm check

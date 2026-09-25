@@ -24,6 +24,16 @@ Use a separate evaluation installation, never your own data.
 3. Simulate a failing migration: in a copy of the settings file, change `GUIDE_DB_RUNTIME_PASSWORD`, then run `sh upgrade.sh --env-file <that copy> --build --skip-backup`. Expect exit 1 and "Migrations failed; the site is still running the previous version." While it runs, reload the site: it keeps working. Afterwards `docker compose ps` shows the same web container, and `upgrade.log` records the failure.
 4. Stop the stack with `docker compose stop web` and run `sh upgrade.sh --build`. Expect a refusal telling you to use `docker compose up -d`, and no backup or build.
 
+## Self-hosting guides
+
+Read [install](../self-hosting/install.md), [configuration](../self-hosting/configuration.md) and [troubleshooting](../self-hosting/troubleshooting.md) as an operator would, on GitHub or locally.
+
+1. Follow **Install Passdown on your own server** from a fresh directory using [Building from source](../self-hosting/install.md#building-from-source) with `--domain localhost --http-port 18080 --https-port 18443`. Every command should work as written, `docker compose ps --all` should match the described states, and health should report `setup-required` before setup and `ready` after.
+2. In the configuration reference, check that each variable in your `.env` is described, and that the `init.sh` options table matches `sh init.sh --help`.
+3. Add `PASSDOWN_SOURCE_URL=https://example.org/fork` to `.env` and run `docker compose up -d --force-recreate web`. Expect every **Source code** link to point there. Remove it and recreate web: the links return to the Passdown commit.
+4. Pick three troubleshooting entries (for example a wrong setup code, a missing settings variable, a lost setup code) and reproduce them. The guide's description should match what you see, and its fix should work.
+5. Run `pnpm lint`. It includes the configuration check: temporarily delete one variable's row from the configuration reference and expect lint to name it; restore the row.
+
 ## Installing behind nginx
 
 Use a separate evaluation installation and the [nginx guide](../self-hosting/nginx.md). You need `openssl` for a test certificate.

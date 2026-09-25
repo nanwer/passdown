@@ -1,5 +1,7 @@
 # Evaluate the container stack
 
+To install Passdown on a server, follow the [installation guide](install.md); the [configuration reference](configuration.md) and [troubleshooting guide](troubleshooting.md) apply to both. This page covers evaluating the stack from a source checkout on your own computer, the operator details behind the installation guide, and the automated checks.
+
 This is a source-built development candidate. Picture verification, consistent backups, offline archive checks and staged restore are available in the [backup guide](backups.md). Published installation images are not available yet; account recovery is described below. Keep using disposable evaluation data. The existing local installation instructions remain in [Getting started](../getting-started.md).
 
 The stack runs PostgreSQL, an explicit migration job, the web application and a Caddy HTTPS proxy. Only the proxy publishes host ports. Web receives runtime database credentials; the migration and operator services receive owner credentials. Both the database and uploaded pictures persist in named volumes.
@@ -111,7 +113,7 @@ If migrations fail, the site keeps running the previous version, `passdown:local
 
 ## Trace a reported failure
 
-When a request fails unexpectedly, people see a message with a request ID, and a page that fails to load shows an error reference. Find the matching line in the web service's log:
+A page that fails to load shows an error reference, and the setup page shows a request ID. Every API response carries its request ID in the `X-Request-ID` header; other studio messages don't display it yet. Find the matching line in the web service's log:
 
 ```sh
 docker compose logs web | grep '<request ID or reference>'
