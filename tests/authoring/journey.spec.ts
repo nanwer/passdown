@@ -128,8 +128,10 @@ test('@core real public create, step editing, save, reload, immutable publicatio
     .fill('Compare the result with the starting state.');
   await page.getByRole('button', { name: 'Duplicate', exact: true }).click();
   await page.getByRole('button', { name: 'Move up', exact: true }).click();
-  page.once('dialog', (dialog) => dialog.accept());
   await page.getByRole('button', { name: 'Remove', exact: true }).click();
+  const removal = page.getByRole('dialog', { name: 'Remove this step?' });
+  await removal.getByRole('button', { name: 'Remove step', exact: true }).click();
+  await expect(removal).toHaveCount(0);
   await page.getByRole('button', { name: 'Preview', exact: true }).click();
   await expect(
     page.getByText('Clear the table and arrange the tools.', { exact: true }),
