@@ -5,6 +5,10 @@ import { fileURLToPath } from 'node:url';
 const workspaceRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const config: NextConfig = {
   poweredByHeader: false,
+  // Pictures are served only by the authorised media route. The framework's
+  // resizer would fetch them anonymously and cache public copies for hours,
+  // outliving a withdrawal; with this set, /_next/image answers 404.
+  images: { unoptimized: true },
   output: process.env.GUIDE_NEXT_OUTPUT === 'standalone' ? 'standalone' : undefined,
   outputFileTracingRoot: workspaceRoot,
   turbopack: { root: workspaceRoot },

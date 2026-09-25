@@ -94,7 +94,17 @@ export async function mutationContext(request: Request) {
   const app = getApplication();
   assertOrigin(request, app.origin);
   const { actor, session } = await requireSession(request);
-  await enforceRateLimit('mutations:global', 1000);
-  await enforceRateLimit(`mutations:${actor.id}`, 120);
+  await enforceMutationLimits(actor.id);
   return { ...app, actor, session };
+}
+/**
+ * The personal limit is charged first: a request it refuses must not spend the
+ * installation-wide allowance, or one busy account could block every save.
+ */
+export async function enforceMutationLimits(
+  actorId: string,
+  consume: (key: string, limit: number) => Promise<void> = enforceRateLimit,
+) {
+  await consume(`mutations:${actorId}`, 120);
+  await consume('mutations:global', 1000);
 }

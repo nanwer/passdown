@@ -122,7 +122,7 @@ Keep the same target settings and media volume. The database checkpoint is autho
 docker compose --env-file restore.env run --rm -T ops restore --activate
 ```
 
-After the database has loaded, this resumes verification, access cleanup, picture moves or final activation as needed. Already committed credential cleanup is not repeated. A wrong runtime password keeps application connections closed; correct the configuration and retry. An incomplete upload or failed verification requires discard:
+After the database has loaded, this resumes verification, access cleanup, picture moves or final activation as needed. Already committed credential cleanup is not repeated. A wrong runtime password keeps application connections closed; correct the configuration and retry. Resuming never skips a step: if the database records steps this restore didn't complete, as a tampered backup could arrange, `--activate` refuses with exit code 4. An incomplete upload, failed verification or that refusal requires discard:
 
 ```sh
 docker compose --env-file restore.env run --rm -T ops restore --discard

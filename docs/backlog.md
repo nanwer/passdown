@@ -151,6 +151,39 @@ requires green runs in all three engines.
   sign-ins let a few clients slow everyone down. There is no Content Security
   Policy yet. Both belong to the release security review.
 
+### Low-severity findings from the pre-release security review
+
+The review found nothing high-severity; its medium findings are fixed. None of
+these is reachable through Passdown's own routes and interface today, or
+each needs operator-controlled input.
+
+- **Database checks the application already makes:** `guide_public_blockers`
+  and `category_blockers` lack a manager check; leaving `withdrawn` can change
+  the release in the same update, and inserts can set any publication state;
+  `accept_invitation` doesn't bind the address or refuse existing members;
+  several transactions rely on the default `read committed` isolation.
+- **Accounts:** the 032 backfill can make an ordinary member the first
+  administrator if the setup account is gone; one administrator can reset
+  another's password; suspended accounts can still complete sign-in (they
+  can do nothing); suspending doesn't close an open reset link; invitations
+  and membership changes aren't audited, and admin deletions are recorded as
+  operator actions.
+- **Sign-in and links:** parallel requests can exceed the per-address failure
+  limit; `get-session` and the sign-in response return the session token;
+  setup-code attempts are throttled only after a wrong code; an interrupted
+  invitation can leave an unverified account that blocks its address;
+  passwords over 128 characters are refused with a misleading message;
+  reset-link and invitation counters are installation-wide.
+- **Uploads and logs:** without a proxy, a chunked upload has no size limit;
+  every image decoder runs before the type check; resized copies aren't
+  written atomically; log redaction misses 32-character tokens, and the
+  framework's own error output isn't redacted.
+- **Deployment:** nginx serves any host name; the nginx entrypoint's domain
+  check accepts a multi-line value (startup then fails); Caddy doesn't
+  validate the limit and HSTS settings; `backup.sh` doesn't clear Compose
+  settings exported in the shell; Caddy has no explicit request timeouts;
+  the archive reader lacks tests for link and extended-header members.
+
 ### Interface
 
 - **A mark placed while a photo is still loading** is measured against the

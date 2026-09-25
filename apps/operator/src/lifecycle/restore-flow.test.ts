@@ -179,7 +179,9 @@ describe('staged restore coordination', () => {
     expect(h.session.release).toHaveBeenCalledOnce();
   });
   it('uses the database checkpoint and never repeats committed access cleanup', async () => {
-    h.db.checkpoint = 'access-reset'; // file mirror deliberately remains loaded
+    // A crash after the database step but before the file mirror was written.
+    h.file = state('verified');
+    h.db.checkpoint = 'access-reset';
     await performRestore({ args: [], options: { activate: true } }, context());
     expect(h.session.applyCredentialPolicy).not.toHaveBeenCalled();
     expect(h.events).toEqual(['move', 'media-moved', 'active', 'cleanup', 'finish']);
@@ -216,7 +218,24 @@ describe('staged restore coordination', () => {
     expect(h.events).toEqual(['finish']);
     expect(h.session.activate).not.toHaveBeenCalled();
   });
+  it('refuses to activate when the database records steps this restore never took', async () => {
+    // A crafted dump can rewrite the checkpoint while it loads.
+    for (const [recorded, database] of [
+      ['receiving', 'media-moved'],
+      ['loaded', 'access-reset'],
+      ['loaded', 'media-moved'],
+    ]) {
+      h.file = state(recorded);
+      h.db = { ...h.db, checkpoint: database };
+      await expect(
+        performRestore({ args: [], options: { activate: true } }, context()),
+      ).rejects.toMatchObject({ exitCode: 4 });
+    }
+    expect(h.session.applyCredentialPolicy).not.toHaveBeenCalled();
+    expect(h.session.activate).not.toHaveBeenCalled();
+  });
   it('keeps a failed activation available for retry without reapplying credential cleanup', async () => {
+    h.file = state('access-reset');
     h.db.checkpoint = 'media-moved';
     h.session.activate.mockRejectedValue(new Error('probe refused'));
     await expect(

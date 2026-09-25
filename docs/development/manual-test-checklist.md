@@ -36,6 +36,14 @@ Read [install](../self-hosting/install.md), [configuration](../self-hosting/conf
 4. Pick three troubleshooting entries (for example a wrong setup code, a missing settings variable, a lost setup code) and reproduce them. The guide's description should match what you see, and its fix should work.
 5. Run `pnpm lint`. It includes the configuration check: temporarily delete one variable's row from the configuration reference and expect lint to name it; restore the row.
 
+## Security review fixes
+
+1. With the app running, open `/_next/image?url=%2Fapi%2Fmedia%2Fanything&w=640&q=75`. Expect a 404 page: pictures are only served by `/api/media`, which checks who may read them. Pictures in guides still display normally.
+2. Studio saves keep working normally. A single account that sends more than 120 changes a minute is refused on its own (429) without slowing other people's saves.
+3. Staged restore: resuming an interrupted restore with `restore --activate` still continues from where it stopped. The unit test `refuses to activate when the database records steps this restore never took` covers the tampered case.
+
+The review's low-severity findings are listed in the [backlog](../backlog.md#low-severity-findings-from-the-pre-release-security-review).
+
 ## Installing behind nginx
 
 Use a separate evaluation installation and the [nginx guide](../self-hosting/nginx.md). You need `openssl` for a test certificate.

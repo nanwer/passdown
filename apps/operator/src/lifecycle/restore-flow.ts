@@ -94,6 +94,23 @@ export async function performRestore(input: OperatorInput, context: OperatorCont
           'This restore cannot be activated. Run restore --discard before trying the backup again.',
           4,
         );
+      // Each step updates the database, then this file, so a crash leaves the
+      // database at most one step ahead. More means something else wrote the
+      // checkpoint, such as a crafted dump while it loaded: never skip steps.
+      const order: RestoreCheckpoint[] = [
+        'receiving',
+        'loaded',
+        'verified',
+        'access-reset',
+        'media-moved',
+        'active',
+      ];
+      const ahead = order.indexOf(db.checkpoint) - order.indexOf(file.checkpoint);
+      if (ahead < 0 || ahead > 1)
+        throw new OperatorFailure(
+          'The database records restore steps this restore did not complete. The target was not activated. Run restore --discard and restore from a backup you trust.',
+          4,
+        );
       file = { ...file, checkpoint: db.checkpoint };
       if (db.checkpoint !== 'active') await writeRestoreState(root, file);
     } else {
