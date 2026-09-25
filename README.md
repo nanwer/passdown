@@ -1,4 +1,9 @@
-# Passdown
+<h1>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/passdown-logo-dark.svg">
+    <img alt="Passdown" src="docs/assets/passdown-logo.svg" width="300">
+  </picture>
+</h1>
 
 **Practical knowledge, ready to pass on.**
 
