@@ -10,18 +10,19 @@ ENV CI=1 NEXT_TELEMETRY_DISABLED=1
 FROM toolchain AS build
 WORKDIR /src
 COPY pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
-RUN --mount=type=cache,id=passdown-pnpm,target=/root/.local/share/pnpm/store pnpm fetch --frozen-lockfile
+# The pnpm store lives in the layers, not a cache mount: a layer restored from a
+# build cache then always comes with the store it was built from, which the
+# licence inventory reads.
+RUN pnpm fetch --frozen-lockfile
 COPY . .
 # Files keep their checkout permissions; the runtime user must be able to read
-# them even when the checkout was made with a private umask.
-RUN chmod -R a+rX .
-# A restored layer cache can skip the fetch above while the store mount starts
-# empty, so the install may download what is missing; the licence inventory
-# then finds every package's index in the store.
-RUN --mount=type=cache,id=passdown-pnpm,target=/root/.local/share/pnpm/store pnpm install --prefer-offline --frozen-lockfile \
+# them even when the checkout was made with a private umask. Only the copied
+# source: the dependencies pnpm installed are already readable.
+RUN find . -path ./node_modules -prune -o -exec chmod a+rX {} +
+RUN pnpm install --offline --frozen-lockfile \
  && { pnpm licenses list --prod --json > /src/third-party-licenses.json \
       || { echo 'The licence inventory failed:' >&2; head -c 4000 /src/third-party-licenses.json >&2; exit 1; }; }
-RUN --mount=type=cache,id=passdown-pnpm,target=/root/.local/share/pnpm/store pnpm migrations:check \
+RUN pnpm migrations:check \
  && GUIDE_NEXT_OUTPUT=standalone pnpm build \
  && node scripts/check-production-bundle.mjs apps/web/.next \
  && node scripts/check-image-files.mjs apps/web/.next/standalone --prune-metadata
