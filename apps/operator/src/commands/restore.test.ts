@@ -1,7 +1,10 @@
 import { PassThrough } from 'node:stream';
+import { RuntimeRoleError } from '@guide/database';
 import { describe, expect, it, vi } from 'vitest';
 import { runCli } from '../cli';
 import { restoreCommand } from './restore';
+import { performRestore } from '../lifecycle/restore-flow';
+vi.mock('../lifecycle/restore-flow', () => ({ performRestore: vi.fn() }));
 import { ToolFailure } from '../lifecycle/run-tool';
 import { BackupValidationError, checkBackup } from '../lifecycle/backup-check';
 vi.mock('../lifecycle/backup-check', async (importOriginal) => ({
@@ -27,12 +30,46 @@ describe('restore command boundary', () => {
     expect(checkBackup).toHaveBeenLastCalledWith(io.stdin, { signal: io.signal });
     expect(io.out).toHaveBeenCalledWith(expect.stringContaining('No database was restored'));
   });
-  it('refuses destructive restore before reading input', async () => {
-    vi.mocked(checkBackup).mockClear();
-    const io = context();
-    expect(await runCli(['restore'], io, [restoreCommand])).toBe(4);
-    expect(checkBackup).not.toHaveBeenCalled();
-    expect(io.info).toHaveBeenCalledWith(expect.stringContaining('not available yet'));
+  it.each([[], ['--activate'], ['--discard']].map((flags) => ({ flags })))(
+    'requires configuration for database restore %s',
+    async ({ flags }) => {
+      expect(await runCli(['restore', ...flags], context(), [restoreCommand])).toBe(3);
+    },
+  );
+  it('runs restore with configured owner, runtime and media', async () => {
+    const io = {
+      ...context(),
+      env: {
+        GUIDE_OWNER_DATABASE_URL: 'postgres://owner:password@localhost/test',
+        GUIDE_DATABASE_URL: 'postgres://guide_runtime:password@localhost/test',
+        GUIDE_MEDIA_ROOT: '/tmp/restore-test',
+      },
+    };
+    expect(await runCli(['restore'], io, [restoreCommand])).toBe(0);
+    expect(performRestore).toHaveBeenCalled();
+  });
+  it.each(
+    [
+      ['--activate', '--discard'],
+      ['--check', '--activate'],
+      ['--discard', '--from', '/tmp/source'],
+    ].map((flags) => ({ flags })),
+  )('rejects incompatible options before configuration %s', async ({ flags }) => {
+    expect(await runCli(['restore', ...flags], context(), [restoreCommand])).toBe(2);
+  });
+  it('explains a failed neutral-database password proof without exposing credentials', async () => {
+    vi.mocked(performRestore).mockRejectedValueOnce(new RuntimeRoleError('password'));
+    const io = {
+      ...context(),
+      env: {
+        GUIDE_OWNER_DATABASE_URL: 'postgres://owner:password@localhost/test',
+        GUIDE_DATABASE_URL: 'postgres://guide_runtime:password@localhost/test',
+        GUIDE_MEDIA_ROOT: '/tmp/restore-test',
+      },
+    };
+    expect(await runCli(['restore', '--activate'], io, [restoreCommand])).toBe(1);
+    expect(io.info).toHaveBeenCalledWith(expect.stringContaining('postgres'));
+    expect(io.info).toHaveBeenCalledWith(expect.stringContaining('--activate'));
   });
   it('does not echo private data from a rejected archive or tool', async () => {
     vi.mocked(checkBackup).mockRejectedValueOnce(new Error('synthetic-private-payload'));
@@ -56,11 +93,8 @@ describe('restore command boundary', () => {
     expect(await runCli(['restore', '--check'], io, [restoreCommand])).toBe(1);
     expect(JSON.stringify(io.info.mock.calls)).not.toContain('private');
   });
-  it.each(['--activate', '--discard', '--unknown'])(
-    'refuses unsupported option %s',
-    async (option) => {
-      const io = context();
-      expect(await runCli(['restore', option], io, [restoreCommand])).toBe(2);
-    },
-  );
+  it.each(['--unknown'])('refuses unsupported option %s', async (option) => {
+    const io = context();
+    expect(await runCli(['restore', option], io, [restoreCommand])).toBe(2);
+  });
 });

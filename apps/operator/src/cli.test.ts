@@ -195,3 +195,27 @@ it('explains migration file mismatches without attempting a database connection'
     rmSync(directory, { recursive: true, force: true });
   }
 });
+
+describe('conditional operator configuration', () => {
+  it('requires storage settings only for the mutating form of a command', async () => {
+    const command = make({
+      needs: (input) => (input.options.json ? [] : ['owner']),
+      options: { json: { type: 'boolean' } },
+    });
+    const offline = harness();
+    expect(await runCli(['inspect', '--json'], offline.io, [command])).toBe(0);
+    const online = harness();
+    expect(await runCli(['inspect'], online.io, [command])).toBe(3);
+    expect(command.run).toHaveBeenCalledTimes(1);
+  });
+  it('refuses incompatible options as usage before checking credentials', async () => {
+    const command = make({
+      needs: ['owner'],
+      options: { a: { type: 'boolean' }, b: { type: 'boolean' } },
+      validate: (input) => !(input.options.a && input.options.b),
+    });
+    const h = harness();
+    expect(await runCli(['inspect', '--a', '--b'], h.io, [command])).toBe(2);
+    expect(command.run).not.toHaveBeenCalled();
+  });
+});

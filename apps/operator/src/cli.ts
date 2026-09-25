@@ -37,6 +37,7 @@ function parse(command: OperatorCommand, argv: string[]): OperatorInput {
     input.args.length > (command.arguments?.max ?? 0)
   )
     throw new Error('usage');
+  if (command.validate && !command.validate(input)) throw new Error('usage');
   return input;
 }
 export async function runCli(
@@ -77,7 +78,10 @@ export async function runCli(
         );
     };
     checkInterrupted();
-    const config = readOperatorConfig(command.needs, io.env);
+    const config = readOperatorConfig(
+      typeof command.needs === 'function' ? command.needs(input) : command.needs,
+      io.env,
+    );
     await command.run(input, {
       ...config,
       out: io.out,

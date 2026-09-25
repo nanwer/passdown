@@ -54,7 +54,10 @@ function mediaRoot() {
  */
 function assetPath(workspaceId: string, assetId: string, variant: MediaFileVariant) {
   try {
-    return join(mediaRoot(), mediaFileName(workspaceId, assetId, variant));
+    mediaFileName(workspaceId, assetId, variant);
+    // Keep the suffix visible to Next's file tracer. An opaque helper result
+    // makes runtime media reads look like arbitrary application source reads.
+    return join(mediaRoot(), workspaceId, `${assetId}.${variant}.webp`);
   } catch (error) {
     if (error instanceof MediaFileNameError)
       throw new ApplicationError('VALIDATION_ERROR', 'Invalid asset reference.', 422);

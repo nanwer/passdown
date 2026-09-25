@@ -107,7 +107,7 @@ async function credentialCounts(
       : 0,
   };
 }
-async function mediaRows(client: QueryClient): Promise<MediaRows> {
+export async function readMediaRows(client: QueryClient): Promise<MediaRows> {
   const assets = (
     await client.query<Omit<MediaFileMetadata, 'bytes'> & { bytes: string }>(`
       SELECT workspace_id AS workspace,id AS asset,byte_size::text AS bytes,content_hash AS sha256
@@ -215,7 +215,7 @@ export async function openBackupSnapshot(params: DatabaseTarget): Promise<Backup
     ).rows;
     const counts = await countTables(client, tables);
     const credentials = await credentialCounts(client, names);
-    const rows = await mediaRows(client);
+    const rows = await readMediaRows(client);
     return {
       id: snapshot.id,
       snapshotAt: new Date(snapshot.snapshot_at).toISOString(),

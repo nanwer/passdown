@@ -1,6 +1,6 @@
 # Evaluate the container stack
 
-This is a source-built development candidate. Picture verification, consistent backups and offline archive checks are available in the [backup guide](backups.md). Published installation images, database restore, upgrade tooling and account recovery are not available yet. Keep using disposable evaluation data. The existing local installation instructions remain in [Getting started](../getting-started.md).
+This is a source-built development candidate. Picture verification, consistent backups, offline archive checks and staged restore are available in the [backup guide](backups.md). Published installation images, upgrade tooling and account recovery are not available yet. Keep using disposable evaluation data. The existing local installation instructions remain in [Getting started](../getting-started.md).
 
 The stack runs PostgreSQL, an explicit migration job, the web application and a Caddy HTTPS proxy. Only the proxy publishes host ports. Web receives runtime database credentials; the migration and operator services receive owner credentials. Both the database and uploaded pictures persist in named volumes.
 
@@ -92,4 +92,4 @@ PASSDOWN_SKIP_BUILD=1 sh scripts/deployment-boot-check.sh
 
 The proxy check creates disposable containers and tests certificate trust, headers, upload limits, request throttling and log redaction. The boot check creates a separate project, verifies setup, upload and restart, then removes only its own containers and volumes. It refuses occupied test ports. Failures identify the stage; raw container logs and entered credentials are kept out of console output.
 
-The local stack has been exercised on Linux arm64 under Docker. The separate CI container job exercises Linux amd64. A clean-host public-certificate rehearsal, nginx, database restore, upgrade tooling and release approval remain required before an Open Alpha publication.
+The local stack has been exercised on Linux arm64 under Docker. The separate CI container job exercises Linux amd64. A clean-host public-certificate rehearsal, nginx, upgrade tooling and release approval remain required before an Open Alpha publication.

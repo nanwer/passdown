@@ -16,3 +16,5 @@ export * from './runtime-role';
 export * from './migrator';
 
 export * from './lifecycle';
+
+export * from './restore';

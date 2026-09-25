@@ -20,7 +20,8 @@ export type OperatorCommand = {
   summary: string;
   usage: string;
   options?: Record<string, { type: 'string' | 'boolean'; required?: boolean }>;
-  needs: readonly OperatorNeed[];
+  needs: readonly OperatorNeed[] | ((input: OperatorInput) => readonly OperatorNeed[]);
+  validate?: (input: OperatorInput) => boolean;
   /** Commands must opt into positional arguments, keeping typos fail-closed. */
   arguments?: { min: number; max: number };
   run: (input: OperatorInput, context: OperatorContext) => Promise<void>;

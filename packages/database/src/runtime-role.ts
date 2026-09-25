@@ -42,6 +42,8 @@ export async function ensureRuntimeRole(options: {
   phase?: 'before-schema' | 'after-schema';
   role?: string;
   probeDatabase?: string;
+  /** Restore validates the role while its target is closed, then proves login before activation. */
+  proveLogin?: boolean;
 }): Promise<{ created: boolean; passwordChanged: boolean }> {
   const policy = options.policy ?? 'loopback';
   const owner = ownerDatabaseTarget(options.ownerURL, policy);
@@ -121,17 +123,19 @@ export async function ensureRuntimeRole(options: {
       );
       passwordChanged = true;
     }
-    const probe = new pg.Client(
-      pgClientConfig({ ...runtime, database: options.probeDatabase ?? runtime.database }),
-    );
-    try {
-      await probe.connect();
-      const who = await probe.query('SELECT current_user');
-      if (who.rows[0]?.current_user !== role) throw new RuntimeRoleError('password');
-    } catch {
-      throw new RuntimeRoleError('password');
-    } finally {
-      await probe.end();
+    if (options.proveLogin !== false) {
+      const probe = new pg.Client(
+        pgClientConfig({ ...runtime, database: options.probeDatabase ?? runtime.database }),
+      );
+      try {
+        await probe.connect();
+        const who = await probe.query('SELECT current_user');
+        if (who.rows[0]?.current_user !== role) throw new RuntimeRoleError('password');
+      } catch {
+        throw new RuntimeRoleError('password');
+      } finally {
+        await probe.end();
+      }
     }
     return { created, passwordChanged };
   } finally {

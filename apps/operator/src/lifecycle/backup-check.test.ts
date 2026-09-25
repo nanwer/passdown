@@ -1,12 +1,27 @@
 import { createHash } from 'node:crypto';
-import { mkdtemp, readdir, rm, stat } from 'node:fs/promises';
+import {
+  chmod,
+  mkdir,
+  mkdtemp,
+  readFile,
+  readdir,
+  rm,
+  stat,
+  symlink,
+  writeFile,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Readable } from 'node:stream';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { expectedMigrations } from '@guide/database';
-import { tarArchive } from './ustar';
-import { BackupValidationError, checkBackup } from './backup-check';
+import { readTar, tarArchive } from './ustar';
+import {
+  BackupValidationError,
+  backupFromDirectory,
+  checkBackup,
+  receiveBackup,
+} from './backup-check';
 import type { BackupManifest } from './manifest';
 import { runTool } from './run-tool';
 vi.mock('./run-tool', () => ({ runTool: vi.fn() }));
@@ -246,5 +261,123 @@ describe('offline backup verification', () => {
 
     await expect(checkBackup(Readable.from([fixture.bytes]), options)).rejects.toThrow();
     expect(await readdir(options.temporaryRoot)).toEqual([]);
+  });
+});
+
+describe('verified backup receipt and directory source', () => {
+  it('retains all four exact members and hashes raw manifest bytes for the backup ID', async () => {
+    const fixture = await archive();
+    fixture.files['manifest.json'] = Buffer.from(JSON.stringify(fixture.manifest, null, 2) + '\n');
+    fixture.files.SHA256SUMS = Buffer.from(
+      ['database.dump', 'media.tar', 'manifest.json']
+        .map((name) => `${digest(fixture.files[name]!).sha256}  ${name}\n`)
+        .join(''),
+    );
+    const options = await harness();
+    const bytes = await pack(
+      Object.entries(fixture.files).map(([name, bytes]) => ({ name, bytes })),
+    );
+    const received = await receiveBackup(Readable.from([bytes]), {
+      signal: options.signal,
+      directory: options.temporaryRoot,
+    });
+    expect(received).toEqual({
+      manifest: fixture.manifest,
+      backupId: digest(fixture.files['manifest.json']!).sha256,
+    });
+    expect((await readdir(options.temporaryRoot)).sort()).toEqual(
+      Object.keys(fixture.files).sort(),
+    );
+    for (const [name, bytes] of Object.entries(fixture.files)) {
+      expect(await readFile(join(options.temporaryRoot, name))).toEqual(bytes);
+      expect((await stat(join(options.temporaryRoot, name))).mode & 0o777).toBe(0o600);
+    }
+  });
+
+  it('refuses nonempty or nonprivate receipt directories without changing their contents', async () => {
+    const fixture = await archive();
+    const options = await harness();
+    await writeFile(join(options.temporaryRoot, 'keep'), 'preserve');
+    await expect(
+      receiveBackup(Readable.from([fixture.bytes]), {
+        signal: options.signal,
+        directory: options.temporaryRoot,
+      }),
+    ).rejects.toThrow();
+    expect(await readdir(options.temporaryRoot)).toEqual(['keep']);
+    expect(await readFile(join(options.temporaryRoot, 'keep'), 'utf8')).toBe('preserve');
+    await rm(join(options.temporaryRoot, 'keep'));
+    await chmod(options.temporaryRoot, 0o755);
+    await expect(
+      receiveBackup(Readable.from([fixture.bytes]), {
+        signal: options.signal,
+        directory: options.temporaryRoot,
+      }),
+    ).rejects.toThrow();
+    expect(await readdir(options.temporaryRoot)).toEqual([]);
+  });
+
+  it('round trips a directory as bounded chunks in exact archive order', async () => {
+    const fixture = await archive((m, files) => {
+      files['database.dump'] = Buffer.concat([
+        files['database.dump']!,
+        Buffer.alloc(2 * 1024 * 1024),
+      ]);
+      m.files['database.dump'] = digest(files['database.dump']!);
+    });
+    const options = await harness();
+    for (const [name, bytes] of Object.entries(fixture.files))
+      await writeFile(join(options.temporaryRoot, name), bytes, { mode: 0o600 });
+    const names: string[] = [];
+    for await (const entry of readTar(backupFromDirectory(options.temporaryRoot, options.signal))) {
+      names.push(entry.name);
+      const hash = createHash('sha256');
+      for await (const chunk of entry.content) {
+        expect(chunk.byteLength).toBeLessThanOrEqual(65536);
+        hash.update(chunk);
+      }
+      expect(hash.digest('hex')).toBe(digest(fixture.files[entry.name]!).sha256);
+    }
+    expect(names).toEqual(['database.dump', 'media.tar', 'manifest.json', 'SHA256SUMS']);
+    expect(
+      await checkBackup(backupFromDirectory(options.temporaryRoot, options.signal), {
+        signal: options.signal,
+      }),
+    ).toEqual(fixture.manifest);
+  });
+
+  it.each(['symlink', 'directory'])(
+    'refuses a %s member instead of reading through it',
+    async (kind) => {
+      const fixture = await archive();
+      const options = await harness();
+      for (const [name, bytes] of Object.entries(fixture.files))
+        await writeFile(join(options.temporaryRoot, name), bytes);
+      const member = join(options.temporaryRoot, 'database.dump');
+      await rm(member);
+      if (kind === 'symlink') await symlink(join(options.temporaryRoot, 'manifest.json'), member);
+      else await mkdir(member);
+      async function consume() {
+        for await (const _chunk of backupFromDirectory(options.temporaryRoot, options.signal)) {
+          /* consume */
+        }
+      }
+      await expect(consume()).rejects.toThrow();
+    },
+  );
+
+  it('stops a directory source on cancellation', async () => {
+    const fixture = await archive();
+    const options = await harness();
+    for (const [name, bytes] of Object.entries(fixture.files))
+      await writeFile(join(options.temporaryRoot, name), bytes);
+    const controller = new AbortController();
+    const reason = new Error('cancelled');
+    const source = backupFromDirectory(options.temporaryRoot, controller.signal);
+    async function consume() {
+      for await (const _chunk of source) controller.abort(reason);
+    }
+    await expect(consume()).rejects.toBe(reason);
+    expect(source.destroyed).toBe(true);
   });
 });

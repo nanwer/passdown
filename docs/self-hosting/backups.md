@@ -1,6 +1,6 @@
-# Back up an evaluation installation
+# Back up and restore an evaluation installation
 
-Passdown can create a consistent database-and-picture backup, check picture integrity, and verify a backup archive offline. **Database restore and upgrade recovery are still being built.** A successful archive check does not prove that an installation has been restored. Continue using disposable evaluation data until the complete recovery procedure is available and rehearsed.
+Passdown can back up guides and pictures together, verify archive integrity, and restore them into an empty installation. Interrupted restores can be resumed or discarded. These commands are available for source-built evaluation; published installation images and upgrade recovery remain unfinished. A successful archive check alone does not prove that an installation has been restored.
 
 Use the operator image built from the same source revision as the installation. From `deploy`, rebuild it after updating the source:
 
@@ -66,4 +66,81 @@ This check does not connect to PostgreSQL or require database credentials. It ve
 
 Expected output: **Backup archive integrity and compatibility checks passed. No database was restored.**
 
-Actual database restore, resumable activation, invalidation of old access after restore, and upgrade/rollback rehearsal remain upcoming. Running `restore` without `--check` currently refuses and changes nothing.
+## Restore into a separate installation
+
+Use a backup you created or obtained from a trusted operator. A database dump can execute SQL with owner privileges; checksums establish integrity, not trust.
+
+Use source with the **same migration list** as the backup. Keep the original installation and backup intact. From that checkout's `deploy` directory:
+
+1. Create settings for a separate evaluation project and unused ports:
+
+   ```sh
+   sh init.sh --domain localhost --build --project passdown-restore-evaluation --http-port 8088 --https-port 8448 --output restore.env
+   docker compose --env-file restore.env build web proxy
+   ```
+
+   Keep `restore.env` private. Do not open `/setup`, run migrations, or start the web service yet. This project must have empty database and media volumes. Choose another project name if it already exists.
+
+2. Check the archive before connecting to the target:
+
+   ```sh
+   docker compose --env-file restore.env run --rm --no-deps -T ops restore --check < /path/to/private-backups/passdown-example.tar
+   ```
+
+3. Restore it:
+
+   ```sh
+   docker compose --env-file restore.env run --rm -T ops restore < /path/to/private-backups/passdown-example.tar
+   ```
+
+   This starts PostgreSQL, but not migrations or the web service. Restore refuses a database containing user objects or a media root containing existing files. It closes application connections while loading, checks exact table counts and migrations, verifies picture checksums, cancels pending invitations, then moves pictures into place. It proves the configured runtime password against the `postgres` database before opening the restored database. If you restricted CONNECT on `postgres`, that proof must be allowed before activation can finish.
+
+4. Read the dated access report. Accounts, password hashes and workspace permissions reflect the backup snapshot. Everyone must sign in again; old invitation and verification links do not carry over. In versions supporting password-reset links, those links are revoked too. Versions without installation-administrator or restore-audit support report that explicitly.
+
+   People removed after the snapshot may have access again, and passwords changed afterwards revert to their old values. Once the web service starts, promptly review **Studio → People** before announcing the restored address. This version does not yet provide the account-recovery UI or an administrator password-reset command.
+
+5. Start the restored installation:
+
+   ```sh
+   docker compose --env-file restore.env up -d
+   docker compose --env-file restore.env run --rm -T ops verify-media --checksums --json
+   ```
+
+   Open `https://localhost:8448` using the local certificate trust instructions in the [evaluation guide](development-stack.md). Expect health to become ready, a manager to sign in using credentials from the snapshot, public guides to load signed out, and private guides to require membership. `/setup` must refuse creating another initial account. Original pictures should match the backup. Resized copies regenerate on demand.
+
+A backup deliberately made with missing pictures preserves that exact missing set: restore warns rather than pretending the pictures were recovered. New missing pictures, damaged files or dangling references prevent activation.
+
+For an extracted four-file backup directory mounted inside the operator container, use `restore --from /mounted/backup`. `restore --check --from /mounted/backup` checks it offline. Paths refer to the container filesystem, not the host.
+
+## Resume or discard an interrupted restore
+
+Keep the same target settings and media volume. The database checkpoint is authoritative; private state under `.passdown-restore` records the matching archive and file ownership. Do not edit that state by hand.
+
+```sh
+docker compose --env-file restore.env run --rm -T ops restore --activate
+```
+
+After the database has loaded, this resumes verification, access cleanup, picture moves or final activation as needed. Already committed credential cleanup is not repeated. A wrong runtime password keeps application connections closed; correct the configuration and retry. An incomplete upload or failed verification requires discard:
+
+```sh
+docker compose --env-file restore.env run --rm -T ops restore --discard
+```
+
+Discard removes only the recorded unfinished restore, empties its restored database objects, and restores its previous connection permissions. It refuses a normal or already active installation. If database cleanup completed but its file record remains, it proves the database empty before removing that record. It refuses ambiguous state or files that have been replaced manually.
+
+If state is missing or damaged, use a new empty evaluation project. Only if you intend to destroy this entire disposable restore project, its final fallback is:
+
+```sh
+docker compose --env-file restore.env -p passdown-restore-evaluation down --volumes
+```
+
+That command deletes this named project's database and media volumes. Never substitute the original installation's settings or project name.
+
+## What the checks establish
+
+- An archive check proves the file set is intact and compatible with this operator build.
+- Picture verification checks stored files against database records.
+- A completed restore proves loading, row counts, migrations, picture integrity and application database access passed.
+- A recovery rehearsal also exercises the running app: sign-in, permissions, published guides and pictures.
+
+Rehearse recovery on a separate installation periodically. Upgrade and rollback tooling, published images and the remaining release checks are still upcoming.
