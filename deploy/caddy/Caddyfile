@@ -98,4 +98,42 @@ https://localhost, https:// {
 
 	encode zstd gzip
 	reverse_proxy web:3000
+
+	# Web is not answering: it is starting, being replaced, or was not started
+	# because this version's migrations failed. Instead of a bare 502, a page
+	# (JSON under /api/, including /api/health) says which. The migration job
+	# leaves a notice in the status volume when it fails (see compose.yaml);
+	# only the notice's name is read. Always 503, never cached.
+	handle_errors 502 503 504 {
+		@failed file {
+			root /srv/passdown-status
+			try_files /migration-failed
+		}
+		@incomplete file {
+			root /srv/passdown-status
+			try_files /migration-incomplete
+		}
+		@starting vars {vars.notice} starting
+		@page not path /api/*
+		@api path /api/*
+		@write not method GET HEAD
+		# In a route, directives run in the order written.
+		route {
+			vars notice starting
+			vars @failed notice upgrade-failed
+			vars @incomplete notice upgrade-incomplete
+			header {
+				-Server
+				Cache-Control no-store
+			}
+			header @starting Retry-After 10
+			method @write GET
+			rewrite @page /{vars.notice}.html
+			rewrite @api /{vars.notice}.json
+			file_server {
+				root /usr/share/passdown/pages
+				status 503
+			}
+		}
+	}
 }

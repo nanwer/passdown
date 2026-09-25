@@ -84,6 +84,7 @@ services:
     volumes:
       - owner-secrets:/run/passdown/owner
       - app-secrets:/run/passdown/app
+      - migration-status:/var/lib/passdown/status
     logging: *logging
   postgres:
     image: postgres:17-alpine@sha256:f02121de6f74d30d8a94cd1d9584125e2178d7e6c377d8130112d4e52d867995
@@ -104,17 +105,22 @@ services:
       retries: 30
     stop_grace_period: 30s
     logging: *logging
+  # If this version's migrations fail, it leaves a notice for the proxy,
+  # which tells visitors the upgrade failed and how to go back.
   migrate:
     image: *passdown-image
     entrypoint: ['passdown']
-    command: ['migrate']
+    command: ['migrate', '--status-dir', '/var/lib/passdown/status']
     restart: 'no'
     environment: *operator-environment
     volumes:
       - owner-secrets:/run/passdown/owner:ro
       - app-secrets:/run/passdown/app:ro
+      - migration-status:/var/lib/passdown/status
     networks: [backend]
-    depends_on: { postgres: { condition: service_healthy } }
+    depends_on:
+      init: { condition: service_completed_successfully }
+      postgres: { condition: service_healthy }
     logging: *logging
   web:
     image: *passdown-image
@@ -129,7 +135,9 @@ services:
       - media:/var/lib/passdown/media
       - app-secrets:/run/passdown/app:ro
     networks: [backend, frontend]
-    # Web starts only after this version's migrations succeeded.
+    # Web starts only after this version's migrations succeeded. A redeploy
+    # stops the previous web first, so if they fail the site is offline
+    # until the previous version is put back; the proxy says so.
     depends_on:
       postgres: { condition: service_healthy }
       migrate: { condition: service_completed_successfully }
@@ -158,8 +166,9 @@ services:
     volumes:
       - proxy-data:/data
       - proxy-config:/config
+      - migration-status:/srv/passdown-status:ro
     networks: [frontend]
-    depends_on: { web: { condition: service_started } }
+    # No depends_on: the proxy starts even when web cannot, and explains why.
     logging: *logging
   # Operator commands: docker compose run --rm ops help
   ops:
@@ -183,6 +192,7 @@ volumes:
   media: {}
   owner-secrets: {}
   app-secrets: {}
+  migration-status: {}
   proxy-data: {}
   proxy-config: {}
 ```
@@ -251,7 +261,12 @@ Each release's notes name its version. Read them first, and [make a backup](#bac
 
 What happens when the new version's migrations fail depends on how you upgrade:
 
-- **Update the stack / `docker compose up -d`:** Compose stops the running web container before the new migration job runs, so Passdown is unavailable while migrations run (usually seconds). If they fail, the new web is **not started** (its container stays "Created"), the proxy answers `502 Bad Gateway`, and the database stays as it was: a failed migration is rolled back. To go back, put the previous version back in the file and update the stack again; the previous version starts with your data. Read `docker compose logs migrate` (in Portainer, the `migrate` container's logs) and report the problem before retrying.
+- **Update the stack / `docker compose up -d`:** Compose stops the running web container before the new migration job runs, so Passdown is offline while migrations run (usually seconds); visitors see a "back in a moment" page. If they fail, the new web is **not started**, and the proxy shows a page saying the upgrade failed and what to do; `/api/health` answers `503` with `"status": "upgrade-failed"`. In most cases the page says **No data was changed**: the failed migration was rolled back. To go back, put the previous version back in the file and update the stack again; the previous version starts with your data. Read `docker compose logs migrate` (in Portainer, the `migrate` container's logs) and report the problem before retrying.
+
+  If a release has several migrations and a later one fails, the earlier ones stay applied. The page then says **Some of the new version's database changes were applied**, and health answers `"status": "upgrade-incomplete"`. Don't just change the version back: fix the cause and redeploy the new version (the remaining migrations continue where they stopped), or [restore the backup](backups.md) you made before upgrading, with the previous version.
+
+  Compose can't keep the old version serving here: it replaces every changed container before any of them start, so the old web is already stopped when migrations begin.
+
 - **`sh upgrade.sh`:** backs up with the running version, applies the new migrations while the old version keeps serving, and replaces web and the proxy only if they succeed. On failure it prints **Migrations failed; the site is still running the previous version.** and changes nothing else. Options: `--file FILE` (repeat for overlays), `--project NAME`, `--skip-backup`.
 
 Migrations cannot be undone. If a new version starts but misbehaves, go back by [restoring the backup](backups.md) with the previous version.
@@ -305,6 +320,7 @@ Volume names are prefixed with the project name, for example `passdown_database`
 | `media`                      | Uploaded pictures.                                                                               |
 | `owner-secrets`              | The database owner's password. Mounted by `init`, `postgres`, `migrate` and `ops`; never by web. |
 | `app-secrets`                | The runtime database password and the session secret.                                            |
+| `migration-status`           | A notice left when a version's migrations fail, which the proxy shows. Nothing else.             |
 | `proxy-data`, `proxy-config` | Caddy's certificate authority and certificate.                                                   |
 
 Stopping or removing the stack keeps the volumes. **Never run `docker compose down -v`, and never remove the stack's volumes in Portainer,** unless you mean to delete everything: the secrets and the database belong together. Container logs rotate at 10 MB, keeping five files per service. The proxy's access log records visitors' IP addresses, which may be personal data where you operate. See the [configuration reference](configuration.md#secrets) for how the secrets are made and used.

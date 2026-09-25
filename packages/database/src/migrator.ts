@@ -76,6 +76,8 @@ export async function applyMigrations(options: {
   policy?: ConnectionPolicy;
   onWaiting?: () => void;
   onApplying?: (name: string) => void;
+  /** After each migration commits, so a caller knows the database changed. */
+  onApplied?: (name: string) => void;
 }): Promise<{ applied: string[]; total: number }> {
   const policy = options.policy ?? 'loopback';
   const owner = ownerDatabaseTarget(options.ownerURL, policy);
@@ -147,6 +149,7 @@ export async function applyMigrations(options: {
             : 'database operation failed';
         throw new MigrationFailure(file.name, code, outcome);
       }
+      options.onApplied?.(file.name);
     }
     await ensureRuntimeRole({ ...options, phase: 'after-schema' });
     return { applied, total: files.length };

@@ -106,7 +106,10 @@ if ! compose pull --quiet --ignore-buildable --policy missing >&2; then
 fi
 
 printf '%s\n' 'Applying migrations with the new version while the current one keeps serving…' >&2
-if ! compose run --rm -T migrate >&2; then
+# The command is given without the compose file's --status-dir: if this
+# fails, the previous version is still serving, so the proxy must not be
+# left an "upgrade failed" notice to show should web stop later.
+if ! compose run --rm -T migrate migrate >&2; then
   log 'failed: migrations failed; previous version still running'
   fail 1 'Migrations failed; the site is still running the previous version. Nothing else was changed. Read the error above, and see the upgrade guide before retrying.'
 fi

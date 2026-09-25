@@ -125,3 +125,17 @@ it('runs as an operator command without any database settings', async () => {
   expect(again.out).toEqual(['Secrets already exist; nothing was changed.']);
   expect([...h.out, ...h.info, ...again.out].join('\n')).not.toMatch(/[0-9a-f]{32}/);
 });
+
+it('prepares the migration status volume for the migration job when it is mounted', async () => {
+  const dirs = volumes();
+  const statusDir = join(dirs.appDir, '..', 'status');
+  mkdirSync(statusDir, { mode: 0o700 });
+  await initSecrets({ ...dirs, statusDir });
+  // Readable by the proxy, which shows its notices; nothing secret is kept there.
+  expect(mode(statusDir)).toBe(0o755);
+  expect(readdirSync(statusDir)).toEqual([]);
+  // An installation whose compose file predates the volume still starts.
+  await expect(
+    initSecrets({ ...dirs, statusDir: join(dirs.appDir, '..', 'absent') }),
+  ).resolves.toMatchObject({ created: [] });
+});

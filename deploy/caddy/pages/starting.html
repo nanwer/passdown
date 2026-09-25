@@ -1,0 +1,93 @@
+<!doctype html>
+<!-- Shown by Passdown's proxy while web is not answering. See the Caddyfile. -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <meta http-equiv="refresh" content="10" />
+    <title>Passdown is starting</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --canvas: #fff;
+        --text: #181819;
+        --panel: #f1f2f4;
+        --link: #0064e0;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --canvas: #181819;
+          --text: #fff;
+          --panel: #28292b;
+          --link: #4591f7;
+        }
+      }
+      body {
+        margin: 0;
+        background: var(--canvas);
+        color: var(--text);
+        font:
+          16px/1.55 system-ui,
+          -apple-system,
+          'Segoe UI',
+          Roboto,
+          sans-serif;
+      }
+      main {
+        max-width: 40rem;
+        margin: 0 auto;
+        padding: 3rem 1rem;
+      }
+      .brand {
+        font-weight: 600;
+        color: var(--link);
+        margin: 0 0 2rem;
+      }
+      h1 {
+        font-size: 1.6rem;
+        line-height: 1.25;
+        margin: 0 0 1rem;
+      }
+      h2 {
+        font-size: 1.1rem;
+        margin: 0 0 0.5rem;
+      }
+      p {
+        margin: 0 0 1rem;
+      }
+      section {
+        background: var(--panel);
+        border-radius: 12px;
+        padding: 1.25rem 1.25rem 0.25rem;
+        margin-top: 2rem;
+      }
+      code {
+        font:
+          0.9em ui-monospace,
+          SFMono-Regular,
+          Menlo,
+          monospace;
+        overflow-wrap: anywhere;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p class="brand">Passdown</p>
+      <h1>This site will be back in a moment</h1>
+      <p>
+        Passdown is starting, or a new version is being put in place. This page checks again every
+        10 seconds.
+      </p>
+      <section>
+        <h2>If you run this site</h2>
+        <p>
+          Starting or upgrading usually takes under a minute. If this page stays for several
+          minutes, check <code>docker compose ps</code> and read
+          <code>docker compose logs migrate web</code> (in Portainer, those containers’ logs).
+        </p>
+      </section>
+    </main>
+  </body>
+</html>

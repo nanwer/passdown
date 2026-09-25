@@ -152,11 +152,14 @@ requires green runs in all three engines.
 - **The default login returns if the database is ever empty again,** for
   example after deleting every account and workspace by hand: `migrate`
   creates it in any database with no account and no workspace.
-- **A redeploy stops the old web before migrations run.** Compose recreates
-  web first, so a failed migration during Update the stack leaves the site
-  down until the previous version is put back. `upgrade.sh` avoids this on
-  the command line; a Portainer-friendly equivalent (for example a web
-  container that waits for its own schema) is not offered yet.
+- **A redeploy stops the old web before migrations run.** Compose replaces
+  every changed container before starting any, so no compose-file setting
+  keeps the old web serving during Update the stack (tried: no dependency,
+  a web that waits for its schema, `restart: false`/`true`, `required: false`,
+  `update_config.order: start-first`). A failed redeploy now explains itself
+  instead of answering 502, and `upgrade.sh` still avoids the outage. Keeping
+  the old version up for Portainer users would need a separate updater
+  container, which is not worth its complexity yet.
 - **The bundled certificate names only localhost.** Browsers warn about the
   name as well as the issuer; including `PASSDOWN_URL`'s host would need the
   proxy to know it.

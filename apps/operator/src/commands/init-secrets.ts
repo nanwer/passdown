@@ -36,10 +36,15 @@ const secrets: Secret[] = [
  * an interrupted start never leaves a truncated secret that a later start
  * would keep. Running as root (the one-shot init service), it also hands the
  * files to the users that read them; otherwise it only sets their modes.
+ *
+ * It also hands over the migration status volume when one is mounted: the
+ * migration job leaves its failure notices there for the proxy to show.
+ * Compose files from before that volume do not mount it, and still start.
  */
 export async function initSecrets(options: {
   ownerDir: string;
   appDir: string;
+  statusDir?: string;
 }): Promise<{ created: string[]; kept: string[] }> {
   const root = process.getuid?.() === 0;
   const own = (path: string, group: number) => {
@@ -59,6 +64,18 @@ export async function initSecrets(options: {
       throw new OperatorFailure(`The secrets volume at ${dir} is not a directory.`);
     own(dir, group);
     chmodSync(dir, mode);
+  }
+  if (options.statusDir) {
+    let info;
+    try {
+      info = lstatSync(options.statusDir);
+    } catch {
+      info = null;
+    }
+    if (info?.isDirectory()) {
+      own(options.statusDir, passdownGroup);
+      chmodSync(options.statusDir, 0o755);
+    }
   }
   const created: string[] = [];
   const kept: string[] = [];
@@ -106,14 +123,20 @@ export async function initSecrets(options: {
 
 export const initSecretsCommand: OperatorCommand = {
   name: 'init-secrets',
-  summary: 'Create the database passwords and session secret on first start; keep existing ones.',
-  usage: 'init-secrets [--owner-dir DIR] [--app-dir DIR]',
-  options: { 'owner-dir': { type: 'string' }, 'app-dir': { type: 'string' } },
+  summary:
+    'Create the database passwords and session secret on first start; keep existing ones. Prepare the migration status volume if it is mounted.',
+  usage: 'init-secrets [--owner-dir DIR] [--app-dir DIR] [--status-dir DIR]',
+  options: {
+    'owner-dir': { type: 'string' },
+    'app-dir': { type: 'string' },
+    'status-dir': { type: 'string' },
+  },
   needs: [],
   async run(input, context) {
     const result = await initSecrets({
       ownerDir: String(input.options['owner-dir'] ?? '/run/passdown/owner'),
       appDir: String(input.options['app-dir'] ?? '/run/passdown/app'),
+      statusDir: String(input.options['status-dir'] ?? '/var/lib/passdown/status'),
     });
     context.out(
       result.created.length

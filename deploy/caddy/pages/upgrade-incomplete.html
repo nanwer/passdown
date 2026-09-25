@@ -1,0 +1,112 @@
+<!doctype html>
+<!-- Shown by Passdown's proxy while web is not answering. See the Caddyfile. -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>Passdown upgrade did not complete</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --canvas: #fff;
+        --text: #181819;
+        --panel: #f1f2f4;
+        --link: #0064e0;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --canvas: #181819;
+          --text: #fff;
+          --panel: #28292b;
+          --link: #4591f7;
+        }
+      }
+      body {
+        margin: 0;
+        background: var(--canvas);
+        color: var(--text);
+        font:
+          16px/1.55 system-ui,
+          -apple-system,
+          'Segoe UI',
+          Roboto,
+          sans-serif;
+      }
+      main {
+        max-width: 40rem;
+        margin: 0 auto;
+        padding: 3rem 1rem;
+      }
+      .brand {
+        font-weight: 600;
+        color: var(--link);
+        margin: 0 0 2rem;
+      }
+      h1 {
+        font-size: 1.6rem;
+        line-height: 1.25;
+        margin: 0 0 1rem;
+      }
+      h2 {
+        font-size: 1.1rem;
+        margin: 0 0 0.5rem;
+      }
+      p {
+        margin: 0 0 1rem;
+      }
+      section {
+        background: var(--panel);
+        border-radius: 12px;
+        padding: 1.25rem 1.25rem 0.25rem;
+        margin-top: 2rem;
+      }
+      code {
+        font:
+          0.9em ui-monospace,
+          SFMono-Regular,
+          Menlo,
+          monospace;
+        overflow-wrap: anywhere;
+      }
+      a {
+        color: var(--link);
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p class="brand">Passdown</p>
+      <h1>This site is offline while its upgrade is sorted out</h1>
+      <p>
+        The site is being upgraded to a new version of Passdown. The new version could not finish
+        updating its database, so it was not started. Please try again later.
+      </p>
+      <section>
+        <h2>If you run this site: the upgrade stopped part-way</h2>
+        <p>
+          <strong>Some of the new version’s database changes were applied</strong> before one of
+          them failed. Changing the version back is not enough on its own: the previous version may
+          not work with the changed database.
+        </p>
+        <p>
+          <strong>Either</strong> fix the cause (read <code>docker compose logs migrate</code>, in
+          Portainer the <code>migrate</code> container’s log) and redeploy this version; the
+          remaining changes then continue where they stopped. <strong>Or</strong> restore the backup
+          you made before upgrading, with the previous version, as the
+          <a href="https://github.com/nanwer/passdown/blob/main/docs/self-hosting/backups.md"
+            >backup guide</a
+          >
+          describes.
+        </p>
+        <p>
+          See the
+          <a
+            href="https://github.com/nanwer/passdown/blob/main/docs/self-hosting/install.md#upgrade"
+            >upgrade guide</a
+          >.
+        </p>
+      </section>
+    </main>
+  </body>
+</html>

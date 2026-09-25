@@ -33,6 +33,7 @@ RUN apk add --no-cache postgresql17-client \
  && addgroup -S -g 10001 passdown \
  && adduser -S -D -H -u 10001 -G passdown -h /nonexistent passdown \
  && install -d -o passdown -g passdown -m 0700 /var/lib/passdown/media \
+ && install -d -o passdown -g passdown -m 0755 /var/lib/passdown/status \
  && install -d -o passdown -g 70 -m 0750 /run/passdown/owner \
  && install -d -o passdown -g passdown -m 0700 /run/passdown/app
 ARG PASSDOWN_REVISION=unknown

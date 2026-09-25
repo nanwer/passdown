@@ -29,6 +29,7 @@ services:
     volumes:
       - owner-secrets:/run/passdown/owner
       - app-secrets:/run/passdown/app
+      - migration-status:/var/lib/passdown/status
     logging: *logging
   postgres:
     image: postgres:17-alpine@sha256:f02121de6f74d30d8a94cd1d9584125e2178d7e6c377d8130112d4e52d867995
@@ -49,17 +50,22 @@ services:
       retries: 30
     stop_grace_period: 30s
     logging: *logging
+  # If this version's migrations fail, it leaves a notice for the proxy,
+  # which tells visitors the upgrade failed and how to go back.
   migrate:
     image: *passdown-image
     entrypoint: ['passdown']
-    command: ['migrate']
+    command: ['migrate', '--status-dir', '/var/lib/passdown/status']
     restart: 'no'
     environment: *operator-environment
     volumes:
       - owner-secrets:/run/passdown/owner:ro
       - app-secrets:/run/passdown/app:ro
+      - migration-status:/var/lib/passdown/status
     networks: [backend]
-    depends_on: { postgres: { condition: service_healthy } }
+    depends_on:
+      init: { condition: service_completed_successfully }
+      postgres: { condition: service_healthy }
     logging: *logging
   web:
     image: *passdown-image
@@ -74,7 +80,9 @@ services:
       - media:/var/lib/passdown/media
       - app-secrets:/run/passdown/app:ro
     networks: [backend, frontend]
-    # Web starts only after this version's migrations succeeded.
+    # Web starts only after this version's migrations succeeded. A redeploy
+    # stops the previous web first, so if they fail the site is offline
+    # until the previous version is put back; the proxy says so.
     depends_on:
       postgres: { condition: service_healthy }
       migrate: { condition: service_completed_successfully }
@@ -103,8 +111,9 @@ services:
     volumes:
       - proxy-data:/data
       - proxy-config:/config
+      - migration-status:/srv/passdown-status:ro
     networks: [frontend]
-    depends_on: { web: { condition: service_started } }
+    # No depends_on: the proxy starts even when web cannot, and explains why.
     logging: *logging
   # Operator commands: docker compose run --rm ops help
   ops:
@@ -128,5 +137,6 @@ volumes:
   media: {}
   owner-secrets: {}
   app-secrets: {}
+  migration-status: {}
   proxy-data: {}
   proxy-config: {}

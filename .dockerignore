@@ -30,6 +30,8 @@
 !deploy/caddy/Caddyfile
 !deploy/caddy/NOTICE
 !deploy/caddy/LICENSE-APACHE-2.0
+!deploy/caddy/pages/*.html
+!deploy/caddy/pages/*.json
 
 # Exclusions still apply inside an allowed source directory.
 **/*.md

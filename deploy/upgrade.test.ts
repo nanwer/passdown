@@ -26,7 +26,7 @@ case "$*" in
   'inspect --format {{.State.Running}} web-container') printf '%s\\n' true ;;
   'inspect --format {{.Image}} web-container') printf '%s\\n' sha256:previous-web ;;
   *' pull --quiet --ignore-buildable --policy missing') exit "\${PULL_STATUS:-0}" ;;
-  *' run --rm -T migrate') exit "\${MIGRATE_STATUS:-0}" ;;
+  *' run --rm -T migrate migrate') exit "\${MIGRATE_STATUS:-0}" ;;
   *' up -d --wait --wait-timeout 300') exit "\${UP_STATUS:-0}" ;;
   *' run --rm -T ops version') printf '%s\\n' 'passdown 0.1.0-alpha.2 (revision abc)' ;;
   *' run --rm -T ops status') printf '%s\\n' 'Database schema is current (34 migrations applied).' 'Setup: complete' ;;
@@ -87,7 +87,10 @@ describe('upgrading a command-line installation', () => {
       ['inspect', '--format', '{{.Image}}', 'web-container'],
       ['BACKUP', '--file', join(h.dir, 'compose.yaml'), '--image', 'sha256:previous-web'],
       ['compose', ...compose, 'pull', '--quiet', '--ignore-buildable', '--policy', 'missing'],
-      ['compose', ...compose, 'run', '--rm', '-T', 'migrate'],
+      // The command given explicitly, without the compose file's status
+      // directory: a failure here leaves the old version serving, so no
+      // "upgrade failed" notice may be left for the proxy to show later.
+      ['compose', ...compose, 'run', '--rm', '-T', 'migrate', 'migrate'],
       ['compose', ...compose, 'up', '-d', '--wait', '--wait-timeout', '300'],
       ['compose', ...compose, 'run', '--rm', '-T', 'ops', 'version'],
       ['compose', ...compose, 'run', '--rm', '-T', 'ops', 'status'],

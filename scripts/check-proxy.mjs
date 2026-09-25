@@ -71,6 +71,7 @@ if (!process.argv.includes('--live')) {
   const network = `passdown-proxy-check-${suffix}`;
   const upstream = `${network}-web`;
   const proxy = `${network}-proxy`;
+  const status = `${network}-status`;
   const ipv6Prefix = `fd00:7061:${(process.pid % 65536).toString(16)}`;
   const proxyAddress = `${ipv6Prefix}:0::100`;
   const nodeImage =
@@ -109,8 +110,15 @@ if (!process.argv.includes('--live')) {
           },
         },
         (res) => {
-          res.resume();
-          res.on('end', () => resolve({ status: res.statusCode, headers: res.headers }));
+          const chunks = [];
+          res.on('data', (chunk) => chunks.push(chunk));
+          res.on('end', () =>
+            resolve({
+              status: res.statusCode,
+              headers: res.headers,
+              body: Buffer.concat(chunks).toString('utf8'),
+            }),
+          );
         },
       );
       req.setTimeout(10000, () => req.destroy(new Error('Proxy request timed out.')));
@@ -130,6 +138,8 @@ if (!process.argv.includes('--live')) {
       proxyAddress,
       '-p',
       '127.0.0.1::443',
+      '-v',
+      `${status}:/srv/passdown-status:ro`,
       ...(limit === undefined
         ? []
         : [
@@ -157,8 +167,21 @@ if (!process.argv.includes('--live')) {
     }
     throw new Error('Proxy did not start.');
   }
+  // What the migration job leaves when a version's migrations fail.
+  const notice = (name) =>
+    docker(
+      'run',
+      '--rm',
+      '-v',
+      `${status}:/status`,
+      nodeImage,
+      'node',
+      '-e',
+      `require('fs').writeFileSync('/status/${name}', 'notice\\n')`,
+    );
   try {
     docker('network', 'create', '--ipv6', '--subnet', `${ipv6Prefix}::/56`, network);
+    docker('volume', 'create', status);
     docker(
       'run',
       '-d',
@@ -229,8 +252,38 @@ if (!process.argv.includes('--live')) {
       'Upload body cap failed.',
     );
     docker('stop', upstream);
+    // Never a bare 502: a page, or JSON under /api/, saying what is going on.
     for (const path of paths)
-      assert.equal((await request(path)).status, 502, 'Unreachable upstream should return 502.');
+      assert.equal((await request(path)).status, 503, 'Unreachable upstream should return 503.');
+    const starting = await request('/guides/example');
+    assert.match(starting.body, /This site will be back in a moment/, 'Starting page missing.');
+    assert.equal(starting.headers['content-type'], 'text/html; charset=utf-8');
+    assert.equal(starting.headers['retry-after'], '10', 'Starting page must suggest a retry.');
+    assert.equal(starting.headers['cache-control'], 'no-store', 'Notices must not be cached.');
+    assert.equal(starting.headers.server, undefined, 'Notices must hide the Server header.');
+    const reported = async (path = '/api/health', options) => {
+      const response = await request(path, options);
+      assert.equal(response.status, 503);
+      assert.match(response.headers['content-type'], /^application\/json/);
+      return JSON.parse(response.body);
+    };
+    assert.deepEqual(await reported(), { status: 'starting' });
+    assert.deepEqual(await reported('/api/auth/sign-in/email', { body: Buffer.from('{}') }), {
+      status: 'starting',
+    });
+    notice('migration-failed');
+    const failed = await request('/');
+    assert.equal(failed.status, 503);
+    assert.match(failed.body, /No data was changed/, 'Failed-upgrade page missing.');
+    assert.match(failed.body, /put the previous version back in the compose file/);
+    assert.equal(failed.headers['retry-after'], undefined);
+    assert.deepEqual(await reported(), { status: 'upgrade-failed', databaseChanged: false });
+    notice('migration-incomplete');
+    const incomplete = await request('/sign-in', { body: Buffer.from('form') });
+    assert.equal(incomplete.status, 503);
+    assert.match(incomplete.body, /Some of the new version’s database changes were applied/);
+    assert.doesNotMatch(incomplete.body, /No data was changed/);
+    assert.deepEqual(await reported(), { status: 'upgrade-incomplete', databaseChanged: true });
     // Capture both streams without printing request-bearing log records.
     const result = spawnSync('docker', ['logs', proxy], { encoding: 'utf8' });
     assert.equal(result.status, 0);
@@ -304,7 +357,7 @@ if (!process.argv.includes('--live')) {
     );
     assert.equal(fromIPv6(`${ipv6Prefix}:2::10`).status, 200, 'An independent /64 was blocked.');
     console.log(
-      'Live proxy limits, forwarding, any-address HTTPS, body caps, headers and log privacy passed.',
+      'Live proxy limits, forwarding, any-address HTTPS, body caps, headers, unavailable notices and log privacy passed.',
     );
   } finally {
     for (const container of [proxy, upstream]) {
@@ -318,6 +371,11 @@ if (!process.argv.includes('--live')) {
       docker('network', 'rm', network);
     } catch {
       /* No network was created. */
+    }
+    try {
+      docker('volume', 'rm', status);
+    } catch {
+      /* No volume was created. */
     }
   }
 }

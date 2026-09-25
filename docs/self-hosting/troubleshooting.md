@@ -23,6 +23,14 @@ Log lines are JSON, one per event. They never contain passwords, tokens, cookies
 
 A `ready` answer with `"schema":"ahead"` means an older version is serving a database that a newer version has already upgraded. Start the newer version.
 
+When web isn't answering at all, the proxy answers instead, always with `503` and no `version`:
+
+| `status`             | Meaning                                                                                                      | What to do                                                |
+| -------------------- | ------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------- |
+| `starting`           | Web is starting or being replaced, or stopped for another reason.                                            | Wait a minute; then check `docker compose ps`.            |
+| `upgrade-failed`     | This version's migrations failed and were rolled back (`"databaseChanged": false`), so web wasn't started.   | See [the site says the upgrade failed](#migrations-fail). |
+| `upgrade-incomplete` | This version's migrations failed after some were applied (`"databaseChanged": true`), so web wasn't started. | See [the site says the upgrade failed](#migrations-fail). |
+
 ## Not configured
 
 Every page says **This installation is not configured yet. Ask the operator to check its settings.** The log has one `config.invalid` line per problem, naming the variable:
@@ -130,12 +138,21 @@ Check with `docker system df -v`. The `database` and `media` volumes grow with y
 
 ## Migrations fail
 
-`migrate` and `upgrade.sh` stop on the first problem, and a failed migration is rolled back.
+`migrate` and `upgrade.sh` stop on the first problem. The migration that failed is rolled back; migrations before it in the same run stay applied.
 
-**After Update the stack or `docker compose up -d`, the site answers 502.** The new version's migrations failed, so Compose didn't start the new web. The old web was already stopped: Compose replaces it before migrations run. The database is as it was. Read `docker compose logs migrate`, then put the previous version back in the compose file and redeploy to serve the previous version again. `upgrade.sh` avoids the outage by migrating first.
+**After Update the stack or `docker compose up -d`, the site says the upgrade failed.** The new version's migrations failed, so Compose didn't start the new web. The old web was already stopped: Compose replaces it before migrations run. You'll see:
+
+- Update the stack reports `service "migrate" didn't complete successfully: exit 1`, and so does `docker compose up -d`.
+- `docker compose ps --all` shows `migrate` as `Exited (1)` and `web` as `Created` (never started); `postgres` and `proxy` keep running.
+- `docker compose logs migrate` ends with the failed migration and what to do next.
+- `/api/health` answers `503` with `upgrade-failed` or `upgrade-incomplete`, and every page shows the same explanation.
+
+With **No data was changed** (`upgrade-failed`), put the previous version back in the compose file and redeploy: the previous version starts with your data. With **Some of the new version's database changes were applied** (`upgrade-incomplete`), changing the version back isn't enough: fix the cause and redeploy the new version, or restore the backup made before upgrading with the previous version. Report the problem with the log either way. `upgrade.sh` avoids the outage by migrating first.
+
+The notice is cleared the next time `migrate` succeeds. Versions from before the notice existed don't clear it, but their proxy doesn't show it either.
 
 - `Applied migration changed: NAME`: the images don't match the migrations recorded in the database. Use the images of the release this database was last upgraded with.
-- `Migration NAME failed and was rolled back: PostgreSQL error CODE`: nothing was changed. Keep the log and report the problem.
+- `Migration NAME failed and was rolled back: PostgreSQL error CODE`: that migration changed nothing. If earlier migrations were applied in the same run, the log's last line says so. Keep the log and report the problem.
 - `Migration NAME could not be confirmed: …`: check `ops status` before retrying.
 - From `upgrade.sh`: **Migrations failed; the site is still running the previous version.** Nothing else was changed, and `upgrade.log` records the attempt.
 
