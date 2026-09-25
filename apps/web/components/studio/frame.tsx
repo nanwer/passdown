@@ -1,6 +1,7 @@
 'use client';
 import * as X from './studio-styles';
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
+import { usePathname } from 'next/navigation';
 import { BookOpen, ArrowLeft, LogOut, SlidersHorizontal } from 'lucide-react';
 import {
   SourceCodeLink,
@@ -30,6 +31,11 @@ export function Frame({
   user?: string;
   onSignOut?: () => void;
 }) {
+  const path = usePathname() ?? '';
+  const inAdministration = path.startsWith('/admin');
+  // A workspace's structure (things, catalog, people) is reached through Manage.
+  const managing =
+    !!workspace && /^\/studio\/[^/]+\/(?:manage|categories|catalog|people)(?:\/|$)/.test(path);
   return (
     <div className={X.studioRoot}>
       <a className={skipLink} href="#main">
@@ -42,6 +48,28 @@ export function Frame({
             ? { id: workspace.id, name: workspace.name, href: `/studio/${workspace.id}` }
             : undefined
         }
+        tabsLabel="Installation"
+        tabs={
+          // Signed-out pages, such as an invitation or a reset link, have none.
+          user
+            ? [
+                {
+                  href: '/studio',
+                  label: workspaceCount > 1 ? 'Workspaces' : 'Studio',
+                  current: path.startsWith('/studio'),
+                },
+                ...(isAdministrator
+                  ? [
+                      {
+                        href: '/admin/accounts',
+                        label: 'Administration',
+                        current: inAdministration,
+                      },
+                    ]
+                  : []),
+              ]
+            : []
+        }
         navLabel="Studio navigation"
         sections={
           workspace
@@ -51,7 +79,7 @@ export function Frame({
                 // left a viewer with no navigation at all. And these are the
                 // workspace's sections, so they sit under it rather than beside
                 // the installation's own links.
-                { href: `/studio/${workspace.id}`, label: 'Guides' },
+                { href: `/studio/${workspace.id}`, label: 'Guides', current: !managing },
                 // One entry rather than three. Guides and the library are what
                 // you do daily; the tree, the catalog and the people are what
                 // you set up occasionally, and a row of five made them look
@@ -62,6 +90,7 @@ export function Frame({
                         href: `/studio/${workspace.id}/manage`,
                         label: 'Manage',
                         icon: <SlidersHorizontal size={15} />,
+                        current: managing,
                       },
                     ]
                   : []),
@@ -75,14 +104,6 @@ export function Frame({
         }
         utilities={
           <>
-            <a className={headerLink} href="/studio">
-              {workspaceCount > 1 ? 'Workspaces' : 'Studio'}
-            </a>
-            {isAdministrator && (
-              <a className={headerLink} href="/admin/accounts">
-                Administration
-              </a>
-            )}
             <ThemeToggle />
             {user && (
               <a className={headerLink} href="/account" aria-label="Your account">

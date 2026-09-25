@@ -4,6 +4,13 @@ Start the local app and sign in at [Studio](http://127.0.0.1:3100/studio) using 
 
 Testing a server installation instead? Follow the [self-hosting guide](../self-hosting/install.md) on a separate installation, then use the sections on installation, nginx, backups, restore, upgrades, account recovery and the release workflow below.
 
+## Studio header tabs
+
+1. Sign in and open [Studio](http://127.0.0.1:3100/studio). Expect **Workspaces** (or **Studio** with one workspace) and, for an installation administrator, **Administration** as tabs on the left beside the Passdown mark, with the current one bold and underlined. The theme toggle, your name and sign-out stay on the right. The studio home shows only workspace cards.
+2. Open **Administration**. Expect that tab to become the underlined one.
+3. Open a workspace. Expect the workspace name on the row below, followed by its tabs: **Guides** is marked while you are on the guide list, a new guide or the editor; **Manage** is marked on Manage, Things, Catalog and People; **Library** leaves the studio.
+4. Repeat in dark mode and at a phone width. The tabs wrap without overlapping, and the marked tab stays visible.
+
 ## Open Alpha documents
 
 1. Open `README.md` on GitHub. Expect the Open Alpha notice, an **Install with Docker** section with four steps beside **Run locally**, and features including withdrawal, reset links, Your account and browser setup. Every link opens the right page.

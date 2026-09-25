@@ -2318,15 +2318,31 @@ test('the header separates the installation from the workspace inside it', async
   await page.goto('/studio/workshop/people');
   await expect(page.getByRole('heading', { name: 'Who can reach this workspace.' })).toBeVisible();
 
-  // Where you are, on the top tier, next to the mark. Scoped to the header
-  // because the page body names the workspace too.
+  // The installation's own areas are tabs beside the mark, and the one you are
+  // in is marked. The workspace you are in heads the tier below.
+  const installation = page.getByRole('navigation', { name: 'Installation' });
+  await expect(installation.getByRole('link', { name: 'Workspaces', exact: true })).toHaveAttribute(
+    'aria-current',
+    'page',
+  );
   await expect(
-    page.locator('.site-header-top').getByRole('link', { name: 'Workshop operations' }),
+    installation.getByRole('link', { name: 'Administration', exact: true }),
+  ).not.toHaveAttribute('aria-current');
+  await expect(
+    page.locator('header .site-header-workspace', { hasText: 'Workshop operations' }),
   ).toBeVisible();
 
   const sections = page.getByRole('navigation', { name: 'Studio navigation' });
   for (const label of ['Guides', 'Manage', 'Library'])
     await expect(sections.getByRole('link', { name: new RegExp(label) })).toBeVisible();
+  // People is reached through Manage, so Manage is the current section.
+  await expect(sections.getByRole('link', { name: /Manage/ })).toHaveAttribute(
+    'aria-current',
+    'page',
+  );
+  await expect(sections.getByRole('link', { name: 'Guides', exact: true })).not.toHaveAttribute(
+    'aria-current',
+  );
   // The structural sections are behind Manage now, not beside Guides.
   await expect(sections.getByRole('link', { name: 'Catalog', exact: true })).toHaveCount(0);
 
@@ -2334,7 +2350,14 @@ test('the header separates the installation from the workspace inside it', async
   // mixing "Workspaces" with "Catalog" is what made it impossible to tell which
   // navigation you were looking at.
   await expect(sections.getByRole('link', { name: 'Workspaces', exact: true })).toHaveCount(0);
-  await expect(page.getByRole('link', { name: 'Workspaces', exact: true })).toBeVisible();
+
+  await installation.getByRole('link', { name: 'Administration', exact: true }).click();
+  await expect(page).toHaveURL(/\/admin\/accounts$/);
+  await expect(
+    page
+      .getByRole('navigation', { name: 'Installation' })
+      .getByRole('link', { name: 'Administration', exact: true }),
+  ).toHaveAttribute('aria-current', 'page');
 });
 
 test('a guide is edited from the page you read it on, by whoever may', async ({

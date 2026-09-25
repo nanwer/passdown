@@ -9,6 +9,13 @@ export type HeaderSection = {
   current?: boolean;
 };
 
+/** One tab style for both tiers: the current tab is underlined in the action colour. */
+const tabClass = (current?: boolean) =>
+  cn(
+    'inline-flex items-center gap-1.5 border-b-2 border-solid border-b-transparent pb-1 text-muted no-underline hover:text-ink',
+    current && 'current border-b-action font-semibold text-ink',
+  );
+
 /**
  * The one header, on every surface.
  *
@@ -30,11 +37,20 @@ export type HeaderSection = {
 export function SiteHeader({
   brandHref = '/',
   workspace,
+  tabs = [],
+  tabsLabel = 'Installation',
   sections = [],
   utilities,
   navLabel = 'Main navigation',
 }: {
   brandHref?: string;
+  /**
+   * The installation's own areas, such as Workspaces and Administration. They
+   * sit beside the mark as tabs; the workspace you are in then heads the
+   * second tier, above its own sections.
+   */
+  tabs?: HeaderSection[];
+  tabsLabel?: string;
   /** Where you are. Absent on a surface that belongs to no workspace. */
   workspace?: { id: string; name: string; href?: string };
   /** This workspace's own sections — subordinate to everything above them. */
@@ -63,15 +79,30 @@ export function SiteHeader({
             Pass<span className="font-normal">down</span>
           </span>
         </a>
-        {workspace && (
+        {tabs.length > 0 && (
+          <nav
+            className="ms-4 flex flex-wrap items-center gap-4.5 text-[14px] max-[760px]:ms-1"
+            aria-label={tabsLabel}
+          >
+            {tabs.map((tab) => (
+              <a
+                key={tab.href}
+                href={tab.href}
+                // Padding above matches the underline below, so the label sits
+                // on the mark's centre line.
+                className={cn(tabClass(tab.current), 'pt-1.5')}
+                aria-current={tab.current ? 'page' : undefined}
+              >
+                {tab.icon}
+                {tab.label}
+              </a>
+            ))}
+          </nav>
+        )}
+        {workspace && !tabs.length && (
           <>
             <ChevronRight className="flex-none text-muted" size={16} aria-hidden="true" />
-            <a
-              className="min-w-0 overflow-hidden text-[14px] font-semibold text-ellipsis whitespace-nowrap text-ink"
-              href={workspace.href ?? `/w/${workspace.id}`}
-            >
-              {workspace.name}
-            </a>
+            <WorkspaceName workspace={workspace} />
           </>
         )}
         <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-2.5">
@@ -79,26 +110,43 @@ export function SiteHeader({
         </div>
       </div>
       {sections.length > 0 && (
-        <nav
-          className="flex flex-wrap gap-4.5 px-page pt-0 pb-2.5 text-[13px]"
-          aria-label={navLabel}
-        >
-          {sections.map((section) => (
-            <a
-              key={section.href}
-              href={section.href}
-              className={cn(
-                'inline-flex items-center gap-1.5 border-b-2 border-solid border-b-transparent pb-1 text-muted hover:text-ink',
-                section.current && 'current border-b-action text-ink',
-              )}
-              aria-current={section.current ? 'page' : undefined}
-            >
-              {section.icon}
-              {section.label}
-            </a>
-          ))}
-        </nav>
+        <div className="flex flex-wrap items-center gap-x-4.5 gap-y-2 px-page pt-0 pb-2.5">
+          {workspace && tabs.length > 0 && (
+            <>
+              <WorkspaceName workspace={workspace} />
+              <ChevronRight
+                className="-mx-2 flex-none text-muted max-[760px]:hidden"
+                size={16}
+                aria-hidden="true"
+              />
+            </>
+          )}
+          <nav className="flex flex-wrap gap-4.5 text-[13px]" aria-label={navLabel}>
+            {sections.map((section) => (
+              <a
+                key={section.href}
+                href={section.href}
+                className={tabClass(section.current)}
+                aria-current={section.current ? 'page' : undefined}
+              >
+                {section.icon}
+                {section.label}
+              </a>
+            ))}
+          </nav>
+        </div>
       )}
     </header>
+  );
+}
+
+function WorkspaceName({ workspace }: { workspace: { id: string; name: string; href?: string } }) {
+  return (
+    <a
+      className="site-header-workspace min-w-0 overflow-hidden text-[14px] font-semibold text-ellipsis whitespace-nowrap text-ink"
+      href={workspace.href ?? `/w/${workspace.id}`}
+    >
+      {workspace.name}
+    </a>
   );
 }
