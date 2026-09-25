@@ -1,6 +1,6 @@
 # Evaluate the container stack
 
-This is a source-built development candidate. Picture verification, consistent backups, offline archive checks and staged restore are available in the [backup guide](backups.md). Published installation images and account recovery are not available yet. Keep using disposable evaluation data. The existing local installation instructions remain in [Getting started](../getting-started.md).
+This is a source-built development candidate. Picture verification, consistent backups, offline archive checks and staged restore are available in the [backup guide](backups.md). Published installation images are not available yet; account recovery is described below. Keep using disposable evaluation data. The existing local installation instructions remain in [Getting started](../getting-started.md).
 
 The stack runs PostgreSQL, an explicit migration job, the web application and a Caddy HTTPS proxy. Only the proxy publishes host ports. Web receives runtime database credentials; the migration and operator services receive owner credentials. Both the database and uploaded pictures persist in named volumes.
 
@@ -28,7 +28,7 @@ docker compose exec -T proxy cat /data/caddy/pki/authorities/local/root.crt > pa
 curl --cacert passdown-local-ca.crt https://localhost:18443/api/health
 ```
 
-Trust that certificate only in your test browser's certificate store before continuing. Remove that trust when the evaluation ends: its signing key lives in this stack's `proxy-data` volume. Delete the exported certificate when it is no longer needed. The health response should report `setup-required`. Enter the code, your name, email, a password and workspace name. Setup opens your new workspace; `/setup` then returns 404. This stage creates a workspace manager; the installation-administrator capability arrives with account recovery.
+Trust that certificate only in your test browser's certificate store before continuing. Remove that trust when the evaluation ends: its signing key lives in this stack's `proxy-data` volume. Delete the exported certificate when it is no longer needed. The health response should report `setup-required`. Enter the code, your name, email, a password and workspace name. Setup opens your new workspace; `/setup` then returns 404. The setup account manages the workspace and is the installation's first administrator.
 
 For a domain you control, use `--domain guides.example.org --acme-email person@example.org`. Caddy requests a public certificate when DNS and ports 80/443 reach the host. Public-domain installation and unattended production use still require the release verification work.
 
@@ -72,6 +72,21 @@ The details are in the web service's log. At every start it writes one JSON `sta
 ```sh
 docker compose logs web | grep '"event":"startup"'
 ```
+
+## Account recovery and administrators
+
+An installation administrator helps people who can't sign in. At **Administration → Accounts** (`/admin/accounts`), choose **Create reset link…** for the account, and pass the link on privately. It works once, for 24 hours, and signs the account out everywhere when used. The setup account is the first administrator; workspace managers are not administrators unless granted.
+
+From the `deploy` directory, the operator command does the same when no administrator can sign in, and manages who is an administrator:
+
+```sh
+docker compose run --rm -T ops reset-password --email person@example.org
+docker compose run --rm -T ops admin list
+docker compose run --rm -T ops admin grant person@example.org
+docker compose run --rm -T ops admin revoke person@example.org
+```
+
+`reset-password` prints the link alone on standard output and its expiry on standard error. An unknown address, and revoking the last administrator, are refused with exit code 4: grant someone else first.
 
 ## Upgrade a running installation
 

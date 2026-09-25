@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { expectedMigrations } from '@guide/database';
 import { validateManifest } from './manifest';
 
+// Builds with account recovery (032) record how many reset links were open.
+const resetLinksRecorded = expectedMigrations().some((migration) => /^032_/.test(migration.name));
 export const sampleManifest = () => ({
   format: 'passdown-backup/1',
   complete: true,
@@ -19,7 +21,7 @@ export const sampleManifest = () => ({
     'app.rate_limit': null,
   },
   excludedData: ['public.auth_session', 'public.auth_verification', 'app.rate_limit'],
-  credentials: { openResetLinks: null, pendingInvitations: 1 },
+  credentials: { openResetLinks: resetLinksRecorded ? 0 : null, pendingInvitations: 1 },
   media: { files: 0, bytes: 0, missingAtBackup: [], renditionsIncluded: false },
   files: {
     'database.dump': { bytes: 5, sha256: 'a'.repeat(64) },
@@ -32,22 +34,24 @@ describe('backup manifest validation', () => {
     expect(validateManifest(sampleManifest())).toEqual(sampleManifest());
   });
   it('requires schema-aware reset-link counts', () => {
-    const before = {
+    const before = expectedMigrations().filter((migration) => migration.name < '032_');
+    const beforeManifest = {
       ...sampleManifest(),
-      credentials: { openResetLinks: 0, pendingInvitations: 1 },
+      migrations: before,
+      credentials: { openResetLinks: null as number | null, pendingInvitations: 1 },
     };
-    expect(() => validateManifest(before)).toThrow();
-    const after = {
+    expect(validateManifest(beforeManifest, before)).toEqual(beforeManifest);
+    beforeManifest.credentials.openResetLinks = 0;
+    expect(() => validateManifest(beforeManifest, before)).toThrow();
+    const after = [...before, { name: '032_password_reset_links.sql', checksum: 'd'.repeat(64) }];
+    const afterManifest = {
       ...sampleManifest(),
-      migrations: [
-        ...expectedMigrations(),
-        { name: '032_identity_operations.sql', checksum: 'd'.repeat(64) },
-      ],
+      migrations: after,
       credentials: { openResetLinks: 0 as number | null, pendingInvitations: 1 },
     };
-    expect(validateManifest(after, after.migrations)).toEqual(after);
-    after.credentials.openResetLinks = null;
-    expect(() => validateManifest(after, after.migrations)).toThrow();
+    expect(validateManifest(afterManifest, after)).toEqual(afterManifest);
+    afterManifest.credentials.openResetLinks = null;
+    expect(() => validateManifest(afterManifest, after)).toThrow();
   });
   it.each([
     (m: any) => {

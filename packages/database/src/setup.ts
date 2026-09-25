@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { completeSetupAdministrator } from './password-reset';
 import pg from 'pg';
 import { ownerDatabaseTarget, pgClientConfig, type ConnectionPolicy } from './config';
 import { setupSchema, type SetupInput } from '@guide/contracts';
@@ -97,8 +98,9 @@ export async function completeSetup(
       await client.query('ROLLBACK');
       return { outcome: 'workspace-exists' };
     }
-    // The installation-administrator grant is added with its schema migration.
-    await options?.finalStep?.(client, userId);
+    // The setup account becomes the first installation administrator in the
+    // same transaction, so a failure leaves no account, workspace or grant.
+    await (options?.finalStep ?? completeSetupAdministrator)(client, userId);
     commitSent = true;
     await client.query('COMMIT');
     return { outcome: 'created', userId, workspace };

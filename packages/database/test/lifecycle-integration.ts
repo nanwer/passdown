@@ -122,7 +122,11 @@ export async function verifyLifecycle(
         'exports a stable snapshot and excludes transient table counts',
         async () => {
           held = await openBackupSnapshot(params);
-          assert.equal(held.credentials.openResetLinks, null);
+          // Open reset links are counted once their table exists (migration 032).
+          const resets = (
+            await db!.query("SELECT to_regclass('app.password_reset') IS NOT NULL AS present")
+          ).rows[0].present;
+          assert.equal(held.credentials.openResetLinks, resets ? 0 : null);
           assert.equal(held.counts['public.auth_session'], null);
           assert.equal(held.counts['public.auth_verification'], null);
           assert.equal(held.counts['app.rate_limit'], null);

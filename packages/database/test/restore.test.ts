@@ -1,4 +1,4 @@
-import { beforeEach, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { openRestoreSession } from '../src/restore';
 const mock = vi.hoisted(() => ({
   query: vi.fn(),
@@ -10,6 +10,14 @@ const mock = vi.hoisted(() => ({
   busy: false,
   contents: [] as unknown[],
   invitationCount: 2,
+  caps: {
+    invitation: true,
+    resets: false,
+    audit: false,
+    closeResets: false,
+    administrators: false,
+  },
+  closed: 0,
   connect: vi.fn(),
 }));
 vi.mock('../src/runtime-role', () => ({ ensureRuntimeRole: mock.ensure }));
@@ -44,6 +52,14 @@ beforeEach(() => {
   mock.busy = false;
   mock.contents = [];
   mock.invitationCount = 2;
+  mock.caps = {
+    invitation: true,
+    resets: false,
+    audit: false,
+    closeResets: false,
+    administrators: false,
+  };
+  mock.closed = 0;
   mock.runtime.mockResolvedValue({ rows: [{ name: '001.sql', checksum: backup }] });
   mock.query.mockImplementation(async (sql: string) => {
     if (sql === 'BEGIN' || sql.startsWith('BEGIN ISOLATION')) mock.saved = mock.comment;
@@ -57,8 +73,9 @@ beforeEach(() => {
     if (sql.includes('aclexplode'))
       return { rows: [{ grantee: 'PUBLIC', grantable: false, owner_grant: true }] };
     if (sql.includes('AS object_kind')) return { rows: mock.contents };
-    if (sql.includes("to_regclass('app.password_reset')"))
-      return { rows: [{ invitation: true, resets: false, audit: false, administrators: false }] };
+    if (sql.includes("to_regclass('app.password_reset')")) return { rows: [mock.caps] };
+    if (sql.includes('app.operator_close_all_password_resets()'))
+      return { rows: [{ closed: mock.closed }] };
     if (sql.startsWith('DELETE FROM app.invitation'))
       return { rows: [], rowCount: mock.invitationCount };
     if (sql.startsWith('DELETE FROM public.auth')) return { rows: [], rowCount: 0 };
@@ -246,3 +263,64 @@ for (const phase of ['verified', 'access-reset', 'media-moved']) {
     await session.release();
   });
 }
+
+describe('cleanup with account recovery', () => {
+  const recovery = {
+    invitation: true,
+    resets: true,
+    audit: true,
+    closeResets: true,
+    administrators: true,
+  };
+  it('closes open reset links through the operator function and records the restore', async () => {
+    mock.caps = recovery;
+    mock.closed = 3;
+    mock.comment = comment('verified');
+    const s = await openRestoreSession(options);
+    const report = await s.applyCredentialPolicy(
+      id,
+      { openResetLinks: 3, pendingInvitations: 2 },
+      '2026-01-01T00:00:00Z',
+    );
+    expect(mock.comment).toBe(comment('access-reset'));
+    expect(report.audit).toBe('recorded');
+    const sql = mock.query.mock.calls.map(([q]) => q as string);
+    // The function takes each account's lock and audits every closed link.
+    expect(sql.some((q) => q.includes('app.operator_close_all_password_resets()'))).toBe(true);
+    expect(sql.some((q) => q.startsWith('UPDATE app.password_reset'))).toBe(false);
+    expect(sql.some((q) => q.includes('SELECT app.operator_record_restore'))).toBe(true);
+    await s.release();
+  });
+  it('rolls back when the number of closed links differs from the backup', async () => {
+    mock.caps = recovery;
+    mock.closed = 2;
+    mock.comment = comment('verified');
+    const s = await openRestoreSession(options);
+    await expect(
+      s.applyCredentialPolicy(
+        id,
+        { openResetLinks: 3, pendingInvitations: 2 },
+        '2026-01-01T00:00:00Z',
+      ),
+    ).rejects.toMatchObject({ problem: 'credential-counts' });
+    expect(mock.comment).toBe(comment('verified'));
+    await s.release();
+  });
+  it.each([
+    ['the closing function', { closeResets: false }],
+    ['the restore audit', { audit: false }],
+  ])('refuses a schema with reset links but without %s', async (_name, missing) => {
+    mock.caps = { ...recovery, ...missing };
+    mock.comment = comment('verified');
+    const s = await openRestoreSession(options);
+    await expect(
+      s.applyCredentialPolicy(
+        id,
+        { openResetLinks: 0, pendingInvitations: 2 },
+        '2026-01-01T00:00:00Z',
+      ),
+    ).rejects.toMatchObject({ problem: 'reset-support-incomplete' });
+    expect(mock.comment).toBe(comment('verified'));
+    await s.release();
+  });
+});

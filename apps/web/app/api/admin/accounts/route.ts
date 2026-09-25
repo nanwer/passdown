@@ -3,7 +3,7 @@ import { requireSession, getApplication } from '../../../../lib/application';
 import { apiResponse, parseInput } from '../../../../lib/http';
 export const dynamic = 'force-dynamic';
 export function GET(request: Request) {
-  return apiResponse(async () => {
+  return apiResponse({ route: '/api/admin/accounts', method: 'GET' }, async () => {
     const { actor } = await requireSession(request);
     const params = new URL(request.url).searchParams;
     const query = parseInput(adminAccountQuerySchema, Object.fromEntries(params));

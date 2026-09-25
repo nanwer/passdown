@@ -2770,6 +2770,7 @@ test('removing a prerequisite step explains affected steps without recovery cont
   });
   await api(page.request, `${endpoint}/publish`, 'POST', {
     expectedVersion: saved.version,
+    expectedPublicationRevision: saved.publicationRevision,
     expectedRelease: saved.currentRelease,
     license: 'CC-BY-4.0',
   });

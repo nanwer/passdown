@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from 'node:crypto';
 import pg from 'pg';
+import { ownerDatabaseTarget, pgClientConfig, type ConnectionPolicy } from './config';
 import { canonicalAccountEmail } from './credentials';
 
 /** Runs in the setup caller's transaction, so any later rollback removes the grant too. */
@@ -12,8 +13,13 @@ export async function completeSetupAdministrator(
 export function formatOperatorExpiry(expiresAt: Date): string {
   return `${expiresAt.toISOString().slice(0, 16).replace('T', ' ')} UTC`;
 }
-async function ownerTransaction<T>(url: string, run: (c: pg.Client) => Promise<T>): Promise<T> {
-  const c = new pg.Client({ connectionString: url });
+async function ownerTransaction<T>(
+  url: string,
+  policy: ConnectionPolicy | undefined,
+  run: (c: pg.Client) => Promise<T>,
+): Promise<T> {
+  // The same strict connection policy as every other operator connection.
+  const c = new pg.Client(pgClientConfig(ownerDatabaseTarget(url, policy ?? 'loopback')));
   await c.connect();
   try {
     await c.query('BEGIN');
@@ -58,6 +64,7 @@ function refusal(error: unknown): Refusal | null {
 }
 export async function issueOperatorPasswordReset(input: {
   ownerDatabaseURL: string;
+  policy?: ConnectionPolicy;
   origin: string;
   email: string;
 }): Promise<OperatorResetResult> {
@@ -66,6 +73,7 @@ export async function issueOperatorPasswordReset(input: {
   try {
     const row = await ownerTransaction(
       input.ownerDatabaseURL,
+      input.policy,
       async (c) =>
         (
           await c.query('SELECT * FROM app.operator_issue_password_reset($1,$2)', [
@@ -90,11 +98,13 @@ export async function issueOperatorPasswordReset(input: {
 }
 export async function grantInstallationAdministrator(input: {
   ownerDatabaseURL: string;
+  policy?: ConnectionPolicy;
   email: string;
 }) {
   try {
     const row = await ownerTransaction(
       input.ownerDatabaseURL,
+      input.policy,
       async (c) =>
         (
           await c.query('SELECT * FROM app.operator_grant_administrator($1)', [
@@ -122,11 +132,13 @@ export async function grantInstallationAdministrator(input: {
 }
 export async function revokeInstallationAdministrator(input: {
   ownerDatabaseURL: string;
+  policy?: ConnectionPolicy;
   email: string;
 }) {
   try {
     const row = await ownerTransaction(
       input.ownerDatabaseURL,
+      input.policy,
       async (c) =>
         (
           await c.query('SELECT * FROM app.operator_revoke_administrator($1)', [
@@ -158,8 +170,11 @@ export async function revokeInstallationAdministrator(input: {
     throw e;
   }
 }
-export async function listInstallationAdministrators(input: { ownerDatabaseURL: string }) {
-  return ownerTransaction(input.ownerDatabaseURL, async (c) =>
+export async function listInstallationAdministrators(input: {
+  ownerDatabaseURL: string;
+  policy?: ConnectionPolicy;
+}) {
+  return ownerTransaction(input.ownerDatabaseURL, input.policy, async (c) =>
     (await c.query('SELECT * FROM app.operator_list_administrators()')).rows.map((r) => ({
       email: r.account_email as string,
       name: r.account_name as string,

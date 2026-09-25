@@ -349,54 +349,33 @@ Use the [container evaluation guide](../self-hosting/development-stack.md) and a
 
 No published images, recovery UI, nginx stack or upgrade command are delivered yet; backup and restore are covered above. Public-domain clean-host and physical-browser release checks remain outstanding.
 
-## Staged source-link change
+## Source code link
 
-This section describes local integration work pending release validation, not functionality delivered on the public branch.
-
-1. Start the app with `PASSDOWN_REVISION` set to a valid 7–40 digit Git commit hash. Open `/`, `/sign-in`, and `/studio`. In each footer, Tab to **Source code**. Expect a normal link to that commit under the public repository's `/tree/` path.
+1. Start the app with `PASSDOWN_REVISION` set to a Git commit hash of 7–40 hexadecimal characters. Open `/`, `/sign-in` and `/studio`. In each footer, Tab to **Source code**. Expect a link to that commit under the public repository's `/tree/` path. `docker compose run --rm -T ops version` reports the same revision in a container.
 2. Set `PASSDOWN_SOURCE_URL=https://example.org/source` and restart. Expect every source link to use the override.
-3. Clear both values and restart. Expect the public repository root. An invalid or non-HTTP(S) override must also fall back safely.
+3. Clear both values and restart. Expect the public repository root. An invalid or non-HTTP(S) override, or a revision that isn't a commit hash, falls back safely.
 
-Unit checks cover URL selection and the accessible link. The staged production build passes; direct browser source-link assertions remain pending.
-
-## Staged Your account form
+## Your account
 
 1. Sign in and select your name in the studio header, or open `/account`. Expect **Your account** with current password, new password and confirmation.
-2. Change the password twice without reloading. After each success, expect **Password changed. You are still signed in here.**, empty fields and an enabled Change password button.
-3. Enter an incorrect current password. Expect its error and focus on Current password. Mismatching new passwords focus the confirmation field.
+2. Change the password twice without reloading. After each success, expect **Password changed. You are still signed in here.**, empty fields and an enabled **Change password** button.
+3. Enter an incorrect current password. Expect its error and focus on **Current password**. Mismatching new passwords focus the confirmation field. A busy database says the account is busy and never claims the password is wrong.
 
-Component checks cover consecutive changes, announcements and current-password field errors. Recovery-link invalidation and database failure mapping are implemented in the staged credential integration; the staged browser journey passes in Chromium, Firefox and WebKit.
+## Withdraw and reinstate a published guide
 
-## Staged publication and recovery database foundation
+1. Sign in as a workspace manager. Open a published guide in Studio and choose **Withdraw…**. Enter an optional reason, then choose **Withdraw release N**. Expect a withdrawal announcement, a **Reinstate…** button and **See what readers see**. Unsaved draft text stays intact.
+2. Open the reader address as a former reader. Expect **This guide has been withdrawn**, no title, instructions or photos, HTTP 200 and noindex metadata. An outsider to a private guide still gets 404.
+3. Choose **Reinstate…**, wait for the dependency checks, then **Reinstate release N**. Expect the same release number to become readable again. An inactive or restricted dependency disables confirmation and explains why.
+4. Open two editor tabs. Change the publication state or audience in one, then confirm an old action in the other. Expect it to be refused as out of date, with the publication state and audience refreshed, licence consent cleared and unsaved text preserved.
+5. A withdrawn guide stays in Studio's **Withdrawn** filter but disappears from the library and from active catalog usage. Moving it between sections is unavailable until it is reinstated or republished. Saving a changed draft and publishing ends the withdrawal with a new release.
 
-These migrations and contracts are pending integration. Main does not yet provide the workflows below.
+## Installation administrators and reset links
 
-- Publication requests must send `expectedPublicationRevision` from the latest draft response. After publishing, withdrawing, reinstating or changing audience, the revision increases. Replaying an older publication action must return `409 PUBLICATION_CHANGED`.
-- Withdrawing through the scoped store preserves the editable draft, refuses former readers access to release content, and allows only the former audience to read the withdrawal-notice flag. Reinstating keeps the same release and checks current dependencies.
-- Password reset tables and administrator SQL functions are installed in migration 032. Runtime SQL cannot directly replace or delete a credential. Non-administrators cannot list accounts or issue reset links. The last effective installation administrator cannot be revoked or deactivated.
+1. Complete first-run setup on a fresh evaluation installation. Run `docker compose run --rm -T ops admin list`. Expect the setup account, granted via `setup`.
+2. Sign in as that administrator and follow **Administration** to `/admin/accounts`. Search for an account; expect server-filtered results with workspace and status information. A workspace manager who is not an installation administrator gets 404 from this page and its API.
+3. For another active account, choose **Create reset link…**, then **Create link**. Expect the one-time link field to take focus, an expiry with a time zone, and Copy and Cancel controls. The account's current password and sessions keep working until the link is used.
+4. Choose **Copy link**, then **Cancel this link**. Expect **Link cancelled. It no longer works.** Opening that link shows the invalid-link page.
+5. Create another link and open it in a second browser. Set matching passwords of 12–200 characters. Expect to be signed in to Studio, with every previous session for that account signed out. Reusing the link fails. If another account is signed in, the page explains that continuing signs it out.
+6. From `deploy`, run `docker compose run --rm -T ops reset-password --email <address>`. Expect the link alone on standard output and its expiry on standard error; an unknown address exits 4. Run `ops admin grant <address>` for a second account, then `ops admin revoke` for each: the last remaining administrator can't be revoked (exit 4). None of these print a password or connection string.
 
-Developer validation uses only an explicitly named disposable `release_b_*` database through `packages/database/test/release-product-integration.ts`. It covers scoped publication transitions, credential grants, denial cases, redemption/session removal and idempotent restore auditing. Reader/editor controls and account-recovery pages/API are described in the staged integration journeys below.
-
-## Staged product integration: complete manual journeys
-
-These controls now exist on the staged product branch. They remain unmerged. The two focused product journeys pass in Chromium, Firefox and WebKit; broader acceptance verification and the later deployment/operator integration remain required before calling them delivered on main.
-
-### Withdraw and reinstate
-
-1. Sign in as a workspace manager. Open a published guide in Studio and choose **Withdraw…**. Enter an optional reason, then choose **Withdraw release N**. Expect a withdrawal announcement, a **Reinstate…** button and **See what readers see**. Unsaved draft text must stay intact.
-2. Open the reader address as a former reader. Expect **This guide has been withdrawn**, no title/instructions/photos, HTTP 200 and noindex metadata. An outsider to a private guide must still get 404.
-3. Choose **Reinstate…**, wait for dependency checks, then **Reinstate release N**. Expect the same release number to become readable. An inactive/restricted dependency must disable confirmation and explain the blocker.
-4. Open two editor tabs. Change publication state or audience in one, then confirm an old action in the other. Expect `PUBLICATION_CHANGED`, refreshed publication state and audience, cleared license consent and preserved unsaved text. Retrying must show the current audience before publishing.
-5. A withdrawn guide stays in Studio's **Withdrawn** filter, but disappears from the library and active catalog usage. Audience moves are unavailable until reinstated or republished. Save a changed draft and publish to end withdrawal with a new release.
-
-### Administration and reset links
-
-1. Sign in as an installation administrator and follow **Administration** to `/admin/accounts`. Search for an account; expect server-filtered results and workspace/status information. A workspace manager who is not an installation administrator must get 404 from this page and its APIs.
-2. For another active account, choose **Create reset link…**, then **Create link**. Expect the one-time link field to receive focus, an expiry with a time zone, and Copy/Cancel controls. The current password and sessions remain usable until redemption.
-3. Choose **Copy link**, then **Cancel this link**. Expect the link field to disappear and **Link cancelled. It no longer works.** Opening that link must show the invalid-link page.
-4. Create another link and open it in a second browser. Set matching 12–200 character passwords. Expect a new sign-in to Studio and all previous sessions for that account invalidated. Reusing the link must fail. If another account is signed in, the page explains that continuing signs that account out.
-5. Open `/account` and change the password twice without reloading. Expect empty fields, enabled submit and a success announcement each time. A wrong current password focuses that field; a busy database must say the account is busy, never claim the password is wrong.
-
-### Remaining validation and integration
-
-Automated focused component, route and disposable-database checks cover the implemented foundations. The two journeys in `tests/authoring/release-product.spec.ts` and the staged production build pass. Browser checks cover dirty-text preservation through withdraw/reinstate, generic reader notice/noindex, reset cancellation/redemption/reuse refusal and two consecutive account password changes. Concurrent credential races, the complete SQL denial matrix, wider publication conflict/blocker browser coverage and keyboard/VoiceOver/mobile checks remain pending. A sign-in that verified the old password immediately before a reset can still insert a session afterward because Better Auth does not take the credential account lock; this remains a documented residual, without an additional probe result. The server command registry and proxy/logging integration belong to a later deployment slice; only database-level operator adapters exist here. No release, image or deployment is published by this work.
+Automated checks cover the database functions in a disposable database (`pnpm test:database:product`), the setup grant (`pnpm test:database`), the operator commands, and the two product journeys in `tests/authoring/release-product.spec.ts` in Chromium, Firefox and WebKit. Still to check before release: concurrent credential races and the complete database denial matrix, wider publication-conflict coverage in the browser, and keyboard, VoiceOver and phone-width passes. A sign-in that verified the old password moments before a reset can still create a session afterwards, because the sign-in library doesn't take the account lock; this is a known limitation.

@@ -262,6 +262,7 @@ export async function openRestoreSession(options: RestoreOptions): Promise<Resto
     to_regclass('app.invitation') IS NOT NULL AS invitation,
     to_regclass('app.password_reset') IS NOT NULL AS resets,
     to_regprocedure('app.operator_record_restore(jsonb)') IS NOT NULL AS audit,
+    to_regprocedure('app.operator_close_all_password_resets()') IS NOT NULL AS "closeResets",
     to_regclass('app.installation_admin') IS NOT NULL AS administrators`)
     ).rows[0];
   const report = async (snapshotAt: string): Promise<RestoreAccessReport> => {
@@ -401,6 +402,10 @@ export async function openRestoreSession(options: RestoreOptions): Promise<Resto
             ]);
             if (current.checkpoint !== 'verified') return report(snapshotAt);
             const caps = await capabilities();
+            // A schema with reset links must also close them under the account
+            // lock and audit the restore; never fall back to editing rows directly.
+            if (caps.resets && !(caps.closeResets && caps.audit))
+              throw new RestoreRefusal('reset-support-incomplete');
             if (
               !Number.isSafeInteger(expected.pendingInvitations) ||
               expected.pendingInvitations < 0 ||
@@ -423,11 +428,10 @@ export async function openRestoreSession(options: RestoreOptions): Promise<Resto
             if (invitations !== expected.pendingInvitations)
               throw new RestoreRefusal('credential-counts');
             if (caps.resets) {
-              const reset = (
-                await client.query(
-                  "UPDATE app.password_reset SET revoked_at=now(),revoked_reason='restored' WHERE used_at IS NULL AND revoked_at IS NULL",
-                )
-              ).rowCount;
+              const reset = number(
+                (await client.query('SELECT app.operator_close_all_password_resets() AS closed'))
+                  .rows[0]?.closed,
+              );
               if (reset !== expected.openResetLinks) throw new RestoreRefusal('credential-counts');
             }
             if (caps.audit)

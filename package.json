@@ -26,6 +26,7 @@
     "local:down": "docker compose --env-file .env.local -f compose.app.yaml down",
     "local:migrate": "tsx scripts/migrate-local.mjs",
     "test:database": "tsx packages/database/test/integration.ts",
+    "test:database:product": "PASSDOWN_PRODUCT_TEST_DATABASE=release_b_checks tsx packages/database/test/release-product-integration.ts",
     "test:authoring": "playwright test --config playwright.authoring.config.ts",
     "local:verify": "tsx scripts/verify-schema.mjs",
     "migrations:manifest": "node scripts/migration-manifest.mjs",

@@ -765,7 +765,7 @@ try {
       const published = await store.publishDraft(actor(id), 'repair-collective', 'bicycle-brake', {
         expectedVersion: 2,
         expectedPublicationRevision: (await store.getDraft(
-          actor('owner'),
+          actor(id),
           'repair-collective',
           'bicycle-brake',
         ))!.publicationRevision,

@@ -67,7 +67,7 @@ async function archive(
       'app.rate_limit': null,
     },
     excludedData: ['public.auth_session', 'public.auth_verification', 'app.rate_limit'],
-    credentials: { openResetLinks: null, pendingInvitations: 0 },
+    credentials: { openResetLinks: 0, pendingInvitations: 0 },
     media: {
       files: 1,
       bytes: Buffer.byteLength('synthetic picture'),

@@ -52,6 +52,12 @@ export async function verifySetup(check: (name: string, fn: () => Promise<void>)
       const created = await completeSetup(pool, input);
       assert.equal(created.outcome, 'created');
       assert.deepEqual(await counts(), { users: 1, accounts: 1, workspaces: 1 });
+      // The setup account is the installation's first administrator, granted
+      // inside the same transaction as the account and workspace.
+      assert.deepEqual(
+        (await db.query('SELECT user_id,granted_via FROM app.installation_admin')).rows,
+        [{ user_id: created.outcome === 'created' ? created.userId : null, granted_via: 'setup' }],
+      );
       const user = (
         await db.query('SELECT email,email_verified,must_change_password FROM public.auth_user')
       ).rows[0];

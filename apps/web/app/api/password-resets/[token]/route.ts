@@ -9,7 +9,7 @@ function valid(token: string) {
   if (!/^[A-Za-z0-9_-]{43}$/.test(token)) throw invalid();
 }
 export function GET(request: Request, context: Context) {
-  return apiResponse(async () => {
+  return apiResponse({ route: '/api/password-resets/[token]', method: 'GET' }, async () => {
     await enforceRateLimit('password-reset:lookup', 120);
     const { token } = await context.params;
     valid(token);
@@ -25,7 +25,7 @@ export function GET(request: Request, context: Context) {
   });
 }
 export function POST(request: Request, context: Context) {
-  return apiResponse(async () => {
+  return apiResponse({ route: '/api/password-resets/[token]', method: 'POST' }, async () => {
     const app = getApplication();
     assertOrigin(request, app.origin);
     await enforceRateLimit('password-reset:redeem', 60);

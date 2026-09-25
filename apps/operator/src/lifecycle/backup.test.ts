@@ -26,7 +26,7 @@ function snapshot() {
       'app.rate_limit': null,
     },
     assets: [],
-    credentials: { openResetLinks: null, pendingInvitations: 0 },
+    credentials: { openResetLinks: 0, pendingInvitations: 0 },
     dangling: [],
     references: [],
     release: vi.fn(async () => {}),

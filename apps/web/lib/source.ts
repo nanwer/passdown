@@ -1,9 +1,12 @@
+import { buildInfo } from '@guide/contracts';
+
 export const publicRepository = 'https://github.com/nanwer/passdown';
-const commit = /^[0-9a-f]{7,40}$/;
 export function sourceCodeURL(
   env: Readonly<Record<string, string | undefined>> = process.env,
   revision: string | null = env.PASSDOWN_REVISION ?? null,
 ): string {
+  // Only a real commit identifier, by the shared build-information rule.
+  const commit = buildInfo({ PASSDOWN_REVISION: revision ?? undefined }).revision;
   const configured = env.PASSDOWN_SOURCE_URL?.trim();
   if (configured) {
     try {
@@ -13,7 +16,5 @@ export function sourceCodeURL(
       /* Invalid overrides fall back to the build revision. */
     }
   }
-  return revision && commit.test(revision)
-    ? `${publicRepository}/tree/${revision}`
-    : publicRepository;
+  return commit ? `${publicRepository}/tree/${commit}` : publicRepository;
 }
