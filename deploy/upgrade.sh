@@ -60,9 +60,17 @@ read_setting() {
   awk -v key="$1" 'index($0,key "=")==1 {count++; value=substr($0,length(key)+2)} END {if(count>1) exit 1; print value}' "$env_file"
 }
 compose_files=$(read_setting COMPOSE_FILE) || fail 3 'COMPOSE_FILE appears more than once in the settings file.'
-if [ "$mode" = build ] && [ "$compose_files" != compose.yaml:compose.build.yaml ]; then
+proxy=$(read_setting PASSDOWN_PROXY) || fail 3 'PASSDOWN_PROXY appears more than once in the settings file.'
+case "${proxy:-caddy}" in caddy|nginx) proxy=${proxy:-caddy} ;; *) fail 3 'PASSDOWN_PROXY must be caddy or nginx.' ;; esac
+case "$proxy:$compose_files" in
+  caddy:compose.yaml | nginx:compose.yaml:compose.nginx.yaml) built=false ;;
+  caddy:compose.yaml:compose.build.yaml | nginx:compose.yaml:compose.build.yaml:compose.nginx.yaml:compose.nginx.build.yaml) built=true ;;
+  *) fail 3 'The settings name Compose files that do not match PASSDOWN_PROXY; see the configuration reference.' ;;
+esac
+if [ "$mode" = build ] && [ "$built" = false ]; then
   fail 4 'This installation uses published images; upgrade it with --image instead of --build.'
 fi
+proxy_tag=passdown-$proxy
 
 # Settings come only from the settings file: a variable left in this shell
 # would otherwise override it and point Compose at another installation or image.
@@ -102,12 +110,12 @@ if [ "$mode" = build ]; then
   # The running containers keep their image. Keep a name for it too, so the
   # previous version can be started again if it is ever needed.
   docker tag "$previous_web" passdown:previous
-  [ -z "$previous_proxy" ] || docker tag "$previous_proxy" passdown-caddy:previous
+  [ -z "$previous_proxy" ] || docker tag "$previous_proxy" "$proxy_tag:previous"
   printf '%s\n' 'Building the new version…' >&2
   revision=$(git -C "$here/.." rev-parse HEAD 2>/dev/null) || revision=unknown
   PASSDOWN_REVISION=$revision compose build web proxy >&2 || {
     docker tag "$previous_web" passdown:local
-    [ -z "$previous_proxy" ] || docker tag "$previous_proxy" passdown-caddy:local
+    [ -z "$previous_proxy" ] || docker tag "$previous_proxy" "$proxy_tag:local"
     log 'failed: build'
     fail 1 'The build failed. The site is still running the previous version.'
   }
@@ -135,7 +143,7 @@ printf '%s\n' 'Applying migrations with the new version…' >&2
 if ! with_new_images compose run --rm -T migrate >&2; then
   if [ "$mode" = build ]; then
     docker tag "$previous_web" passdown:local
-    [ -z "$previous_proxy" ] || docker tag "$previous_proxy" passdown-caddy:local
+    [ -z "$previous_proxy" ] || docker tag "$previous_proxy" "$proxy_tag:local"
   fi
   log 'failed: migrations failed; previous version still running'
   fail 1 'Migrations failed; the site is still running the previous version. Nothing else was changed. Read the error above; see the upgrade guide for recovery.'

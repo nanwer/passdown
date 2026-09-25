@@ -9,8 +9,10 @@ fail() { printf '%s\n' "$2" >&2; exit "$1"; }
 usage() {
   printf '%s\n' 'Usage: sh init.sh --domain HOST [--acme-email EMAIL | --internal-tls]' \
     '                  [--http-port PORT] [--https-port PORT] [--output FILE.env] [--project NAME] [--build]' \
+    '       sh init.sh --domain HOST --proxy nginx --tls-dir DIR [options above except certificates]' \
     '       sh init.sh --renew-setup-code [--output FILE]' \
-    'Caddy is the supported proxy. localhost uses an internal certificate.'
+    'Caddy is the default proxy and obtains certificates itself; localhost uses an internal certificate.' \
+    'nginx serves certificates you provide: DIR must contain fullchain.pem and privkey.pem.'
 }
 need_value() { [ "$#" -ge 2 ] && [ -n "$2" ] || fail 2 'An option is missing its value.'; }
 output=./.env
@@ -21,6 +23,8 @@ internal=false
 http_port=80
 https_port=443
 build=false
+proxy=caddy
+tls_dir=
 renew=false
 creation_options=false
 while [ "$#" -gt 0 ]; do
@@ -35,8 +39,12 @@ while [ "$#" -gt 0 ]; do
     --http-port) need_value "$@"; http_port=$2; creation_options=true; shift 2 ;;
     --https-port) need_value "$@"; https_port=$2; creation_options=true; shift 2 ;;
     --build) build=true; creation_options=true; shift ;;
-    --proxy) need_value "$@"; [ "$2" = caddy ] || fail 3 'Only the Caddy proxy is supported by this version of init.sh.'; creation_options=true; shift 2 ;;
-    --tls-dir|--tls-cert|--tls-key|--acme-webroot) fail 3 'nginx certificate options are not supported by this version of init.sh.' ;;
+    --proxy)
+      need_value "$@"
+      case "$2" in caddy|nginx) proxy=$2 ;; *) fail 2 'The proxy must be caddy or nginx.' ;; esac
+      creation_options=true; shift 2 ;;
+    --tls-dir) need_value "$@"; tls_dir=$2; creation_options=true; shift 2 ;;
+    --tls-cert|--tls-key|--acme-webroot) fail 3 'This version of init.sh takes nginx certificates only as a folder: use --tls-dir DIR with fullchain.pem and privkey.pem.' ;;
     *) fail 2 'Unknown option. Run sh init.sh --help for supported options.' ;;
   esac
 done
@@ -95,10 +103,16 @@ print_compose() {
   printf 'docker compose --project-directory '; shell_quote "$install_dir"
   printf ' --env-file '; shell_quote "$output"
   printf ' --project-name '; shell_quote "$project"
-  printf ' -f '; shell_quote "$install_dir/compose.yaml"
-  if [ "$compose_files" = compose.yaml:compose.build.yaml ]; then
-    printf ' -f '; shell_quote "$install_dir/compose.build.yaml"
-  fi
+  for file in $(printf '%s' "$compose_files" | tr ':' ' '); do
+    printf ' -f '; shell_quote "$install_dir/$file"
+  done
+}
+supported_compose_files() {
+  case "$1" in
+    compose.yaml|compose.yaml:compose.build.yaml) ;;
+    compose.yaml:compose.nginx.yaml|compose.yaml:compose.build.yaml:compose.nginx.yaml:compose.nginx.build.yaml) ;;
+    *) return 1 ;;
+  esac
 }
 read_setting() {
   awk -v key="$1" 'index($0,key "=")==1 {count++; value=substr($0,length(key)+2)} END {if(count!=1) exit 1; print value}' "$snapshot"
@@ -114,7 +128,7 @@ if [ "$renew" = true ]; then
   project=$(read_setting COMPOSE_PROJECT_NAME) || fail 3 'COMPOSE_PROJECT_NAME must appear exactly once in the settings file.'
   case "$project" in ''|*[!a-z0-9_-]*|-*|_*) fail 3 'COMPOSE_PROJECT_NAME is invalid.' ;; esac
   compose_files=$(read_setting COMPOSE_FILE) || fail 3 'COMPOSE_FILE must appear exactly once in the settings file.'
-  case "$compose_files" in compose.yaml|compose.yaml:compose.build.yaml) ;; *) fail 3 'The settings name unsupported Compose files.' ;; esac
+  supported_compose_files "$compose_files" || fail 3 'The settings name unsupported Compose files.'
   old_hash=$(read_setting PASSDOWN_SETUP_CODE_SHA256) || fail 3 'PASSDOWN_SETUP_CODE_SHA256 must appear exactly once in the settings file.'
   case "$old_hash" in *[!0-9a-f]*) fail 3 'The existing setup-code hash is invalid.' ;; esac
   [ "${#old_hash}" -eq 64 ] || fail 3 'The existing setup-code hash is invalid.'
@@ -125,9 +139,9 @@ if [ "$renew" = true ]; then
     unset COMPOSE_FILE COMPOSE_PROJECT_NAME COMPOSE_PROFILES COMPOSE_ENV_FILES COMPOSE_DISABLE_ENV_FILE
     unset PASSDOWN_DOMAIN BETTER_AUTH_URL PASSDOWN_TLS PASSDOWN_HTTP_PORT PASSDOWN_HTTPS_PORT
     unset PASSDOWN_HSTS_MAX_AGE GUIDE_DB_OWNER_PASSWORD GUIDE_DB_RUNTIME_PASSWORD BETTER_AUTH_SECRET
-    unset PASSDOWN_SETUP_CODE_SHA256 PASSDOWN_IMAGE PASSDOWN_PROXY_IMAGE PASSDOWN_PROXY
-    set -- docker compose --project-directory "$install_dir" --env-file "$output" --project-name "$project" -f compose.yaml
-    [ "$compose_files" = compose.yaml ] || set -- "$@" -f compose.build.yaml
+    unset PASSDOWN_SETUP_CODE_SHA256 PASSDOWN_IMAGE PASSDOWN_PROXY_IMAGE PASSDOWN_PROXY PASSDOWN_TLS_DIR
+    set -- docker compose --project-directory "$install_dir" --env-file "$output" --project-name "$project"
+    for file in $(printf '%s' "$compose_files" | tr ':' ' '); do set -- "$@" -f "$file"; done
     "$@" run --rm -T ops setup-state 2>/dev/null
   ); then :
   else fail 1 'Could not read setup state. Check Docker and database availability; settings were not changed.'; fi
@@ -165,10 +179,27 @@ if [ -n "$email" ]; then
   printf '%s\n' "$email" | awk '/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/ {ok=1} END {exit !ok}' || fail 2 'The ACME email address is invalid.'
 fi
 hsts=31536000
-if [ "$domain" = localhost ]; then internal=true; hsts=0; fi
-if [ "$internal" = true ]; then tls=internal
-elif [ -n "$email" ]; then tls=$email
-else fail 3 'Public domains require --acme-email EMAIL or explicit --internal-tls.'; fi
+if [ "$proxy" = nginx ]; then
+  [ -n "$tls_dir" ] || fail 2 'nginx needs --tls-dir DIR, a folder holding fullchain.pem and privkey.pem.'
+  [ -z "$email" ] && [ "$internal" = false ] || fail 2 'nginx uses the certificates in --tls-dir; --acme-email and --internal-tls are Caddy options.'
+  # The folder becomes a Compose bind mount written into the settings file:
+  # refuse characters that Compose would read as interpolation, a mount
+  # separator, a comment or a line break.
+  case "$tls_dir" in *[!A-Za-z0-9._/+@-]*) fail 2 'Use a certificate folder path of letters, digits and . _ / + @ - only.' ;; esac
+  tls_path=$(CDPATH= cd -- "$tls_dir" 2>/dev/null && pwd -P) || fail 3 'The certificate folder does not exist.'
+  case "$tls_path" in *[!A-Za-z0-9._/+@-]*) fail 2 'Use a certificate folder path of letters, digits and . _ / + @ - only.' ;; esac
+  for certificate in fullchain.pem privkey.pem; do
+    [ -f "$tls_path/$certificate" ] || fail 3 "The certificate folder has no $certificate."
+  done
+  tls=files
+  [ "$domain" != localhost ] || hsts=0
+else
+  [ -z "$tls_dir" ] || fail 2 '--tls-dir is used only with --proxy nginx.'
+  if [ "$domain" = localhost ]; then internal=true; hsts=0; fi
+  if [ "$internal" = true ]; then tls=internal
+  elif [ -n "$email" ]; then tls=$email
+  else fail 3 'Public domains require --acme-email EMAIL or explicit --internal-tls.'; fi
+fi
 origin=https://$domain
 [ "$https_port" = 443 ] || origin=$origin:$https_port
 # The canonical settings path identifies the default installation, including
@@ -194,13 +225,17 @@ runtime_password=$(random_hex 32)
 auth_secret=$(random_hex 48)
 make_code
 compose_files=compose.yaml
-[ "$build" = false ] || compose_files=compose.yaml:compose.build.yaml
+[ "$build" = false ] || compose_files=$compose_files:compose.build.yaml
+if [ "$proxy" = nginx ]; then
+  compose_files=$compose_files:compose.nginx.yaml
+  [ "$build" = false ] || compose_files=$compose_files:compose.nginx.build.yaml
+fi
 temporary=$(mktemp "$install_dir/.passdown-settings.XXXXXXXX") || fail 1 'Could not create private settings.'
 cat > "$temporary" <<SETTINGS
 # Generated by init.sh. Keep this file private and out of source control.
 COMPOSE_PROJECT_NAME=$project
 COMPOSE_FILE=$compose_files
-PASSDOWN_PROXY=caddy
+PASSDOWN_PROXY=$proxy
 PASSDOWN_DOMAIN=$domain
 BETTER_AUTH_URL=$origin
 PASSDOWN_TLS=$tls
@@ -212,8 +247,9 @@ GUIDE_DB_RUNTIME_PASSWORD=$runtime_password
 BETTER_AUTH_SECRET=$auth_secret
 PASSDOWN_SETUP_CODE_SHA256=$setup_hash
 SETTINGS
+[ "$proxy" = caddy ] || printf 'PASSDOWN_TLS_DIR=%s\n' "$tls_path" >> "$temporary"
 if [ "$build" = true ]; then
-  printf '%s\n' 'PASSDOWN_IMAGE=passdown:local' 'PASSDOWN_PROXY_IMAGE=passdown-caddy:local' >> "$temporary"
+  printf '%s\n' 'PASSDOWN_IMAGE=passdown:local' "PASSDOWN_PROXY_IMAGE=passdown-$proxy:local" >> "$temporary"
 fi
 chmod 600 "$temporary"
 # A hard-link claims the destination exclusively, including against another init.

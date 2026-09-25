@@ -1,10 +1,15 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
 import https from 'node:https';
 
 // Never print request data or container logs. Failures identify the contract only.
-const image = process.env.PASSDOWN_PROXY_IMAGE || 'passdown-caddy:local';
+// PASSDOWN_PROXY=nginx runs the same live contract against the nginx proxy.
+const kind = process.env.PASSDOWN_PROXY || 'caddy';
+assert.ok(['caddy', 'nginx'].includes(kind), 'PASSDOWN_PROXY must be caddy or nginx.');
+const image = process.env.PASSDOWN_PROXY_IMAGE || `passdown-${kind}:local`;
 const token = 'proxy-check-secret-0123456789abcdef';
 const paths = [
   `/invite/${token}`,
@@ -56,6 +61,46 @@ assert.equal(
   3,
   'All edge limits must group IPv6 by /64.',
 );
+
+// nginx: the same redaction expression, applied by its njs helper, and the
+// same /64 grouping for its limit keys.
+const helperSource = readFileSync('deploy/nginx/passdown.js', 'utf8');
+const nginxHelpers = (
+  await import(`data:text/javascript;base64,${Buffer.from(helperSource).toString('base64')}`)
+).default;
+assert.equal(
+  nginxHelpers.URI_FILTER.source.replaceAll('\\/', '/'),
+  filters[0][1].replace('(?i)', ''),
+  'The nginx URI filter must equal the Caddy filter.',
+);
+assert.ok(nginxHelpers.URI_FILTER.flags.includes('i'), 'The nginx URI filter must ignore case.');
+const nginxRedact = (uri) => nginxHelpers.redactedUri({ variables: { request_uri: uri } });
+for (const [, pattern, replacement] of filters.slice(0, 1)) {
+  const expression = new RegExp(pattern.replace('(?i)', ''), 'i');
+  for (const path of [...paths, '/admin/accounts', '/guides/example', '/'])
+    assert.equal(
+      nginxRedact(path),
+      path.replace(expression, (...args) =>
+        replacement.replace(/\$\{(\d+)\}/g, (_, group) => args[Number(group)] || ''),
+      ),
+      'nginx and Caddy must redact identically.',
+    );
+}
+const key = (remote_addr) => nginxHelpers.clientKey({ variables: { remote_addr } });
+assert.equal(key('192.0.2.7'), '192.0.2.7', 'IPv4 clients keep their own bucket.');
+assert.equal(key('::ffff:192.0.2.7'), '192.0.2.7', 'IPv4-mapped clients are IPv4 clients.');
+for (const address of ['fd00:7061:12:1::10', 'fd00:7061:12:1::11', 'fd00:7061:12:1:0:0:0:ffff'])
+  assert.equal(key(address), 'fd00:7061:12:1::/64', 'One IPv6 /64 must share a bucket.');
+assert.equal(key('fd00:7061:12:2::10'), 'fd00:7061:12:2::/64', 'Another /64 stays independent.');
+assert.equal(key('1:2::5:6:7:8:9'), '1:2:0:5::/64', 'Compressed zeros must expand in place.');
+assert.equal(key('fd00::1'), 'fd00:0:0:0::/64', 'A short prefix must expand to four groups.');
+const nginxTemplate = readFileSync('deploy/nginx/nginx.conf.template', 'utf8');
+for (const zone of ['sign_in', 'links', 'admin'])
+  assert.match(
+    nginxTemplate,
+    new RegExp(`limit_req zone=${zone} burst=@[A-Z_]+_BURST@ nodelay;`),
+    'Every nginx limit must admit its full per-minute allowance at once.',
+  );
 for (const zone of ['SIGN_IN', 'LINK', 'ADMIN']) {
   assert.ok(
     config.includes(`PASSDOWN_${zone}_LIMIT:300`),
@@ -63,7 +108,7 @@ for (const zone of ['SIGN_IN', 'LINK', 'ADMIN']) {
   );
 }
 if (!process.argv.includes('--live')) {
-  console.log('Proxy log-redaction cases passed.');
+  console.log('Proxy log-redaction and nginx equivalence cases passed.');
 } else {
   const suffix = `${process.pid}-${Date.now()}`;
   const network = `passdown-proxy-check-${suffix}`;
@@ -77,6 +122,32 @@ if (!process.argv.includes('--live')) {
     execFileSync('docker', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
   let port;
   let certificate;
+  // nginx serves operator-supplied files; the check makes a throwaway pair.
+  const tls = kind === 'nginx' ? mkdtempSync(join(tmpdir(), 'passdown-proxy-tls-')) : null;
+  if (tls) {
+    execFileSync(
+      'openssl',
+      [
+        'req',
+        '-x509',
+        '-newkey',
+        'rsa:2048',
+        '-nodes',
+        '-days',
+        '1',
+        '-subj',
+        '/CN=localhost',
+        '-addext',
+        'subjectAltName=DNS:localhost',
+        '-keyout',
+        join(tls, 'privkey.pem'),
+        '-out',
+        join(tls, 'fullchain.pem'),
+      ],
+      { stdio: 'ignore' },
+    );
+    certificate = readFileSync(join(tls, 'fullchain.pem'), 'utf8');
+  }
   function request(path, options = {}) {
     return new Promise((resolve, reject) => {
       const req = https.request(
@@ -134,12 +205,14 @@ if (!process.argv.includes('--live')) {
       ...(process.env.PASSDOWN_CADDYFILE
         ? ['-v', `${process.env.PASSDOWN_CADDYFILE}:/etc/caddy/Caddyfile:ro`]
         : []),
+      ...(tls ? ['-v', `${tls}:/etc/passdown/tls:ro`] : []),
       image,
     );
     port = Number(docker('port', proxy, '443/tcp').split(':').at(-1));
     for (let attempt = 0; attempt < 60; attempt++) {
       try {
-        certificate = docker('exec', proxy, 'cat', '/data/caddy/pki/authorities/local/root.crt');
+        if (!tls)
+          certificate = docker('exec', proxy, 'cat', '/data/caddy/pki/authorities/local/root.crt');
         await request('/');
         return;
       } catch {
@@ -186,7 +259,7 @@ if (!process.argv.includes('--live')) {
       'The proxy must forward the observed peer address.',
     );
     console.log(
-      `Published-port peer observed by Caddy: ${normal.headers['x-observed-client']}. Verify distinct external clients on the deployment host.`,
+      `Published-port peer observed by ${kind}: ${normal.headers['x-observed-client']}. Verify distinct external clients on the deployment host.`,
     );
     assert.equal(
       normal.headers['strict-transport-security'],
@@ -272,13 +345,13 @@ if (!process.argv.includes('--live')) {
     assert.deepEqual(
       first,
       { status: 200, peer: firstAddress },
-      'Caddy must observe the first real IPv6 peer.',
+      'The proxy must observe the first real IPv6 peer.',
     );
     const second = fromIPv6(secondAddress);
     assert.deepEqual(
       second,
       { status: 200, peer: secondAddress },
-      'Caddy must observe a distinct IPv6 peer.',
+      'The proxy must observe a distinct IPv6 peer.',
     );
     assert.equal(
       fromIPv6(`${ipv6Prefix}:1::12`).status,
@@ -286,7 +359,9 @@ if (!process.argv.includes('--live')) {
       'Cycling addresses in one /64 bypassed the limit.',
     );
     assert.equal(fromIPv6(`${ipv6Prefix}:2::10`).status, 200, 'An independent /64 was blocked.');
-    console.log('Live proxy limits, forwarding, body caps, HTTPS headers and log privacy passed.');
+    console.log(
+      `Live ${kind} proxy limits, forwarding, body caps, HTTPS headers and log privacy passed.`,
+    );
   } finally {
     for (const container of [proxy, upstream]) {
       try {
@@ -300,5 +375,6 @@ if (!process.argv.includes('--live')) {
     } catch {
       /* No network was created. */
     }
+    if (tls) rmSync(tls, { recursive: true, force: true });
   }
 }

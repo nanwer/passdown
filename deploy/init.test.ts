@@ -273,14 +273,131 @@ describe('installation settings', () => {
     [['--domain', 'localhost', '--http-port', '443'], 2],
     [['--domain', 'example.org', '--acme-email', 'not-email'], 2],
     [['--domain', 'example.org', '--acme-email', 'a@example.org', '--internal-tls'], 2],
-    [['--domain', 'localhost', '--proxy', 'nginx'], 3],
-    [['--domain', 'localhost', '--tls-dir', './certificates'], 3],
+    [['--domain', 'localhost', '--proxy', 'apache'], 2],
+    [['--domain', 'localhost', '--proxy', 'nginx'], 2],
+    [['--domain', 'localhost', '--tls-dir', './certificates'], 2],
+    [['--domain', 'localhost', '--proxy', 'nginx', '--tls-dir', './missing'], 3],
+    [['--domain', 'localhost', '--proxy', 'nginx', '--tls-cert', './a.pem'], 3],
+    [['--domain', 'localhost', '--proxy', 'nginx', '--acme-webroot', './acme'], 3],
   ])('rejects invalid or unsupported input %j', (args, status) => {
     const dir = directory();
     const result = run(dir, args as string[]);
     expect(result.status).toBe(status);
     expect(readdirSync(dir)).toEqual([]);
     expect(result.stdout).not.toContain('Setup code:');
+  });
+
+  describe('with the nginx proxy', () => {
+    function certificates(
+      dir: string,
+      name = 'certificates',
+      present = ['fullchain.pem', 'privkey.pem'],
+    ) {
+      const folder = join(dir, name);
+      mkdirSync(folder);
+      for (const file of present) writeFileSync(join(folder, file), 'not a real certificate');
+      return folder;
+    }
+
+    it('adds the nginx Compose file and records the certificate folder as an absolute path', () => {
+      const dir = directory();
+      const folder = certificates(dir);
+      const result = run(dir, [
+        '--domain',
+        'guides.example.org',
+        '--proxy',
+        'nginx',
+        '--tls-dir',
+        'certificates',
+      ]);
+      expect(result.status, result.stderr).toBe(0);
+      const value = settings(dir);
+      expect(value).toContain('COMPOSE_FILE=compose.yaml:compose.nginx.yaml\n');
+      expect(value).toContain('PASSDOWN_PROXY=nginx\n');
+      expect(value).toContain('PASSDOWN_TLS=files\n');
+      expect(value).toContain(`PASSDOWN_TLS_DIR=${folder}\n`);
+      expect(value).toContain('PASSDOWN_HSTS_MAX_AGE=31536000\n');
+      expect(value).not.toContain('PASSDOWN_PROXY_IMAGE');
+      expect(result.stdout).toContain(
+        `-f '${dir}/compose.yaml' -f '${dir}/compose.nginx.yaml' up -d`,
+      );
+    });
+
+    it('builds the nginx image from source with --build', () => {
+      const dir = directory();
+      certificates(dir);
+      const result = run(dir, [
+        '--domain',
+        'localhost',
+        '--proxy',
+        'nginx',
+        '--tls-dir',
+        'certificates',
+        '--build',
+      ]);
+      expect(result.status, result.stderr).toBe(0);
+      const value = settings(dir);
+      expect(value).toContain(
+        'COMPOSE_FILE=compose.yaml:compose.build.yaml:compose.nginx.yaml:compose.nginx.build.yaml\n',
+      );
+      expect(value).toContain('PASSDOWN_PROXY_IMAGE=passdown-nginx:local\n');
+      expect(value).toContain('PASSDOWN_HSTS_MAX_AGE=0\n');
+    });
+
+    it.each([
+      [['--acme-email', 'a@example.org'], 2],
+      [['--internal-tls'], 2],
+    ])('refuses Caddy certificate options %j', (extra, status) => {
+      const dir = directory();
+      certificates(dir);
+      const result = run(dir, [
+        '--domain',
+        'localhost',
+        '--proxy',
+        'nginx',
+        '--tls-dir',
+        'certificates',
+        ...extra,
+      ]);
+      expect(result.status).toBe(status);
+      expect(readdirSync(dir)).toEqual(['certificates']);
+    });
+
+    it('refuses a folder without both certificate files, or with a name Compose would misread', () => {
+      const dir = directory();
+      certificates(dir, 'only-chain', ['fullchain.pem']);
+      certificates(dir, 'with:colon');
+      certificates(dir, 'with$dollar');
+      const missing = run(dir, [
+        '--domain',
+        'localhost',
+        '--proxy',
+        'nginx',
+        '--tls-dir',
+        'only-chain',
+      ]);
+      expect(missing.status).toBe(3);
+      expect(missing.stderr).toContain('privkey.pem');
+      for (const name of ['with:colon', 'with$dollar'])
+        expect(
+          run(dir, ['--domain', 'localhost', '--proxy', 'nginx', '--tls-dir', name]).status,
+          name,
+        ).toBe(2);
+      expect(readdirSync(dir).sort()).toEqual(['only-chain', 'with$dollar', 'with:colon']);
+    });
+
+    it('renews the setup code with the nginx Compose files', () => {
+      const dir = directory();
+      certificates(dir);
+      expect(
+        run(dir, ['--domain', 'localhost', '--proxy', 'nginx', '--tls-dir', 'certificates']).status,
+      ).toBe(0);
+      const result = run(dir, ['--renew-setup-code'], docker(dir, 'required'));
+      expect(result.status, result.stderr).toBe(0);
+      const args = readFileSync(join(dir, 'docker-arguments'), 'utf8').split('\n');
+      expect(args.slice(8, 12)).toEqual(['-f', 'compose.yaml', '-f', 'compose.nginx.yaml']);
+      expect(result.stdout).toContain(`-f '${dir}/compose.yaml' -f '${dir}/compose.nginx.yaml' up`);
+    });
   });
 
   it('refuses overwriting existing files, directories, and dangling symlinks', () => {

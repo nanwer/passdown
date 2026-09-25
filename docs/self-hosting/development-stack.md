@@ -32,6 +32,8 @@ Trust that certificate only in your test browser's certificate store before cont
 
 For a domain you control, use `--domain guides.example.org --acme-email person@example.org`. Caddy requests a public certificate when DNS and ports 80/443 reach the host. Public-domain installation and unattended production use still require the release verification work.
 
+To serve certificates you manage yourself, use nginx instead of Caddy: see [using nginx](nginx.md).
+
 ## Network addresses and request limits
 
 The proxy applies a broad limit of 300 requests per minute to each of sign-in, setup/invitation links, and administration. These circuit breakers count successful requests too; password-guessing protection remains in the application's failed-attempt counters. IPv4 addresses get individual buckets. IPv6 addresses in the same /64 share one bucket. Operators can set `PASSDOWN_SIGN_IN_LIMIT`, `PASSDOWN_LINK_LIMIT` and `PASSDOWN_ADMIN_LIMIT` in their private settings, then recreate the proxy.
@@ -100,7 +102,7 @@ The script:
 
 1. refuses if the installation is not running (a first start is always `docker compose up -d`);
 2. takes a verified backup with `backup.sh`, and stops if that fails;
-3. keeps the running images as `passdown:previous` and `passdown-caddy:previous`;
+3. keeps the running images as `passdown:previous` and `passdown-caddy:previous` (or `passdown-nginx:previous`);
 4. builds the new version from this checkout;
 5. runs the new version's migrations while the old version keeps serving;
 6. only if they succeed, replaces web and the proxy, waits for them to become healthy, and prints the new version and status.
@@ -147,6 +149,8 @@ node scripts/check-proxy.mjs --live
 PASSDOWN_SKIP_BUILD=1 sh scripts/deployment-boot-check.sh
 ```
 
+Set `PASSDOWN_PROXY=nginx` on either check to test the nginx proxy instead, after building `passdown-nginx:local` from `deploy/nginx/Dockerfile`.
+
 The proxy check creates disposable containers and tests certificate trust, headers, upload limits, request throttling and log redaction. The boot check creates a separate project, verifies setup, upload and restart, then removes only its own containers and volumes. It refuses occupied test ports. Failures identify the stage; raw container logs and entered credentials are kept out of console output.
 
-The local stack has been exercised on Linux arm64 under Docker. The separate CI container job exercises Linux amd64. A clean-host public-certificate rehearsal, nginx, upgrade tooling and release approval remain required before an Open Alpha publication.
+The local stack has been exercised on Linux arm64 under Docker. The separate CI container job exercises Linux amd64. A clean-host public-certificate rehearsal, an upgrade rehearsal from an earlier version and release approval remain required before an Open Alpha publication.

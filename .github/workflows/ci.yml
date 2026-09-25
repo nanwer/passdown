@@ -110,7 +110,7 @@ jobs:
   container:
     name: Container stack (Linux amd64)
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v6
         with:
@@ -125,9 +125,13 @@ jobs:
           node scripts/check-image-privacy.mjs --context
           docker build --build-arg PASSDOWN_REVISION="$GITHUB_SHA" --build-arg PASSDOWN_VERSION=0.0.1 -t passdown:local .
           docker build -f deploy/caddy/Dockerfile --build-arg PASSDOWN_REVISION="$GITHUB_SHA" --build-arg PASSDOWN_VERSION=0.0.1 -t passdown-caddy:local .
+          docker build -f deploy/nginx/Dockerfile --build-arg PASSDOWN_REVISION="$GITHUB_SHA" --build-arg PASSDOWN_VERSION=0.0.1 -t passdown-nginx:local .
       - name: Check image contents and proxy protections
         run: |
           sh scripts/check-image.sh passdown:local
           node scripts/check-proxy.mjs --live
-      - name: Prove setup and picture persistence through HTTPS
+          PASSDOWN_PROXY=nginx node scripts/check-proxy.mjs --live
+      - name: Prove setup and picture persistence through HTTPS (Caddy)
         run: PASSDOWN_SKIP_BUILD=1 sh scripts/deployment-boot-check.sh
+      - name: Prove setup and picture persistence through HTTPS (nginx)
+        run: PASSDOWN_PROXY=nginx PASSDOWN_SKIP_BUILD=1 sh scripts/deployment-boot-check.sh

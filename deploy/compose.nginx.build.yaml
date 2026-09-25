@@ -1,0 +1,10 @@
+# Build the nginx proxy locally; no registry publication is performed.
+services:
+  proxy:
+    image: passdown-nginx:local
+    build:
+      context: ..
+      dockerfile: deploy/nginx/Dockerfile
+      args:
+        PASSDOWN_REVISION: ${PASSDOWN_REVISION:-unknown}
+        PASSDOWN_VERSION: ${PASSDOWN_VERSION:-0.0.1}

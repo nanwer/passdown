@@ -24,6 +24,20 @@ Use a separate evaluation installation, never your own data.
 3. Simulate a failing migration: in a copy of the settings file, change `GUIDE_DB_RUNTIME_PASSWORD`, then run `sh upgrade.sh --env-file <that copy> --build --skip-backup`. Expect exit 1 and "Migrations failed; the site is still running the previous version." While it runs, reload the site: it keeps working. Afterwards `docker compose ps` shows the same web container, and `upgrade.log` records the failure.
 4. Stop the stack with `docker compose stop web` and run `sh upgrade.sh --build`. Expect a refusal telling you to use `docker compose up -d`, and no backup or build.
 
+## Installing behind nginx
+
+Use a separate evaluation installation and the [nginx guide](../self-hosting/nginx.md). You need `openssl` for a test certificate.
+
+1. From `deploy`, make a test certificate: `mkdir tls && openssl req -x509 -newkey rsa:2048 -nodes -days 7 -subj /CN=localhost -addext subjectAltName=DNS:localhost -keyout tls/privkey.pem -out tls/fullchain.pem`.
+2. Run `sh init.sh --domain localhost --http-port 18080 --https-port 18443 --proxy nginx --tls-dir tls --build --output nginx.env`. Expect one setup code, and in `nginx.env`: `PASSDOWN_PROXY=nginx`, `PASSDOWN_TLS=files`, `PASSDOWN_TLS_DIR=` the absolute path of `tls`, and `COMPOSE_FILE=compose.yaml:compose.build.yaml:compose.nginx.yaml:compose.nginx.build.yaml`. The printed next command lists all four files.
+3. Run the printed command with `build`, then with `up -d`. Trust `tls/fullchain.pem` in a test browser only, open `https://localhost:18443/setup` and complete setup. Expect your workspace to open. `curl -sI http://localhost:18080/` answers 301 with a `Location` on `https://localhost` (the redirect assumes port 443 on both proxies; see the backlog).
+4. Run `docker compose --env-file nginx.env logs proxy`. Expect JSON lines; open `https://localhost:18443/setup?code=anything` first and expect that request logged as `/setup?[redacted]`, never with the code. Responses carry no `Server` header.
+5. Refusals: repeat step 2 with a folder missing `privkey.pem` (expect exit 3 naming the file), with `--acme-email you@example.org` (exit 2), and without `--tls-dir` (exit 2). No settings file is created.
+6. Replace the files with a new certificate and run `docker compose --env-file nginx.env exec proxy nginx -s reload`. Expect the site to keep working with the new certificate.
+7. Automated: `PASSDOWN_PROXY=nginx node scripts/check-proxy.mjs --live` and `PASSDOWN_PROXY=nginx PASSDOWN_SKIP_BUILD=1 sh scripts/deployment-boot-check.sh` from the repository root both pass and remove their own resources.
+
+Remove the evaluation with `docker compose --env-file nginx.env down -v` when finished.
+
 ## Health and startup summary
 
 1. With the evaluation stack running, request `/api/health` (see the evaluation guide for the certificate). Expect `status`, `mode`, `schema`, `media` and `version`, and no migration names or settings.
@@ -347,7 +361,7 @@ Use the [container evaluation guide](../self-hosting/development-stack.md) and a
 5. In another fresh evaluation, renew the setup code before completing setup and follow the printed web-recreation command. Expect the old code to fail and the new one to work. After setup, renewal must refuse without changing settings.
 6. Run `node scripts/check-proxy.mjs --live` and `PASSDOWN_SKIP_BUILD=1 sh scripts/deployment-boot-check.sh` from the repository root. Expect both to pass and remove their own disposable Docker resources. They must not replace or remove the existing local development stack.
 
-No published images, recovery UI, nginx stack or upgrade command are delivered yet; backup and restore are covered above. Public-domain clean-host and physical-browser release checks remain outstanding.
+No published images are delivered yet; backup, restore, upgrades, account recovery and nginx have their own sections. Public-domain clean-host and physical-browser release checks remain outstanding.
 
 ## Source code link
 

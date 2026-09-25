@@ -130,8 +130,11 @@ requires green runs in all three engines.
 
 ### Deployment and security hardening
 
-- **The Caddy image runs as root,** and no service drops capabilities or uses a
+- **The Caddy and nginx images run as root,** and no service drops capabilities or uses a
   read-only filesystem. Web can reach the internet through the proxy network.
+- **nginx certificates come only as a folder.** Separate certificate and key
+  paths, and an ACME webroot so certbot can renew without stopping the proxy
+  for a few seconds, are not offered yet.
 - **The database owner is the PostgreSQL superuser** in the default deployment.
   A non-superuser owner would limit what a crafted backup could do.
 - **A used setup code works again** if the database is ever empty again, for
@@ -139,7 +142,7 @@ requires green runs in all three engines.
 - **Supply chain:** the build installs pnpm without an integrity check, system
   packages aren't version-pinned, and unused package-manager shims stay in the
   runtime image.
-- **Non-standard HTTPS ports:** the HTTP redirect assumes port 443, automatic
+- **Non-standard HTTPS ports:** the HTTP redirect assumes port 443 on both proxies, automatic
   certificates can't be issued, and HTTP/3 is advertised without UDP.
 - **Installation-wide request counters** for invitation lookups and failed
   sign-ins let a few clients slow everyone down. There is no Content Security

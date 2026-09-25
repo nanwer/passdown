@@ -1,0 +1,8 @@
+# The supported nginx proxy in place of Caddy. nginx serves certificate files
+# you provide: fullchain.pem and privkey.pem in PASSDOWN_TLS_DIR. See the proxy
+# guide. Written into COMPOSE_FILE by init.sh --proxy nginx.
+services:
+  proxy:
+    image: ${PASSDOWN_PROXY_IMAGE:-ghcr.io/nanwer/passdown-nginx:0.1.0-alpha.1}
+    volumes: !override
+      - ${PASSDOWN_TLS_DIR:?Run init.sh --proxy nginx --tls-dir DIR}:/etc/passdown/tls:ro

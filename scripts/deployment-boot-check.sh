@@ -3,7 +3,8 @@
 set -eu
 umask 077
 root=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd -P)
-case "${PASSDOWN_PROXY:-caddy}" in caddy) ;; *) printf '%s\n' 'Boot check currently supports Caddy only.' >&2; exit 3 ;; esac
+proxy=${PASSDOWN_PROXY:-caddy}
+case "$proxy" in caddy|nginx) ;; *) printf '%s\n' 'PASSDOWN_PROXY must be caddy or nginx.' >&2; exit 2 ;; esac
 http_port=${PASSDOWN_CHECK_HTTP_PORT:-18080}
 https_port=${PASSDOWN_CHECK_HTTPS_PORT:-18443}
 for port in "$http_port" "$https_port"; do
@@ -21,13 +22,17 @@ use_build=true
 # Inherited Compose inputs must not redirect this check into another project.
 unset COMPOSE_FILE COMPOSE_PROJECT_NAME COMPOSE_PROFILES COMPOSE_ENV_FILES
 unset GUIDE_DB_OWNER_PASSWORD GUIDE_DB_RUNTIME_PASSWORD BETTER_AUTH_SECRET PASSDOWN_SETUP_CODE_SHA256
-unset PASSDOWN_DOMAIN BETTER_AUTH_URL PASSDOWN_TLS PASSDOWN_HTTP_PORT PASSDOWN_HTTPS_PORT
+unset PASSDOWN_DOMAIN BETTER_AUTH_URL PASSDOWN_TLS PASSDOWN_HTTP_PORT PASSDOWN_HTTPS_PORT PASSDOWN_TLS_DIR PASSDOWN_PROXY
 compose() {
-  if [ "$use_build" = true ]; then
-    docker compose --project-directory "$root/deploy" --env-file "$work/.env" --project-name "$project" -f "$root/deploy/compose.yaml" -f "$root/deploy/compose.build.yaml" "$@"
-  else
-    docker compose --project-directory "$root/deploy" --env-file "$work/.env" --project-name "$project" -f "$root/deploy/compose.yaml" "$@"
+  # Later files override earlier ones; prepend in reverse so the order matches
+  # the COMPOSE_FILE that init.sh writes.
+  if [ "$proxy" = nginx ]; then
+    [ "$use_build" = false ] || set -- -f "$root/deploy/compose.nginx.build.yaml" "$@"
+    set -- -f "$root/deploy/compose.nginx.yaml" "$@"
   fi
+  [ "$use_build" = false ] || set -- -f "$root/deploy/compose.build.yaml" "$@"
+  set -- -f "$root/deploy/compose.yaml" "$@"
+  docker compose --project-directory "$root/deploy" --env-file "$work/.env" --project-name "$project" "$@"
 }
 
 cleanup() {
@@ -68,6 +73,15 @@ NODE
 stage='private settings'
 set -- --project "$project" --domain localhost --http-port "$http_port" --https-port "$https_port" --output "$work/.env"
 [ "$use_build" = false ] || set -- "$@" --build
+if [ "$proxy" = nginx ]; then
+  # A throwaway certificate stands in for the operator's own; it is trusted
+  # below exactly as Caddy's internal root is.
+  mkdir "$work/tls"
+  openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj /CN=localhost \
+    -addext subjectAltName=DNS:localhost \
+    -keyout "$work/tls/privkey.pem" -out "$work/tls/fullchain.pem" > "$work/openssl.log" 2>&1
+  set -- "$@" --proxy nginx --tls-dir "$work/tls"
+fi
 sh "$root/deploy/init.sh" "$@" > "$work/init.log" 2>&1
 node --input-type=module - "$work" <<'NODE'
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -87,12 +101,16 @@ printf '%s\n' 'Starting isolated deployment stack.'
 started=true
 if ! compose up -d --wait --wait-timeout 240 > "$work/up.log" 2>&1; then exit 1; fi
 stage='internal certificate readiness'
-attempt=0
-until compose cp proxy:/data/caddy/pki/authorities/local/root.crt "$work/root.crt" > "$work/certificate.log" 2>&1; do
-  attempt=$((attempt + 1))
-  [ "$attempt" -lt 30 ] || exit 1
-  sleep 2
-done
+if [ "$proxy" = nginx ]; then
+  cp "$work/tls/fullchain.pem" "$work/root.crt"
+else
+  attempt=0
+  until compose cp proxy:/data/caddy/pki/authorities/local/root.crt "$work/root.crt" > "$work/certificate.log" 2>&1; do
+    attempt=$((attempt + 1))
+    [ "$attempt" -lt 30 ] || exit 1
+    sleep 2
+  done
+fi
 chmod 600 "$work/root.crt"
 stage='container isolation and secrets'
 ids=$(compose ps --all -q)

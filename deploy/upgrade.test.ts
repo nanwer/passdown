@@ -38,7 +38,7 @@ esac
 exit 0
 `;
 
-function installation(compose = 'compose.yaml:compose.build.yaml', image?: string) {
+function installation(compose = 'compose.yaml:compose.build.yaml', image?: string, proxy?: string) {
   const dir = realpathSync(mkdtempSync(join(tmpdir(), 'passdown-upgrade-')));
   directories.push(dir);
   copyFileSync(resolve('deploy/upgrade.sh'), join(dir, 'upgrade.sh'));
@@ -52,6 +52,7 @@ function installation(compose = 'compose.yaml:compose.build.yaml', image?: strin
     `COMPOSE_FILE=${compose}`,
     'GUIDE_DB_OWNER_PASSWORD=owner-secret',
     ...(image ? [`PASSDOWN_IMAGE=${image}`] : []),
+    ...(proxy ? [`PASSDOWN_PROXY=${proxy}`] : []),
   ];
   writeFileSync(join(dir, '.env'), settings.join('\n') + '\n', { mode: 0o600 });
   const bin = join(dir, 'bin');
@@ -152,6 +153,34 @@ describe('upgrading a source-built installation', () => {
     expect(result.calls).toEqual([]);
   });
 
+  it('keeps and restores the nginx proxy image under its own name', () => {
+    const dir = installation(
+      'compose.yaml:compose.build.yaml:compose.nginx.yaml:compose.nginx.build.yaml',
+      undefined,
+      'nginx',
+    );
+    const result = upgrade(dir, ['--build'], { MIGRATE_STATUS: '1' });
+    expect(result.status).toBe(1);
+    expect(
+      called(result.calls, 'tag sha256:previous-proxy passdown-nginx:previous'),
+    ).toBeGreaterThan(-1);
+    expect(called(result.calls, 'tag sha256:previous-proxy passdown-nginx:local')).toBeGreaterThan(
+      -1,
+    );
+    expect(called(result.calls, 'passdown-caddy')).toBe(-1);
+  });
+
+  it.each([
+    ['compose.yaml:compose.nginx.yaml', 'nginx'],
+    ['compose.yaml:compose.build.yaml', 'apache'],
+    ['compose.yaml:compose.build.yaml:extra.yaml', undefined],
+  ])('refuses --build with Compose files %s and proxy %s', (compose, proxy) => {
+    const dir = installation(compose, undefined, proxy);
+    const result = upgrade(dir, ['--build']);
+    expect([3, 4]).toContain(result.status);
+    expect(result.calls).toEqual([]);
+  });
+
   it('keeps Compose settings from the shell out of every command', () => {
     const dir = installation();
     const result = upgrade(dir, ['--build'], {
@@ -187,6 +216,14 @@ describe('upgrading to a published image', () => {
     expect(result.status).toBe(1);
     expect(readFileSync(join(dir, '.env'), 'utf8')).toBe(before);
     expect(called(result.calls, ' up -d')).toBe(-1);
+  });
+
+  it('upgrades an nginx installation with its proxy image', () => {
+    const dir = installation('compose.yaml:compose.nginx.yaml', undefined, 'nginx');
+    const proxy = 'ghcr.io/nanwer/passdown-nginx:0.1.0-alpha.2';
+    const result = upgrade(dir, ['--image', next, '--proxy-image', proxy]);
+    expect(result.status, result.stderr).toBe(0);
+    expect(readFileSync(join(dir, '.env'), 'utf8')).toContain(`PASSDOWN_PROXY_IMAGE=${proxy}\n`);
   });
 
   it('refuses an image reference that is not a plain registry reference', () => {
