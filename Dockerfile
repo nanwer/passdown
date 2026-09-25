@@ -15,13 +15,15 @@ COPY . .
 # Files keep their checkout permissions; the runtime user must be able to read
 # them even when the checkout was made with a private umask.
 RUN chmod -R a+rX .
-RUN --mount=type=cache,id=passdown-pnpm,target=/root/.local/share/pnpm/store pnpm install --offline --frozen-lockfile
+# The licence inventory reads pnpm's store index, so it runs in the same step as
+# the install that just used it; a later step's cache mount can lack entries.
+RUN --mount=type=cache,id=passdown-pnpm,target=/root/.local/share/pnpm/store pnpm install --offline --frozen-lockfile \
+ && { pnpm licenses list --prod --json > /src/third-party-licenses.json \
+      || { echo 'The licence inventory failed:' >&2; head -c 4000 /src/third-party-licenses.json >&2; exit 1; }; }
 RUN --mount=type=cache,id=passdown-pnpm,target=/root/.local/share/pnpm/store pnpm migrations:check \
  && GUIDE_NEXT_OUTPUT=standalone pnpm build \
  && node scripts/check-production-bundle.mjs apps/web/.next \
- && node scripts/check-image-files.mjs apps/web/.next/standalone --prune-metadata \
- && { pnpm licenses list --prod --json > /src/third-party-licenses.json \
-      || { echo 'The licence inventory failed:' >&2; head -c 4000 /src/third-party-licenses.json >&2; exit 1; }; }
+ && node scripts/check-image-files.mjs apps/web/.next/standalone --prune-metadata
 
 FROM ${NODE_IMAGE} AS runtime
 RUN apk add --no-cache postgresql17-client \
