@@ -81,6 +81,11 @@ requires green runs in all three engines.
 
 ### Browser test reliability
 
+- **The first category filter on the front page once didn't apply in time
+  in Chromium CI.** The 1440px "category changes stay in place on /" check
+  still showed all six guides after five seconds (run of commit e1571e8);
+  it passed 30 of 30 local repeats. Likely a slow first response on a cold
+  server.
 - **Category dialogs occasionally fail in Firefox and WebKit.** The five-level
   category journey has twice waited out its budget for a dialog or a created
   category that never appeared, and a thing-picture journey once ended on the
