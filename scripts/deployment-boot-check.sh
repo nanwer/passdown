@@ -27,18 +27,21 @@ cp "$deploy/compose.yaml" "$stack/compose.yaml"
 tag=check-$$
 if [ -n "${PASSDOWN_IMAGE:-}" ]; then
   : "${PASSDOWN_PROXY_IMAGE:?Set PASSDOWN_PROXY_IMAGE with PASSDOWN_IMAGE.}"
-  # Preloaded or published images in place of the release references.
-  printf 'services:\n' > "$work/images.yaml"
-  for service in init migrate web ops; do
-    printf '  %s: { image: "%s", pull_policy: never }\n' "$service" "$PASSDOWN_IMAGE" >> "$work/images.yaml"
-  done
-  printf '  proxy: { image: "%s", pull_policy: never }\n' "$PASSDOWN_PROXY_IMAGE" >> "$work/images.yaml"
-  overlay=$work/images.yaml
-  build=false
+  app_image=$PASSDOWN_IMAGE proxy_image=$PASSDOWN_PROXY_IMAGE build=false
+elif [ "${PASSDOWN_SKIP_BUILD:-0}" = 1 ]; then
+  # CI builds the images once as passdown:local and passdown-caddy:local.
+  app_image=passdown:local proxy_image=passdown-caddy:local build=false
 else
-  overlay=$root/deploy/compose.build.yaml
-  build=true
+  app_image=passdown:$tag proxy_image=passdown-caddy:$tag build=true
 fi
+# Local or preloaded images in place of the release references; the stack
+# itself runs from the pasted file.
+overlay=$work/images.yaml
+printf 'services:\n' > "$overlay"
+for service in init migrate web ops; do
+  printf '  %s: { image: "%s", pull_policy: never }\n' "$service" "$app_image" >> "$overlay"
+done
+printf '  proxy: { image: "%s", pull_policy: never }\n' "$proxy_image" >> "$overlay"
 # Inherited Compose or Passdown settings must not redirect this check.
 unset COMPOSE_FILE COMPOSE_PROJECT_NAME COMPOSE_PROFILES COMPOSE_ENV_FILES
 for variable in $(env | awk -F= '/^(PASSDOWN_|GUIDE_|BETTER_AUTH_)/ {print $1}'); do
@@ -64,7 +67,7 @@ cleanup() {
       result=1
     fi
   fi
-  if [ "$build" = true ] && [ "${PASSDOWN_SKIP_BUILD:-0}" != 1 ]; then
+  if [ "$build" = true ]; then
     docker image rm "passdown:$tag" "passdown-caddy:$tag" >> "$work/docker.log" 2>&1 || true
   fi
   if [ "${PASSDOWN_KEEP_LOGS:-0}" = 1 ]; then
@@ -86,15 +89,12 @@ try {
 finally { server.close(); }
 NODE
 if [ "$build" = true ]; then
-  if [ "${PASSDOWN_SKIP_BUILD:-0}" = 1 ]; then
-    # CI builds the images once as passdown:local and passdown-caddy:local.
-    export PASSDOWN_BUILD_TAG=local
-    tag=local
-  else
-    stage='local image build'
-    printf '%s\n' 'Building deployment images locally.'
-    if ! PASSDOWN_REVISION=$(git -C "$root" rev-parse HEAD 2>/dev/null || echo unknown) compose build > "$work/build.log" 2>&1; then exit 1; fi
-  fi
+  stage='local image build'
+  printf '%s\n' 'Building deployment images locally.'
+  # The contributor overlay, from the checkout: its build context is relative to deploy/.
+  revision=$(git -C "$root" rev-parse HEAD 2>/dev/null || echo unknown)
+  if ! PASSDOWN_REVISION=$revision docker compose --project-directory "$root/deploy" --project-name "$project" \
+    -f "$root/deploy/compose.yaml" -f "$root/deploy/compose.build.yaml" build > "$work/build.log" 2>&1; then exit 1; fi
 fi
 stage='stack startup'
 printf '%s\n' 'Starting isolated deployment stack from the compose file alone.'
