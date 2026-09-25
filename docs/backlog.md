@@ -81,23 +81,40 @@ requires green runs in all three engines.
 
 ### Browser test reliability
 
-- **The first category filter on the front page once didn't apply in time
-  in Chromium CI.** The 1440px "category changes stay in place on /" check
-  still showed all six guides after five seconds (run of commit e1571e8);
-  it passed 30 of 30 local repeats. Likely a slow first response on a cold
-  server.
-- **Category dialogs occasionally fail in Firefox and WebKit.** The five-level
-  category journey has twice waited out its budget for a dialog or a created
-  category that never appeared, and a thing-picture journey once ended on the
-  front page instead of the category page. Each passes on neighbouring runs.
-  Two related timing defects were found and fixed this way; these remain.
+- **The five-level category journey once timed out in WebKit.** Hosted run
+  36124541652 waited out the test's 120 s budget for the Name field of the
+  next category dialog. Which level is unknown: CI deliberately keeps no
+  traces, so only the pending step is reported. It passed 34 of 35 local
+  WebKit runs; the output of the one early failure was not kept. Two costs
+  inside that budget have since been removed (first-request route compiles,
+  and about 0.75 s of PostgreSQL JIT on every Things table request, twice per
+  created thing), so an exhausted budget is the likely explanation, but it is
+  not proven. Reproduce a recurrence locally with a scaled-down assertion
+  timeout.
+- **A reader step link once left no fragment in Chromium CI.** In run
+  36125062720, "library filters and reader navigation" clicked
+  "03 Inspect the contact points" and the address stayed
+  `/guides/mechanical-keyboard`. Not reproduced; a click before hydration keeps
+  the fragment locally. It was probably the first test to open a reader on a
+  cold server, which the route warm-up now prevents, but that is unconfirmed.
 - **Test API requests occasionally reset.** The authoring helpers' requests to
   the test server fail with a connection reset in Chromium and Firefox, with no
-  server error logged. A keep-alive timeout race was tested and did not
-  reproduce. The helper now reports the request and how long the connection had
-  been idle; use that evidence when it recurs. Don't add retries.
-- **A category create request has taken over five seconds in CI.** Track it as
-  a speed concern.
+  server error logged (the server's memory and configuration restarts log to
+  stderr, which the runs capture). Three occurrences, all before the helper
+  began reporting idle time; none in the five hosted runs since. Playwright's
+  request client keeps connections alive with no idle timeout of its own, so
+  reuse of a socket the development server closes after 5 s idle remains the
+  leading candidate; each failure was the first helper request after a stretch
+  of browser-only steps. A keep-alive race was tested against a plain Node
+  server and did not reproduce. Don't add retries.
+- **The authoring suite can reach the write limit of its single account.**
+  Every authoring test signs in as the same owner, and the API allows 120
+  writes per account per minute. With route warm-up and the faster Things
+  table, the local Chromium run fell from 4.2 to 2.9 minutes, and one of two
+  such runs was refused a cover upload ("Too many requests"). The catalog
+  sorting test already waits out that limit for its own writes. Hosted runners
+  are slower and have not hit it. Give write-heavy tests their own accounts
+  rather than raising the limit.
 
 ### Restore and backup
 

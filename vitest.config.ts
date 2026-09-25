@@ -20,6 +20,7 @@ export default defineConfig({
       'apps/operator/**/*.test.ts',
       'deploy/**/*.test.ts',
       'scripts/**/*.test.ts',
+      'tests/support/**/*.test.ts',
       'apps/web/lib/**/*.test.ts',
       'apps/web/components/**/*.test.{ts,tsx}',
     ],

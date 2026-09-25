@@ -5,6 +5,9 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   timeout: 60000,
+  // The development server compiles each route on first request. Compile them
+  // all before any test, so no assertion's time limit includes a compile.
+  globalSetup: './tests/support/warm-routes.ts',
   use: {
     baseURL: 'http://127.0.0.1:3101',
     locale: 'en-US',

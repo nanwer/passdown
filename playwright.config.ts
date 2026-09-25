@@ -3,8 +3,11 @@ export default defineConfig({
   testDir: './tests/e2e',
   outputDir: './test-results/fixtures',
   fullyParallel: true,
-  // Development routes compile on demand. Keep cold navigations from competing
-  // with a browser worker for every available CPU on larger machines.
+  // The development server compiles each route on first request. Compile them
+  // all before any test, so no assertion's time limit includes a compile.
+  globalSetup: './tests/support/warm-routes.ts',
+  // Keep the development server from competing with a browser worker for
+  // every available CPU on larger machines.
   workers: 2,
   use: {
     baseURL: 'http://127.0.0.1:3102',

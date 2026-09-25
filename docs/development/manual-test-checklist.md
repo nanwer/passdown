@@ -19,6 +19,14 @@ Testing a server installation instead? Follow the [self-hosting guide](../self-h
 4. Open `ROADMAP.md` and `docs/development/status.md`. Expect what the alpha delivers to be separate from what remains before production use, and status to list this alpha's limits.
 5. Run `docker compose run --rm -T ops version` in an installation and open `/api/health`. Both report `0.1.0-alpha.1`.
 
+## Things table speed and browser-suite warm-up
+
+1. Open **Studio → Manage → Things** with the browser's network panel open. Add a thing with **Add a thing**, then add one inside it from its row. Expect each new row to appear and take focus almost at once. The `categories?page=…` requests should take tens of milliseconds locally; each used to take about a second.
+2. Search the Things table and change its status tabs. Results should update as quickly as before or faster, with the same rows.
+3. Run `pnpm test:e2e tests/e2e/filter-navigation.spec.ts`. Before the first test, expect a line `Warmed 53 routes in … ms.` (the number grows as routes are added), then all tests passing. `pnpm test:authoring` and `pnpm test:cross-browser` print the same line.
+
+This removes first-request compile time from browser-test assertions and speeds up the Things table. Other flaky-test causes still under investigation are listed in `docs/backlog.md`.
+
 ## Remove a step with prerequisites
 
 Use **Studio → a guide → step editor**, preferably a test draft with two or more steps.
