@@ -89,6 +89,15 @@ Read [install](../self-hosting/install.md), [configuration](../self-hosting/conf
 
 The review's low-severity findings are listed in the [backlog](../backlog.md#low-severity-findings-from-the-pre-release-security-review).
 
+## Administrator resets, suspended sign-in and the session token
+
+1. Give a second account administration from the server: `docker compose run --rm -T ops admin grant <address>`. Sign in as the first administrator and open **Administration → Accounts** (`/admin/accounts`). Search for the second administrator. Expect **Administrator** beside the name, no **Create reset link…** button, and the text _Another administrator's password can only be reset from the server:_ followed by `docker compose run --rm ops reset-password --email <their address>`. Ordinary accounts still show **Create reset link…**, and your own row still says **Change it in Your account**.
+2. Run the command shown (add `-T` when capturing its output). Expect a reset link for that administrator, exactly as before. Sending `POST /api/admin/accounts/<their id>/password-reset` from the browser console with the same-origin header returns 422 with the same message, and no link is created.
+3. Suspend an account (for example with `UPDATE public.auth_user SET active=false WHERE email='<address>'` in a disposable database) and sign in at `/sign-in` with its correct password. Expect **Invalid email or password**, exactly as for a wrong password, no session cookie and no row in `auth_session`. It counts as a failed attempt: nine wrong passwords followed by the correct one leave the address rate-limited (429) on the next try. Reactivate it and the same password signs in.
+4. Sign in normally with the browser's developer tools open. The sign-in response body has `redirect` and `user` but no `token`; the session cookie is HttpOnly. Opening `/api/auth/get-session` returns 404. Studio, sign-out and password changes work as before.
+
+Automated: `tests/authoring/account-security.spec.ts` (all three in Chromium, the page check in every engine), `packages/database/test/account-security-integration.ts` in `pnpm test:database`, and the unit tests `apps/web/lib/auth-route.test.ts` and `apps/web/components/studio/admin-accounts.test.tsx`.
+
 ## Health and startup summary
 
 1. With the evaluation stack running, request `/api/health` (see the evaluation guide for the certificate). Expect `status`, `mode`, `schema`, `media` and `version`, and no migration names or settings.

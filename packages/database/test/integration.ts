@@ -17,6 +17,7 @@ import type { Actor } from '@guide/core';
 import { structuredChecks } from './structured-integration';
 import { verifyStructuredMigration } from './migration-integration';
 import { verifySetup } from './setup-integration';
+import { verifyAccountSecurity } from './account-security-integration';
 import { verifyMigrator } from './migrator-integration';
 import { verifyLifecycle } from './lifecycle-integration';
 import {
@@ -1389,6 +1390,11 @@ try {
     '007 migration preserves release JSON and legacy wording, conceals restricted labels and reruns idempotently',
     verifyStructuredMigration,
   );
+  await verifyAccountSecurity(check, {
+    ownerURL: ownerURL.href,
+    runtimeURL: runtimeURL.href,
+    secret: config.BETTER_AUTH_SECRET,
+  });
   await verifySetup(check);
   await verifyMigrator(config.GUIDE_OWNER_DATABASE_URL, config.GUIDE_DATABASE_URL, check);
   await check('lifecycle snapshots retain consistent rows and report damaged references', () =>

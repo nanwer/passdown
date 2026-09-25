@@ -1,4 +1,5 @@
 import { betterAuth } from 'better-auth';
+import { APIError } from 'better-auth/api';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import pg from 'pg';
@@ -10,6 +11,15 @@ import {
   runtimeDatabaseTarget,
   type ConnectionPolicy,
 } from './config';
+/**
+ * The library's refusal for a wrong password, word for word. Anything else
+ * that refuses a sign-in after the password is checked sends this, so the
+ * response cannot tell the two apart.
+ */
+const wrongPassword = {
+  code: 'INVALID_EMAIL_OR_PASSWORD',
+  message: 'Invalid email or password',
+};
 export function createIdentity(options: {
   connectionString: string;
   secret: string;
@@ -37,6 +47,25 @@ export function createIdentity(options: {
       requireEmailVerification: true,
     },
     session: { cookieCache: { enabled: false } },
+    databaseHooks: {
+      session: {
+        create: {
+          // A suspended account keeps its password, and the library issues a
+          // session to any verified account whose password matches. Every
+          // session is created here, so this is the one place to refuse it,
+          // whichever route asked. The password has already been checked, so
+          // the refusal costs the same as a wrong password and reads the same:
+          // it reveals neither the suspension nor that the password was right.
+          before: async (session) => {
+            const account = await pool.query<{ active: boolean }>(
+              'SELECT active FROM public.auth_user WHERE id = $1',
+              [session.userId],
+            );
+            if (account.rows[0]?.active !== true) throw new APIError('UNAUTHORIZED', wrongPassword);
+          },
+        },
+      },
+    },
     user: {
       additionalFields: {
         active: { type: 'boolean', defaultValue: true, input: false },

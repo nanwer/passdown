@@ -14,12 +14,34 @@ const failureKey = (emailHash: string) => `sign-in-failures:${emailHash}`;
 const globalFailureLimit = 500;
 const globalFailureKey = 'sign-in-failures:global';
 type Context = { params: Promise<{ all: string[] }> };
-export function GET(request: Request, context: Context) {
+/**
+ * No identity endpoint answers GET. The library's get-session returns the
+ * session token in its body, which would hand it to any script running in the
+ * page; the application reads sessions on the server instead.
+ */
+export function GET() {
   return apiResponse({ route: '/api/auth/[...all]', method: 'GET' }, async () => {
-    if ((await context.params).all.join('/') !== 'get-session')
-      throw new ApplicationError('NOT_FOUND', 'Not found.', 404);
-    return getApplication().identity.handler(request);
+    throw new ApplicationError('NOT_FOUND', 'Not found.', 404);
   });
+}
+/**
+ * The session lives in an HttpOnly cookie so page scripts cannot read it. The
+ * library also puts the token in the sign-in body; drop it and keep the rest,
+ * including every Set-Cookie header.
+ */
+async function withoutSessionToken(response: Response) {
+  // Read a copy: a response without a token is returned with its body unread.
+  const body = await response
+    .clone()
+    .json()
+    .catch(() => null);
+  if (!body || typeof body !== 'object' || !('token' in body)) return response;
+  delete body.token;
+  const headers = new Headers();
+  for (const [name, value] of response.headers)
+    if (!['set-cookie', 'content-length'].includes(name)) headers.set(name, value);
+  for (const cookie of response.headers.getSetCookie()) headers.append('set-cookie', cookie);
+  return new Response(JSON.stringify(body), { status: response.status, headers });
 }
 export function POST(request: Request, context: Context) {
   return apiResponse({ route: '/api/auth/[...all]', method: 'POST' }, async () => {
@@ -95,6 +117,6 @@ export function POST(request: Request, context: Context) {
     // A correct password clears the counter, so one mistyped attempt cannot
     // linger and count against a later sign-in.
     if (emailHash) await getApplication().store.clearRateLimit(failureKey(emailHash));
-    return response;
+    return withoutSessionToken(response);
   });
 }

@@ -100,9 +100,6 @@ function ResetLinkDialog({ account, refresh }: { account: AdminAccount; refresh:
               working now; the current password works until this link is used.
             </p>
             <p>Pass it on privately through a channel only they can read. Nothing is emailed.</p>
-            {account.isAdministrator && (
-              <p>{account.name} is also an installation administrator.</p>
-            )}
             <div className={X.actions}>
               <Button loading={busy} onClick={() => void issue()}>
                 Create link
@@ -202,7 +199,8 @@ function AccountsTable() {
       <h1>Accounts</h1>
       <p>
         Everyone who can sign in to this installation. Create a reset link for someone who has lost
-        their password; nothing is emailed, so pass it on yourself.
+        their password; nothing is emailed, so pass it on yourself. Another administrator's password
+        is reset from the server.
       </p>
       <TableSearch
         label="Search accounts"
@@ -282,6 +280,15 @@ function AccountsTable() {
                     <td className={cellClass}>
                       {account.isYou ? (
                         <a href="/account">Change it in Your account</a>
+                      ) : account.isAdministrator ? (
+                        // One administrator could otherwise take over another's
+                        // account; the database refuses it too (migration 034).
+                        <p className={X.hint}>
+                          Another administrator's password can only be reset from the server:{' '}
+                          <code className="break-all">
+                            docker compose run --rm ops reset-password --email {account.email}
+                          </code>
+                        </p>
                       ) : account.status === 'active' ? (
                         <ResetLinkDialog account={account} refresh={refresh} />
                       ) : null}

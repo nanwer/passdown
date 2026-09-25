@@ -60,3 +60,45 @@ it('shows a reset link once and removes it when cancelled', async () => {
   );
   expect(screen.getByText('Link cancelled. It no longer works.')).toBeTruthy();
 });
+it('offers no reset link for another administrator and names the server command instead', async () => {
+  const account = (id: string, isAdministrator: boolean) => ({
+    id,
+    name: id,
+    email: `${id.toLowerCase()}@test.local`,
+    status: 'active',
+    workspaces: [],
+    isYou: false,
+    isAdministrator,
+    pendingReset: null,
+    mustChangePassword: false,
+  });
+  vi.stubGlobal(
+    'fetch',
+    vi.fn().mockImplementation((path: string) =>
+      Promise.resolve(
+        Response.json(
+          path === '/api/studio/session'
+            ? {
+                user: { id: 'admin', name: 'Admin', email: 'admin@test.local' },
+                workspaces: [],
+                isAdministrator: true,
+              }
+            : {
+                accounts: [account('Colleague', true), account('Reader', false)],
+                total: 2,
+                limit: 100,
+              },
+        ),
+      ),
+    ),
+  );
+  render(<AdminAccounts />);
+  expect(await screen.findByRole('button', { name: 'Create reset link for Reader' })).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'Create reset link for Colleague' })).toBeNull();
+  expect(
+    screen.getByText(/Another administrator's password can only be reset from the server/),
+  ).toBeTruthy();
+  expect(
+    screen.getByText('docker compose run --rm ops reset-password --email colleague@test.local'),
+  ).toBeTruthy();
+});

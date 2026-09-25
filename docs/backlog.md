@@ -183,14 +183,12 @@ each needs operator-controlled input.
   `accept_invitation` doesn't bind the address or refuse existing members;
   several transactions rely on the default `read committed` isolation.
 - **Accounts:** the 032 backfill can make an ordinary member the first
-  administrator if the setup account is gone; one administrator can reset
-  another's password; suspended accounts can still complete sign-in (they
-  can do nothing); suspending doesn't close an open reset link; invitations
-  and membership changes aren't audited, and admin deletions are recorded as
-  operator actions.
+  administrator if the setup account is gone; suspending doesn't close an open
+  reset link; invitations and membership changes aren't audited, and admin
+  deletions are recorded as operator actions.
 - **Sign-in and links:** parallel requests can exceed the per-address failure
-  limit; `get-session` and the sign-in response return the session token;
-  an interrupted
+  limit; an unconfirmed address is refused with its own message rather than
+  the wrong-password one; an interrupted
   invitation can leave an unverified account that blocks its address;
   passwords over 128 characters are refused with a misleading message;
   reset-link and invitation counters are installation-wide.
