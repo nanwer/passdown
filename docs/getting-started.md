@@ -151,22 +151,6 @@ See [Contributing](../CONTRIBUTING.md#validate-the-behavior) for the database an
 
 ## First-run browser setup and production status
 
-Local setup still creates development accounts and examples. A configured, migrated database with no accounts instead opens **Set up Passdown** on every page. Startup no longer generates or logs an administrator password.
+Local setup creates development accounts and examples. A server installation instead starts empty and opens **Set up Passdown** on every page until someone enters the one-time setup code and creates the first account and workspace. To install Passdown on a server, follow the [self-hosting guide](self-hosting/install.md); its settings step creates the setup code and everything else a production installation needs.
 
-For this development stage, the operator supplies `PASSDOWN_SETUP_CODE_SHA256` to the web process: the 64-character hexadecimal SHA-256 of a secret setup code. Keep only the hash in environment settings. The browser accepts spaces and hyphens, ignores case, and treats I/L as 1 and O as 0. Hash the code after this normalization. A code remains valid until setup finishes or the operator replaces the hash and restarts the web process. The installer and its code-renewal command are upcoming work.
-
-An operator can generate a fresh 100-bit code and its hash with Node.js:
-
-```sh
-node --input-type=module -e 'import {randomBytes,createHash} from "node:crypto"; const alphabet="0123456789ABCDEFGHJKMNPQRSTVWXYZ"; const code=[...randomBytes(20)].map(n=>alphabet[n & 31]).join(""); console.log("Setup code (save privately):",code.match(/.{5}/g).join("-")); console.log("PASSDOWN_SETUP_CODE_SHA256="+createHash("sha256").update(code).digest("hex"));'
-```
-
-Run it in a private terminal, put only the hash setting into the web environment, then restart the app. The code is not recoverable from its hash. If lost before setup, generate a new one and replace the hash; the old code stops working after restart.
-
-Open `/setup`, enter the code, your name, email, password twice, and workspace name. The password must contain 12–200 characters. Successful setup creates a verified account and public workspace together, signs you in, and opens Studio. Mixed-case email addresses work at setup and later sign-in. There is no generated password or forced password change for this account.
-
-Only one concurrent submission can complete. After an account exists, `/setup` and setup submissions return not found, including after a database restore containing accounts. A connection failure may leave the outcome uncertain: follow the page's reload/sign-in guidance; never delete the account to repeat setup.
-
-Production builds refuse sample guides and preview identities. Required settings are `GUIDE_DATABASE_URL`, `BETTER_AUTH_SECRET` (at least 32 characters), and `BETTER_AUTH_URL` (a bare HTTPS origin, with HTTP allowed on loopback). The database URL must use `postgresql://guide_runtime:password@host:port/database` without query parameters or fragments. Database TLS is disabled because this connection policy targets a private network; managed PostgreSQL is outside the current scope. Development connections remain loopback-only. Invalid production settings produce an installation page and a 503 `not-configured` health response. An empty configured database reports `setup-required`.
-
-The setup account manages its workspace. The separate installation-administrator capability arrives with the later account-recovery migration and will backfill the first account. No deployment container, installer, proxy, recovery procedure, or production operations certification is delivered by this browser-setup stage. There is currently no supported production deployment recipe.
+Production builds refuse sample guides and preview identities, and require valid database and identity settings; the [configuration reference](self-hosting/configuration.md) lists them. Running `pnpm start` without those settings shows an installation page and a 503 `not-configured` health response.

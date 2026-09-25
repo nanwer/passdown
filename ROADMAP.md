@@ -6,7 +6,7 @@ This roadmap describes the next product outcomes in priority order. It is not a 
 
 ## Available today
 
-The current application supports local evaluation and development:
+Open Alpha 0.1.0-alpha.1 can be installed on one server with Docker Compose:
 
 - Public and members-only guide libraries with search and nested things to browse.
 - A visual step editor with rich text, tables, contextual panels, and annotated photographs.
@@ -14,25 +14,16 @@ The current application supports local evaluation and development:
 - Manual draft saves, preview, and published releases that preserve their instructions and item details.
 - Invitation links, view/manage permissions, and sortable management tables with server-side paging, combined filters, and column preferences.
 - Browser setup for a new installation, protected by a setup code, with the first account and workspace created together.
+- Installation with Docker Compose behind Caddy or nginx, verified backups, staged restore, and upgrades that keep the previous version serving until migrations succeed, with an installation guide, configuration reference and troubleshooting guide.
+- Withdrawing and reinstating published guides, reset links issued by installation administrators, and changing your own password.
 
-Photo upload progress and retry controls are already implemented. Non-image attachments, cross-guide prerequisites, account recovery, approvals, and community contributions are still upcoming.
+Photo upload progress and retry controls are already implemented. Non-image attachments, cross-guide prerequisites, self-service account recovery, approvals, and community contributions are still upcoming.
 
 See the [README](README.md) to try the app and the [development status](docs/development/status.md) for the full inventory and current limitations.
 
 ## Next priorities
 
-### 1. Make self-hosting practical
-
-**Outcome:** An operator can install Passdown, recover access, and keep its knowledge safe through updates.
-
-- Package installation and configuration into a repeatable, documented process.
-- Recover accounts through administrator-issued reset links and let people change their own passwords.
-- Withdraw a published guide and reinstate it when it is ready to be read again.
-- Back up and restore guides and pictures together, and rehearse upgrades before distributing them.
-
-**Ready when:** A fresh installation, account recovery, guide withdrawal, backup, restore and upgrade all work through documented journeys. Available now, built from source: an installation guide with browser setup, HTTPS through Caddy or nginx, administrator-issued reset links and password changes, guide withdrawal and reinstatement, picture verification, backups, staged restore into an empty installation, and upgrades that keep the previous version serving until migrations succeed. Published images and a rehearsed upgrade between released versions are still being built.
-
-### 2. Make authoring and management dependable
+### 1. Make authoring and management dependable
 
 **Outcome:** Authors can finish everyday work without losing edits or their place in the interface.
 
@@ -43,7 +34,7 @@ See the [README](README.md) to try the app and the [development status](docs/dev
 
 **Ready when:** An author can recover from a failed save, return from a record to the same list context, and complete the workflow with a keyboard or on a small screen.
 
-### 3. Attach the documents a guide needs
+### 2. Attach the documents a guide needs
 
 **Outcome:** Instructions and their supporting documents stay together.
 
@@ -53,7 +44,7 @@ See the [README](README.md) to try the app and the [development status](docs/dev
 
 **Ready when:** An author can attach a document, publish it, and verify that permitted readers can access the correct file while other visitors cannot.
 
-### 4. Connect guides through prerequisites
+### 3. Connect guides through prerequisites
 
 **Outcome:** Authors can reuse an existing procedure instead of copying its instructions.
 
@@ -95,17 +86,16 @@ Help readers complete longer or more detailed procedures:
 
 These are directional improvements; their exact scope will follow testing with readers.
 
-## Before production deployment
+## Before production use
 
-Local setup and first-run account creation are foundations, not a complete operating environment. Production support requires:
+The alpha covers installation, backups, restore, upgrades and a focused security review. Recommending Passdown for unattended production use also needs:
 
-- Documented deployment, configuration, and upgrade procedures.
-- Tested backup and restore covering both the database and uploaded files.
-- Migration recovery and operational monitoring.
-- Storage lifecycle management and background processing where needed.
-- Security review of permissions, uploads, authentication, and recovery flows.
+- Monitoring and alerting beyond the health endpoint and logs.
+- Storage lifecycle management: removing unused pictures and scheduling backups.
+- A full external security audit, including a Content Security Policy.
+- Tools for erasing a person's data and handling requests about it.
 
-**Ready when:** An operator can install, upgrade, monitor, back up, and restore an installation using documented procedures that have been tested end to end.
+**Ready when:** An operator can run an installation for months with documented monitoring, storage housekeeping and data-request procedures, after an independent security audit.
 
 ## Scope and contribution
 

@@ -1,6 +1,6 @@
 # Passdown development status
 
-Passdown is an early, working application for public community guides and private team procedures. The source is public and development is ongoing. It is currently designed for local evaluation, not unattended production deployment.
+Passdown is a working application for public community guides and private team procedures, in Open Alpha as version 0.1.0-alpha.1. It can be installed on one server with Docker Compose and tried with a team; it is not yet recommended for unattended production use. The source is public and development is ongoing.
 
 ## Working now
 
@@ -47,7 +47,17 @@ See [authoring UI patterns](authoring-ui.md) for the reusable components and [ma
 
 ## Boundaries
 
-Saves are manual. Management lists use 25-row pages; Things may additionally show ancestor context at page boundaries. Inline category pickers still load their options when opened. Open signup is deliberately off — an account exists because somebody was invited or because the installation created the first one. Nothing sends email; invitations are links passed on by hand, and account recovery does not exist. Attachments other than pictures, cross-guide prerequisites, approval workflows and collaborative editing are not implemented.
+This alpha's limits:
+
+- It is alpha software: behaviour can change between releases, and only the latest alpha receives fixes.
+- Nothing sends email. Invitations and reset links are passed on by hand; people who can't sign in recover their account only through an installation administrator or the operator command.
+- Uploaded pictures are served by the application itself and are never removed when no longer used. There are no automatic backups.
+- There are no tools for erasing a person's data or handling requests about it, and withdrawing a guide can't recall copies already saved.
+- One installation runs on one host with one workspace. Guides are not made discoverable to search engines.
+- Inline category pickers load all their options when opened.
+- Chromium, Firefox and WebKit engines are tested automatically; Safari on macOS and iOS, and VoiceOver, are checked by hand, so small browser differences may remain.
+
+Saves are manual. Management lists use 25-row pages; Things may additionally show ancestor context at page boundaries. Open signup is deliberately off — an account exists because somebody was invited or because the installation created the first one. Attachments other than pictures, cross-guide prerequisites, approval workflows and collaborative editing are not implemented.
 
 An installation serves one organisation and gets one workspace, which carries a public library and an internal section; creating further workspaces is deliberately out of scope. Every screen is built from Tailwind utilities on the project's design tokens; the only stylesheets left hold element defaults and the typography of rendered guide content and the editor canvas. One vocabulary runs through the studio: things, the catalog, and Active or Inactive.
 
