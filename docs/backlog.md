@@ -71,3 +71,88 @@ members see, with a guide moving between them. Several workspaces would be for
 keeping separate groups apart in one installation, which is not what this is
 for. The development seed makes two, which is what made the absence look like a
 gap; it is a fixture, not a shape to reproduce.
+
+## Known issues deferred during the first release work
+
+Found while building the self-hosted release and deliberately left for later.
+Each is understood well enough to fix; none blocks the current phase. The
+browser reliability items must be resolved before the release gate, which
+requires green runs in all three engines.
+
+### Browser test reliability
+
+- **Category dialogs occasionally fail in Firefox and WebKit.** The five-level
+  category journey has twice waited out its budget for a dialog or a created
+  category that never appeared, and a thing-picture journey once ended on the
+  front page instead of the category page. Each passes on neighbouring runs.
+  Two related timing defects were found and fixed this way; these remain.
+- **Test API requests occasionally reset.** The authoring helpers' requests to
+  the test server fail with a connection reset in Chromium and Firefox, with no
+  server error logged. A keep-alive timeout race was tested and did not
+  reproduce. The helper now reports the request and how long the connection had
+  been idle; use that evidence when it recurs. Don't add retries.
+- **A category create request has taken over five seconds in CI.** Track it as
+  a speed concern.
+
+### Restore and backup
+
+- **Discard doesn't re-check that the target is still closed.** A restore at
+  its last checkpoint that someone opened and used by hand would be wiped.
+  Refuse discard unless the runtime role and PUBLIC still lack CONNECT.
+- **A verification failure report is only written to the private state file.**
+  Print a summary to stderr as well.
+- **The activation probe connection has no error listener,** so a failure after
+  it connects can crash the command. The gate has already closed again.
+- **The backup compares the operator container's clock with the database's.**
+  Skew fails the backup late, though safely.
+- **A `lost+found` directory on a dedicated picture volume blocks restore.**
+- **Missing tests:** concurrent backups with held writes and cancellation,
+  backup refusing dangling references and damaged files, and restoring the
+  frozen pre-withdrawal baseline with its own image before upgrading it.
+
+### Runtime role and operator command
+
+- **The per-request runtime-role check is narrower than the migration-time
+  check.** It misses predefined-role and role-creation memberships and the
+  replication attribute. Make them one rule.
+- **Local migration errors no longer show the underlying database error.**
+- **Interrupting `migrate` doesn't stop it between files;** the five-second
+  forced exit is safe but blunt. Pass the signal through and cancel the running
+  statement.
+- **An older image's `migrate` reports "current" against a newer database,**
+  and a role refusal after migrating doesn't say migrations were applied.
+- **Every login-probe failure is reported as a password problem.** Distinguish
+  authentication errors from an unavailable database.
+- **Creating or changing the runtime role sends its password in the SQL text,**
+  which can reach the database log if the statement fails. Send a verifier.
+- **The setup code accepts any length after normalisation.** Require exactly 20
+  characters.
+
+### Deployment and security hardening
+
+- **The Caddy image runs as root,** and no service drops capabilities or uses a
+  read-only filesystem. Web can reach the internet through the proxy network.
+- **The database owner is the PostgreSQL superuser** in the default deployment.
+  A non-superuser owner would limit what a crafted backup could do.
+- **A used setup code works again** if the database is ever empty again, for
+  example after an empty restore.
+- **Supply chain:** the build installs pnpm without an integrity check, system
+  packages aren't version-pinned, and unused package-manager shims stay in the
+  runtime image.
+- **Non-standard HTTPS ports:** the HTTP redirect assumes port 443, automatic
+  certificates can't be issued, and HTTP/3 is advertised without UDP.
+- **Installation-wide request counters** for invitation lookups and failed
+  sign-ins let a few clients slow everyone down. There is no Content Security
+  Policy yet. Both belong to the release security review.
+
+### Interface
+
+- **A mark placed while a photo is still loading** is measured against the
+  default shape. Pass the stored picture dimensions to the annotation editor.
+- **New guide can wait indefinitely** if the work-type options never load. Add
+  a timeout that falls through to Retry.
+- **Page changes in management tables aren't announced** to screen readers.
+- **Preparation notes buttons all share one accessible name,** notes added to an
+  existing item start collapsed, some heading levels are flattened, a focused
+  choice card shows a light gap in dark mode, and switching an item from used up
+  to kept leaves its unit unchanged.
