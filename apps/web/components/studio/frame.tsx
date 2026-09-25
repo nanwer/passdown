@@ -121,7 +121,7 @@ export function Frame({
       />
       {children}
       <footer className={X.footer}>
-        Local authoring · Manual saves · <SourceCodeLink className="underline underline-offset-2" />
+        Manual saves · <SourceCodeLink className="underline underline-offset-2" />
       </footer>
     </div>
   );

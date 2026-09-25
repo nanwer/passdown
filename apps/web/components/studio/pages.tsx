@@ -90,7 +90,7 @@ export function SignIn({
         <form className={cn(X.card, X.form)} onSubmit={submit}>
           <span className={X.eyebrow}>Welcome back</span>
           <h2>Sign in to your studio</h2>
-          <p>Use the verified local account provided by your operator.</p>
+          <p>Sign in with your email address and password.</p>
           {openedAt && (
             <div className={X.errorNotice} role="alert">
               Passdown is set up for {origin}. Open it at that address, or ask the operator to set
