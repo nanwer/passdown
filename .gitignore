@@ -49,5 +49,6 @@ apps/operator/dist/
 
 # Private operator archives and partial backup output.
 deploy/backups/
+deploy/upgrade.log
 .incomplete-passdown-*/
 .passdown-backup.*

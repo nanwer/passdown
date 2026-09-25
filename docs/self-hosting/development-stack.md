@@ -1,6 +1,6 @@
 # Evaluate the container stack
 
-This is a source-built development candidate. Picture verification, consistent backups, offline archive checks and staged restore are available in the [backup guide](backups.md). Published installation images, upgrade tooling and account recovery are not available yet. Keep using disposable evaluation data. The existing local installation instructions remain in [Getting started](../getting-started.md).
+This is a source-built development candidate. Picture verification, consistent backups, offline archive checks and staged restore are available in the [backup guide](backups.md). Published installation images and account recovery are not available yet. Keep using disposable evaluation data. The existing local installation instructions remain in [Getting started](../getting-started.md).
 
 The stack runs PostgreSQL, an explicit migration job, the web application and a Caddy HTTPS proxy. Only the proxy publishes host ports. Web receives runtime database credentials; the migration and operator services receive owner credentials. Both the database and uploaded pictures persist in named volumes.
 
@@ -72,6 +72,25 @@ The details are in the web service's log. At every start it writes one JSON `sta
 ```sh
 docker compose logs web | grep '"event":"startup"'
 ```
+
+## Upgrade a running installation
+
+From the `deploy` directory of an updated checkout, with the installation running:
+
+```sh
+sh upgrade.sh --build
+```
+
+The script:
+
+1. refuses if the installation is not running (a first start is always `docker compose up -d`);
+2. takes a verified backup with `backup.sh`, and stops if that fails;
+3. keeps the running images as `passdown:previous` and `passdown-caddy:previous`;
+4. builds the new version from this checkout;
+5. runs the new version's migrations while the old version keeps serving;
+6. only if they succeed, replaces web and the proxy, waits for them to become healthy, and prints the new version and status.
+
+If migrations fail, the site keeps running the previous version, `passdown:local` points back at the running image, and the error is printed. Each step is recorded in `upgrade.log` beside the script. Migrations cannot be undone: if the new version does not become healthy after migrating, go back by restoring the backup with the previous image, as described in the [backup guide](backups.md). Use `--skip-backup` only if you made a backup yourself just before. Installations using published images will upgrade with `sh upgrade.sh --image <reference>` once images are published; it records the new image in the settings file only after migrations succeed.
 
 ## Trace a reported failure
 

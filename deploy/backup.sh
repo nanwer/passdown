@@ -23,6 +23,9 @@ directory=${directory:-"$here/backups"}
 case "$directory" in /*) ;; *) directory=$PWD/$directory ;; esac
 mkdir -p "$directory"
 directory=$(CDPATH= cd -- "$directory" && pwd -P)
+# The settings name their Compose files relatively, and Compose resolves them
+# against the working directory: run every command from the installation.
+cd "$here"
 partial=$(mktemp "$directory/.passdown-backup.XXXXXXXX")
 child=
 cleanup() {

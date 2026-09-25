@@ -39,7 +39,7 @@ printf 'SYNC\\n' >> "$BACKUP_LOG"
   writeFileSync(
     join(bin, 'docker'),
     `#!/bin/sh
-printf '%s\\n' CALL "$@" >> "$BACKUP_LOG"
+printf '%s\\n' CALL "PWD=$PWD" "$@" >> "$BACKUP_LOG"
 case "$*" in
   *' ops backup')
     printf 'synthetic-complete-archive'
@@ -83,10 +83,14 @@ describe('host backup wrapper', () => {
     expect(result.stderr).toContain('offline check passed');
     const calls = readFileSync(h.log, 'utf8').split('CALL\n').slice(1);
     expect(calls).toHaveLength(2);
-    for (const call of calls)
+    for (const call of calls) {
       expect(call).toContain(
         `compose\n--project-directory\n${h.deploy}\n--env-file\n${h.deploy}/.env\n`,
       );
+      // Settings name their Compose files relatively; Compose resolves them
+      // against the working directory, so run from the installation directory.
+      expect(call.startsWith(`PWD=${h.deploy}\n`)).toBe(true);
+    }
     expect(calls[0]).toContain('run\n--rm\n-T\nops\nbackup\n');
     expect(calls[1]).toContain('run\n--rm\n--no-deps\n-T\nops\nrestore\n--check\n');
     expect(readdirSync(join(h.deploy, 'backups'))).toEqual(['passdown-20260925T100000Z.tar']);
