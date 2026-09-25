@@ -22,13 +22,31 @@ async function login(request: APIRequestContext) {
     ).status(),
   ).toBe(200);
 }
+// When each context last finished a request. A connection reset has occurred
+// intermittently in hosted runs without a known cause; reporting how long the
+// context was idle, and which request failed, is evidence for the next
+// occurrence. The test still fails; nothing is retried.
+const lastRequestEnded = new WeakMap<APIRequestContext, number>();
 async function api<T>(
   request: APIRequestContext,
   path: string,
   method = 'GET',
   data?: unknown,
 ): Promise<T> {
-  const response = await request.fetch(path, { method, headers, ...(data ? { data } : {}) });
+  const started = Date.now();
+  let response;
+  try {
+    response = await request.fetch(path, { method, headers, ...(data ? { data } : {}) });
+  } catch (error) {
+    const previous = lastRequestEnded.get(request);
+    const idle = previous === undefined ? 'first request' : `${started - previous} ms idle`;
+    throw new Error(
+      `${method} ${path} failed after ${Date.now() - started} ms (${idle}): ${String(error)}`,
+      { cause: error },
+    );
+  } finally {
+    lastRequestEnded.set(request, Date.now());
+  }
   expect(response.ok(), `${method} ${path}: ${await response.text()}`).toBeTruthy();
   return response.json();
 }
