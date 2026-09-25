@@ -16,7 +16,7 @@ import {
 import type { StudioWorkspace, WorkspacePeople } from '@guide/contracts';
 import { ErrorNotice, SessionGate, StudioTrail } from './frame';
 import { ManageTabs } from './manage';
-import { studioFetch } from './transport';
+import { studioFetch, errorMessage, type ErrorMessage } from './transport';
 import './studio.css';
 
 export function People({ workspaceId }: { workspaceId: string }) {
@@ -36,7 +36,7 @@ export function People({ workspaceId }: { workspaceId: string }) {
  */
 function PeopleList({ workspace }: { workspace: StudioWorkspace }) {
   const [people, setPeople] = useState<WorkspacePeople>();
-  const [error, setError] = useState('');
+  const [error, setError] = useState<ErrorMessage>('');
   const [pending, setPending] = useState(false);
   const [issued, setIssued] = useState<{ email: string; link: string }>();
   const [copied, setCopied] = useState(false);
@@ -45,7 +45,7 @@ function PeopleList({ workspace }: { workspace: StudioWorkspace }) {
     try {
       setPeople(await studioFetch<WorkspacePeople>(`/api/studio/${workspace.id}/people`));
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Unable to load this workspace’s people.');
+      setError(errorMessage(e, 'Unable to load this workspace’s people.'));
     }
   }, [workspace.id]);
   useEffect(() => {
@@ -60,7 +60,7 @@ function PeopleList({ workspace }: { workspace: StudioWorkspace }) {
       await run();
       await load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'That did not work.');
+      setError(errorMessage(e, 'That did not work.'));
     } finally {
       setPending(false);
     }

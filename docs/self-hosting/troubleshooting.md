@@ -116,13 +116,13 @@ It prints the link alone on standard output and its expiry on standard error. To
 
 ## Tracing an error someone reports
 
-A page that fails to load says **If this keeps happening, give the operator of this installation this reference:** followed by a code. The Finish setting up form shows **Reference:** with a request ID. Find it in the log:
+A page that fails to load says **If this keeps happening, give the operator of this installation this reference:** followed by a code. When a studio action fails on the server's side (saving or publishing a guide, the things, catalog and people tables, uploading a picture, your account, administration, or Finish setting up), the message ends with **Reference:** and eight characters, such as `7f3a2c1b`. Find it in the log:
 
 ```bash
 docker compose logs web | grep 'REFERENCE'
 ```
 
-The matching `render.failed` or `request.failed` line has the time, the route pattern, and the error's name, code and message. Other studio messages don't show a request ID yet. Every API response carries one in its `X-Request-ID` header, so a failure can still be found by time and route.
+The matching `render.failed` or `request.failed` line has the time, the route pattern, and the error's name, code and message. A studio reference is the start of the full request ID the line records, so the short form finds it. Messages about something the person can fix themselves, such as a missing field, a permission or a newer draft, don't show a reference and aren't logged. Every API response also carries its request ID in the `X-Request-ID` header.
 
 ## Disk filling up
 

@@ -461,6 +461,19 @@ The workflow and its steps are described in [cutting a release](releasing.md). A
 4. Open two editor tabs. Change the publication state or audience in one, then confirm an old action in the other. Expect it to be refused as out of date, with the publication state and audience refreshed, licence consent cleared and unsaved text preserved.
 5. A withdrawn guide stays in Studio's **Withdrawn** filter but disappears from the library and from active catalog usage. Moving it between sections is unavailable until it is reinstated or republished. Saving a changed draft and publishing ends the withdrawal with a new release.
 
+## A reference to give the operator
+
+A studio failure on the server's side shows a short reference; a message about something the person can fix does not. Use the local app.
+
+1. **Force a failure.** Open a guide in the editor with the local app running, then stop the database with `pnpm local:down`. Change the instructions and choose **Save draft**. Expect a red notice ending **Reference:** and eight characters, for example `Reference: 7f3a2c1b`, and your typed text still in the editor. Run `pnpm local:up` afterwards.
+2. **It matches the log.** In the browser's developer tools, the failed request's `X-Request-ID` header starts with those eight characters. The terminal running the app has one `request.failed` line containing them; on an installation, `docker compose logs web | grep <reference>` finds it.
+3. **Copy it.** Click the reference once: the whole reference is selected. Copy and paste it; expect exactly the eight characters.
+4. **Screen reader.** With VoiceOver (Cmd+F5), repeat step 1. Expect the message and **Reference** with its characters to be announced together.
+5. **Other surfaces.** With the database stopped, open **Manage → Things**, **Catalog** and **People**, add a picture to a step, open **Your account** and change the password, open **Administration**, and publish a guide. Each failure notice shows a reference.
+6. **No reference for things you can fix.** With the database running, save a guide changed in another tab (a conflict), submit a field that is too long, or open a workspace you do not manage. Expect the usual message with no reference.
+7. **Finish setting up.** On a fresh installation, a server failure on the form shows the same short reference; an email address already in use or a mismatched password does not.
+8. **Themes and width.** Check the notice in light and dark themes and at 390px wide: the reference sits on its own line below the message, in the code font, without overflowing.
+
 ## Installation administrators and reset links
 
 1. Complete first-run setup on a fresh evaluation installation. Run `docker compose run --rm -T ops admin list`. Expect the setup account, granted via `setup`.

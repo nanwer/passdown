@@ -1,7 +1,7 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
 import type { Category, CategoryCounts, CatalogItem, CatalogUsageCounts } from '@guide/contracts';
-import { studioFetch } from '../studio/transport';
+import { studioFetch, errorMessage, type ErrorMessage } from '../studio/transport';
 const changeEvent = 'guide-structured-data-changed';
 export function announceStructuredChange(workspaceId: string) {
   window.dispatchEvent(new CustomEvent(changeEvent, { detail: workspaceId }));
@@ -19,7 +19,7 @@ export function useCategories(
   const withCounts = options?.withCounts === true;
   const [categories, setCategories] = useState<Category[]>(provided ?? []);
   const [counts, setCounts] = useState<CategoryCounts[]>([]);
-  const [error, setError] = useState('');
+  const [error, setError] = useState<ErrorMessage>('');
   const [loading, setLoading] = useState(!provided);
   const [revision, setRevision] = useState(0);
   const refresh = useCallback(() => setRevision((value) => value + 1), []);
@@ -42,7 +42,7 @@ export function useCategories(
       })
       .catch((error) => {
         if (active) {
-          setError(error.message);
+          setError(errorMessage(error, 'These could not be loaded.'));
           setCategories([]);
           setCounts([]);
         }
@@ -68,7 +68,7 @@ export function useCatalog(workspaceId: string, options?: { withUsage?: boolean 
   const withUsage = options?.withUsage === true;
   const [items, setItems] = useState<CatalogItem[]>([]);
   const [usage, setUsage] = useState<CatalogUsageCounts[]>([]);
-  const [error, setError] = useState('');
+  const [error, setError] = useState<ErrorMessage>('');
   const [loading, setLoading] = useState(true);
   const [revision, setRevision] = useState(0);
   const refresh = useCallback(() => setRevision((value) => value + 1), []);
@@ -86,7 +86,7 @@ export function useCatalog(workspaceId: string, options?: { withUsage?: boolean 
       })
       .catch((error) => {
         if (active) {
-          setError(error.message);
+          setError(errorMessage(error, 'The catalog could not be loaded.'));
           setItems([]);
           setUsage([]);
         }

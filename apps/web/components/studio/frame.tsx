@@ -14,9 +14,11 @@ import {
   headerLink,
 } from '@guide/ui';
 import type { StudioSession, StudioWorkspace } from '@guide/contracts';
-import { StudioError, studioFetch } from './transport';
+import { StudioError, studioFetch, errorMessage, type ErrorMessage } from './transport';
 import { FinishSetup } from '../setup/finish-setup';
+import { ErrorNotice } from './error-notice';
 import './studio.css';
+export { ErrorNotice };
 export function Frame({
   children,
   workspace,
@@ -174,13 +176,6 @@ export function StudioTrail({
     </nav>
   );
 }
-export function ErrorNotice({ error }: { error: string }) {
-  return (
-    <div className={X.errorNotice} role="alert">
-      {error}
-    </div>
-  );
-}
 export function SessionGate({
   workspaceId,
   children,
@@ -189,7 +184,7 @@ export function SessionGate({
   children: (session: StudioSession, workspace: StudioWorkspace | undefined) => ReactNode;
 }) {
   const [session, setSession] = useState<StudioSession>();
-  const [error, setError] = useState('');
+  const [error, setError] = useState<ErrorMessage>('');
   // What a signed-in account must do before anything else: replace the
   // password it was given, or, as the default login, finish setting up.
   const [required, setRequired] = useState<'password' | 'setup' | null>(null);
@@ -219,7 +214,7 @@ export function SessionGate({
           setRequired('setup');
           return;
         }
-        setError(e instanceof Error ? e.message : 'Unable to load your session.');
+        setError(errorMessage(e, 'Unable to load your session.'));
       });
     return () => {
       active = false;
@@ -232,7 +227,7 @@ export function SessionGate({
       await studioFetch('/api/auth/sign-out', { method: 'POST', body: '{}' });
       window.location.assign('/sign-in');
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Sign out failed.');
+      setError(errorMessage(e, 'Sign out failed.'));
     }
   }
   return (
@@ -305,7 +300,7 @@ export function ChangePassword({
 }) {
   const [success, setSuccess] = useState('');
   const [pending, setPending] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState<ErrorMessage>('');
   const [errorField, setErrorField] = useState('');
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -337,7 +332,7 @@ export function ChangePassword({
       setSuccess('Password changed. You are still signed in here.');
       onChanged?.();
     } catch (e) {
-      const message = e instanceof Error ? e.message : 'Unable to change the password.';
+      const message = errorMessage(e, 'Unable to change the password.');
       setError(message);
       if (message === 'That current password is not right.') {
         setErrorField('currentPassword');

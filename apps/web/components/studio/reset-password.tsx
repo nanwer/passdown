@@ -3,7 +3,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import type { PasswordResetPreview } from '@guide/contracts';
 import { Button } from '@guide/ui';
 import { Frame, ErrorNotice } from './frame';
-import { studioFetch, StudioError } from './transport';
+import { studioFetch, errorMessage, type ErrorMessage, StudioError } from './transport';
 import * as X from './studio-styles';
 export function formatLinkExpiry(iso: string, locale?: string, timeZone?: string): string {
   return new Intl.DateTimeFormat(locale, {
@@ -18,7 +18,7 @@ export function formatLinkExpiry(iso: string, locale?: string, timeZone?: string
 }
 export function ResetPassword({ token }: { token: string }) {
   const [preview, setPreview] = useState<PasswordResetPreview | null>();
-  const [error, setError] = useState('');
+  const [error, setError] = useState<ErrorMessage>('');
   const [fieldError, setFieldError] = useState('');
   const [pending, setPending] = useState(false);
   const [attempt, setAttempt] = useState(0);
@@ -32,7 +32,7 @@ export function ResetPassword({ token }: { token: string }) {
       .catch((e) => {
         if (!active) return;
         if (e instanceof StudioError && e.status === 404) setPreview(null);
-        else setError(e instanceof Error ? e.message : 'Unable to check this link.');
+        else setError(errorMessage(e, 'Unable to check this link.'));
       });
     return () => {
       active = false;
@@ -60,7 +60,7 @@ export function ResetPassword({ token }: { token: string }) {
       window.location.assign(result.redirect === '/studio' ? '/studio' : '/sign-in');
     } catch (error) {
       if (error instanceof StudioError && error.status === 404) setPreview(null);
-      else setError(error instanceof Error ? error.message : 'Unable to set this password.');
+      else setError(errorMessage(error, 'Unable to set this password.'));
       setPending(false);
     }
   }

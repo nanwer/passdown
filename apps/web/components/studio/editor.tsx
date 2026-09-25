@@ -44,7 +44,13 @@ import { moveBy, newStep, reorder } from './model';
 import { RemoveStepDialog } from './remove-step-dialog';
 import { RichTextEditor } from './rich-text-editor';
 import { StepRequirements } from './step-requirements';
-import { StudioError, studioFetch, studioUpload } from './transport';
+import {
+  StudioError,
+  studioFetch,
+  errorMessage,
+  type ErrorMessage,
+  studioUpload,
+} from './transport';
 // Pictures: the cover and each step's, with the controls to add and order them.
 const pictureAddClass = cn(
   X.pictureAddParts,
@@ -337,7 +343,7 @@ function GuideCover({
 }) {
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [error, setError] = useState('');
+  const [error, setError] = useState<ErrorMessage>('');
   const [dropping, setDropping] = useState(false);
   const input = useRef<HTMLInputElement>(null);
 
@@ -353,7 +359,7 @@ function GuideCover({
       );
       onChange(asset.id);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'That picture could not be added.');
+      setError(errorMessage(e, 'That picture could not be added.'));
     } finally {
       setBusy(false);
       if (input.current) input.current.value = '';
@@ -449,7 +455,7 @@ function ReusePicture({
 }) {
   const [open, setOpen] = useState(false);
   const [assets, setAssets] = useState<WorkspaceAsset[] | null>(null);
-  const [error, setError] = useState('');
+  const [error, setError] = useState<ErrorMessage>('');
 
   useEffect(() => {
     if (!open) return;
@@ -465,7 +471,7 @@ function ReusePicture({
       .catch((e) => {
         if (active) {
           setAssets([]);
-          setError(e instanceof Error ? e.message : 'Those pictures could not be listed.');
+          setError(errorMessage(e, 'Those pictures could not be listed.'));
         }
       });
     return () => {
@@ -543,7 +549,7 @@ function StepPictures({
   const [alt, setAlt] = useState('');
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [error, setError] = useState('');
+  const [error, setError] = useState<ErrorMessage>('');
   /**
    * The file that failed, kept so the author can try the same one again.
    * Without it a failure means finding the photograph in the file picker a
@@ -571,7 +577,7 @@ function StepPictures({
       setAlt('');
     } catch (e) {
       const stopped = e instanceof StudioError && e.code === 'ABORTED';
-      setError(stopped ? '' : e instanceof Error ? e.message : 'That picture could not be added.');
+      setError(stopped ? '' : errorMessage(e, 'That picture could not be added.'));
       // A picture the server refused will be refused again; only offer to
       // retry what might succeed a second time.
       const worthRetrying = !stopped && !(e instanceof StudioError && e.status === 422);
@@ -836,7 +842,7 @@ function GuideSectionPicker({
   onMoved: (guide: DraftGuide) => void;
 }) {
   const [blockers, setBlockers] = useState<GuidePublicBlocker[] | null>(null);
-  const [error, setError] = useState('');
+  const [error, setError] = useState<ErrorMessage>('');
   const [saved, setSaved] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -875,7 +881,7 @@ function GuideSectionPicker({
           : 'Moved. This guide is no longer served publicly.',
       );
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'That move could not be saved.');
+      setError(errorMessage(e, 'That move could not be saved.'));
     } finally {
       setBusy(false);
     }
@@ -944,7 +950,7 @@ function GuideFamilyPicker({ workspaceId, guideId }: { workspaceId: string; guid
   >([]);
   const [parentId, setParentId] = useState('');
   const [saved, setSaved] = useState('');
-  const [error, setError] = useState('');
+  const [error, setError] = useState<ErrorMessage>('');
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -989,7 +995,7 @@ function GuideFamilyPicker({ workspaceId, guideId }: { workspaceId: string; guid
           : 'Saved. This guide stands on its own.',
       );
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'That relationship could not be saved.');
+      setError(errorMessage(e, 'That relationship could not be saved.'));
     } finally {
       setBusy(false);
     }
@@ -1032,7 +1038,7 @@ export function EditorPage({ workspaceId, guideId }: { workspaceId: string; guid
 function Editor({ workspace, guideId }: { workspace: StudioWorkspace; guideId: string }) {
   const [guide, setGuide] = useState<DraftGuide>();
   const [baseline, setBaseline] = useState('');
-  const [error, setError] = useState('');
+  const [error, setError] = useState<ErrorMessage>('');
   const [conflict, setConflict] = useState(false);
   const [pending, setPending] = useState<'save' | 'publish' | 'publication' | null>(null);
   const [selected, setSelected] = useState('');
@@ -1067,7 +1073,7 @@ function Editor({ workspace, guideId }: { workspace: StudioWorkspace; guideId: s
         }
       })
       .catch((e) => {
-        if (active) setError(e.message);
+        if (active) setError(errorMessage(e, 'This guide could not be loaded.'));
       });
     return () => {
       active = false;
@@ -1103,7 +1109,7 @@ function Editor({ workspace, guideId }: { workspace: StudioWorkspace; guideId: s
     setGuide((latest) => (latest ? mergePublicationState(latest, current) : latest));
   }
   function problem(e: unknown) {
-    setError(e instanceof Error ? e.message : 'The request failed. Your input is still here.');
+    setError(errorMessage(e, 'The request failed. Your input is still here.'));
     if (e instanceof StudioError) {
       if (e.code === 'PUBLICATION_CHANGED') {
         setPublishOpen(false);

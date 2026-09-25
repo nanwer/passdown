@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { ApplicationError } from '@guide/contracts';
 import { assertOrigin, readJSON, apiResponse } from './http';
 const origin = 'http://127.0.0.1:3100';
 const route = { route: '/api/studio/[workspace]/guides', method: 'POST' };
@@ -121,6 +122,27 @@ describe('operator diagnostics', () => {
       error: { name: 'Error', code: '42P01', message: 'relation "app.missing" does not exist' },
     });
     expect(Date.parse(entries[0].time)).not.toBeNaN();
+  });
+  it('writes the full request ID, so the short reference people see finds the line', async () => {
+    // The studio shows the first eight characters; `docker compose logs web |
+    // grep <reference>` must match the raw line for an unexpected failure and
+    // for a known failure on the server's side alike.
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    for (const run of [
+      async () => {
+        throw new Error('database unreachable');
+      },
+      async () => {
+        throw new ApplicationError('BUSY', 'This account is busy. Try again shortly.', 503);
+      },
+    ]) {
+      spy.mockClear();
+      const response = await apiResponse(route, run);
+      const reference = response.headers.get('x-request-id')!.slice(0, 8);
+      const raw = spy.mock.calls.map((call) => String(call[0]));
+      expect(raw.filter((line) => line.includes(reference))).toHaveLength(1);
+      expect(raw[0]).toContain('"event":"request.failed"');
+    }
   });
   it('never logs connection strings, tokens, hashes or email addresses from an error', async () => {
     const logged = lines();

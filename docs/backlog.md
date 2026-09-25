@@ -141,9 +141,6 @@ requires green runs in all three engines.
   authentication errors from an unavailable database.
 - **Creating or changing the runtime role sends its password in the SQL text,**
   which can reach the database log if the statement fails. Send a verifier.
-- **Studio error messages don't show the request ID.** Only the Finish setting
-  up form displays it; elsewhere the transport drops it, so people can't quote it to
-  the operator. Show it as a reference in studio error messages.
 
 ### Deployment and security hardening
 

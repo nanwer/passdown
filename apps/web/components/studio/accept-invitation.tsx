@@ -3,7 +3,7 @@ import * as X from './studio-styles';
 import { useEffect, useState, type FormEvent } from 'react';
 import { Button, cn } from '@guide/ui';
 import { Frame, ErrorNotice } from './frame';
-import { studioFetch } from './transport';
+import { studioFetch, errorMessage, type ErrorMessage } from './transport';
 import './studio.css';
 
 type Invitation = {
@@ -27,7 +27,7 @@ type Invitation = {
  */
 export function AcceptInvitation({ token }: { token: string }) {
   const [invitation, setInvitation] = useState<Invitation | null>();
-  const [error, setError] = useState('');
+  const [error, setError] = useState<ErrorMessage>('');
   const [pending, setPending] = useState(false);
 
   useEffect(() => {
@@ -63,7 +63,7 @@ export function AcceptInvitation({ token }: { token: string }) {
       );
       window.location.assign(`/studio/${result.workspace}`);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Unable to accept this invitation.');
+      setError(errorMessage(e, 'Unable to accept this invitation.'));
       setPending(false);
     }
   }

@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { AdminAccount, IssuedPasswordReset } from '@guide/contracts';
 import { Button, Dialog } from '@guide/ui';
 import { SessionGate, ErrorNotice } from './frame';
-import { studioFetch } from './transport';
+import { studioFetch, errorMessage, type ErrorMessage } from './transport';
 import { formatLinkExpiry } from './reset-password';
 import { TableSearch, tableClass, cellClass } from '../structured/data-table';
 import * as X from './studio-styles';
@@ -12,7 +12,7 @@ function ResetLinkDialog({ account, refresh }: { account: AdminAccount; refresh:
     [busy, setBusy] = useState(false),
     [issued, setIssued] = useState<IssuedPasswordReset | null>(null),
     [cancelled, setCancelled] = useState(false),
-    [error, setError] = useState(''),
+    [error, setError] = useState<ErrorMessage>(''),
     [status, setStatus] = useState('');
   const input = useRef<HTMLInputElement>(null),
     done = useRef<HTMLDivElement>(null);
@@ -32,7 +32,7 @@ function ResetLinkDialog({ account, refresh }: { account: AdminAccount; refresh:
       setStatus('Reset link created.');
       refresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Unable to create this link.');
+      setError(errorMessage(e, 'Unable to create this link.'));
     } finally {
       setBusy(false);
     }
@@ -47,11 +47,7 @@ function ResetLinkDialog({ account, refresh }: { account: AdminAccount; refresh:
       setStatus('Link cancelled. It no longer works.');
       refresh();
     } catch (e) {
-      setError(
-        e instanceof Error
-          ? e.message
-          : 'The link could not be cancelled. It still works. Try again.',
-      );
+      setError(errorMessage(e, 'The link could not be cancelled. It still works. Try again.'));
     } finally {
       setBusy(false);
     }
@@ -156,7 +152,7 @@ function AccountsTable() {
     [revision, setRevision] = useState(0),
     [result, setResult] = useState<{ accounts: AdminAccount[]; total: number; limit: number }>(),
     [loading, setLoading] = useState(true),
-    [error, setError] = useState(''),
+    [error, setError] = useState<ErrorMessage>(''),
     [status, setStatus] = useState('');
   const refresh = () => setRevision((x) => x + 1);
   useEffect(() => {
@@ -173,7 +169,7 @@ function AccountsTable() {
           }
         })
         .catch((e) => {
-          if (active) setError(e instanceof Error ? e.message : 'Unable to load accounts.');
+          if (active) setError(errorMessage(e, 'Unable to load accounts.'));
         })
         .finally(() => {
           if (active) setLoading(false);
@@ -190,7 +186,7 @@ function AccountsTable() {
       setStatus(`Reset link for ${account.name} cancelled.`);
       refresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Unable to cancel this link.');
+      setError(errorMessage(e, 'Unable to cancel this link.'));
     }
   }
   return (

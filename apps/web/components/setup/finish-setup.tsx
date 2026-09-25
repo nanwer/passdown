@@ -3,6 +3,8 @@ import { useRef, useState } from 'react';
 import { Button, cn } from '@guide/ui';
 import { defaultLogin, finishSetupSchema } from '@guide/contracts';
 import * as X from '../studio/studio-styles';
+import { StudioError } from '../studio/transport';
+import { ErrorReference } from '../studio/error-notice';
 const fields = [
   ['name', 'Your name', 'text', 'name'],
   ['email', 'Your email address', 'email', 'email'],
@@ -22,13 +24,15 @@ const limits: Record<string, number> = { name: 120, workspaceName: 80 };
 export function FinishSetup() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+  const [reference, setReference] = useState('');
   const [issues, setIssues] = useState<Record<string, string>>({});
   const [finished, setFinished] = useState(false);
   const form = useRef<HTMLFormElement>(null);
   const alert = useRef<HTMLDivElement>(null);
-  function report(text: string, errors: Record<string, string> = {}) {
+  function report(text: string, errors: Record<string, string> = {}, failure?: string) {
     setMessage(text);
     setIssues(errors);
+    setReference(failure ?? '');
     requestAnimationFrame(() => {
       const first = fields.find(([name]) => errors[name]);
       if (first) (form.current?.elements.namedItem(first[0]) as HTMLInputElement)?.focus();
@@ -52,6 +56,7 @@ export function FinishSetup() {
     }
     setBusy(true);
     setMessage('');
+    setReference('');
     setIssues({});
     try {
       const response = await fetch('/api/setup', {
@@ -77,10 +82,13 @@ export function FinishSetup() {
         const serverIssues: Record<string, string> = {};
         for (const issue of error?.issues ?? []) serverIssues[issue.path] ??= issue.message;
         if (error?.code === 'EMAIL_TAKEN') serverIssues.email = error.message;
+        // Like every studio notice, only a failure on the server's side gets
+        // a reference: those are the ones the operator's log records.
+        const failure = new StudioError('', response.status, '', error?.requestId).reference;
         report(
-          (error?.message ?? 'Setup did not finish. Nothing was changed; try again.') +
-            (error?.requestId ? ` Reference: ${error.requestId}` : ''),
+          error?.message ?? 'Setup did not finish. Nothing was changed; try again.',
           serverIssues,
+          failure,
         );
       }
     } catch {
@@ -109,6 +117,12 @@ export function FinishSetup() {
         hidden={!message}
       >
         {message}
+        {reference && (
+          <>
+            {' '}
+            <ErrorReference reference={reference} />
+          </>
+        )}
         {finished && (
           <p className="mt-3">
             <a className="underline" href="/sign-in">

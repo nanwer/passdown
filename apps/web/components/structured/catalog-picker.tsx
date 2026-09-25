@@ -4,7 +4,7 @@ import { useState, type ReactElement } from 'react';
 import { Plus, Search, ArrowLeft, Package, Check } from 'lucide-react';
 import { Button, Dialog } from '@guide/ui';
 import type { Category, CatalogItem, StudioWorkspace } from '@guide/contracts';
-import { studioFetch } from '../studio/transport';
+import { studioFetch, errorMessage, type ErrorMessage } from '../studio/transport';
 import { ErrorNotice } from '../studio/frame';
 import { announceStructuredChange, useCatalog } from './data';
 import { filterCatalog } from './tree-model';
@@ -195,7 +195,7 @@ export function CatalogForm({
   const [audience, setAudience] = useState<Category['visibility']>(
     initial?.visibility ?? visibility ?? (workspace.audience === 'public' ? 'public' : 'members'),
   );
-  const [error, setError] = useState('');
+  const [error, setError] = useState<ErrorMessage>('');
   const [pending, setPending] = useState(false);
   const request = useFormRequest();
   async function save() {
@@ -229,9 +229,7 @@ export function CatalogForm({
       if (isCurrent()) onSaved(item);
     } catch (error) {
       if (!isCurrent()) return;
-      setError(
-        error instanceof Error ? error.message : 'Unable to save. Your input is still here.',
-      );
+      setError(errorMessage(error, 'Unable to save. Your input is still here.'));
     } finally {
       if (isCurrent()) setPending(false);
     }

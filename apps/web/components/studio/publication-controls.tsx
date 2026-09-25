@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { DraftGuide, GuideReinstateBlocker } from '@guide/contracts';
 import { Button, Dialog } from '@guide/ui';
 import { ErrorNotice } from './frame';
-import { studioFetch, StudioError } from './transport';
+import { studioFetch, errorMessage, type ErrorMessage, StudioError } from './transport';
 import * as X from './studio-styles';
 export function PublicationControls({
   guide,
@@ -20,7 +20,7 @@ export function PublicationControls({
   const [reason, setReason] = useState('');
   const [pending, setPending] = useState(false);
   const [blockers, setBlockers] = useState<GuideReinstateBlocker[] | null>(null);
-  const [error, setError] = useState('');
+  const [error, setError] = useState<ErrorMessage>('');
   const [status, setStatus] = useState('');
   const trigger = useRef<HTMLDivElement>(null);
   const endpoint = `/api/studio/${guide.workspaceId}/guides/${guide.id}`;
@@ -34,7 +34,7 @@ export function PublicationControls({
           if (live) setBlockers(r.blockers);
         })
         .catch((e) => {
-          if (live) setError(e instanceof Error ? e.message : 'Unable to check this release.');
+          if (live) setError(errorMessage(e, 'Unable to check this release.'));
         });
     }
     return () => {
@@ -73,13 +73,9 @@ export function PublicationControls({
           setObserved(null);
           setStatus(e.message);
         } catch (refreshError) {
-          setError(
-            refreshError instanceof Error
-              ? refreshError.message
-              : 'Unable to refresh publication state.',
-          );
+          setError(errorMessage(refreshError, 'Unable to refresh publication state.'));
         }
-      } else setError(e instanceof Error ? e.message : 'The request failed. Try again.');
+      } else setError(errorMessage(e, 'The request failed. Try again.'));
     } finally {
       setPending(false);
       onBusy?.(false);

@@ -27,7 +27,7 @@ import type {
 } from '@guide/contracts';
 import { SessionGate, ErrorNotice, StudioTrail } from '../studio/frame';
 import { ManageTabs } from '../studio/manage';
-import { studioFetch, studioUpload } from '../studio/transport';
+import { studioFetch, errorMessage, type ErrorMessage, studioUpload } from '../studio/transport';
 import { announceStructuredChange } from './data';
 import { useManagementPage, useManagementRecord } from './management-data';
 import { CategoryDialog } from './category-picker';
@@ -217,7 +217,7 @@ function ThingPicture({
 }) {
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [error, setError] = useState('');
+  const [error, setError] = useState<ErrorMessage>('');
   const fileInput = useRef<HTMLInputElement>(null);
 
   async function choose(file: File) {
@@ -236,7 +236,7 @@ function ThingPicture({
       });
       onChanged();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'That picture could not be added.');
+      setError(errorMessage(e, 'That picture could not be added.'));
     } finally {
       setBusy(false);
       if (fileInput.current) fileInput.current.value = '';
@@ -253,7 +253,7 @@ function ThingPicture({
       });
       onChanged();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'That picture could not be removed.');
+      setError(errorMessage(e, 'That picture could not be removed.'));
     } finally {
       setBusy(false);
     }
@@ -757,7 +757,7 @@ function ThingDetail({
 }) {
   const [confirming, setConfirming] = useState(false);
   const [pending, setPending] = useState(false);
-  const [actionError, setActionError] = useState('');
+  const [actionError, setActionError] = useState<ErrorMessage>('');
   const [blockers, setBlockers] = useState<CategoryBlockers | null>(null);
   const [recordCounts, setRecordCounts] = useState(counts);
   const [countsError, setCountsError] = useState(false);
@@ -818,9 +818,7 @@ function ThingDetail({
         true,
       );
     } catch (error) {
-      setActionError(
-        error instanceof Error ? error.message : `Unable to change this ${words.thing}.`,
-      );
+      setActionError(errorMessage(error, `Unable to change this ${words.thing}.`));
     } finally {
       setPending(false);
     }
@@ -1317,10 +1315,10 @@ function CatalogDetail({
 }) {
   const [usage, setUsage] =
     useState<{ id: string; title: string; audience: string; currentRelease: number | null }[]>();
-  const [usageError, setUsageError] = useState('');
+  const [usageError, setUsageError] = useState<ErrorMessage>('');
   const [confirming, setConfirming] = useState(false);
   const [pending, setPending] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState<ErrorMessage>('');
   useEffect(() => {
     let active = true;
     studioFetch<{ guides: NonNullable<typeof usage> }>(
@@ -1330,7 +1328,7 @@ function CatalogDetail({
         if (active) setUsage(result.guides);
       })
       .catch((error) => {
-        if (active) setUsageError(error.message);
+        if (active) setUsageError(errorMessage(error, 'Usage could not be loaded.'));
       });
     return () => {
       active = false;
@@ -1364,7 +1362,7 @@ function CatalogDetail({
         true,
       );
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'Unable to change this item.');
+      setError(errorMessage(error, 'Unable to change this item.'));
     } finally {
       setPending(false);
     }

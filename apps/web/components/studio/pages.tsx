@@ -22,7 +22,7 @@ import { Button, ChoiceCard, buttonVariants, cn } from '@guide/ui';
 import type { Category, DraftGuide, DraftSummary, StudioWorkspace } from '@guide/contracts';
 import { composeGuideTitle, type GuideDocument, type GuideType } from '@guide/content';
 import { Frame, ErrorNotice, SessionGate, StudioTrail } from './frame';
-import { studioFetch, StudioError } from './transport';
+import { studioFetch, errorMessage, type ErrorMessage, StudioError } from './transport';
 import { newDocument, safeReturnTo } from './model';
 import { CategoryPicker } from '../structured';
 import { words } from '../../lib/vocabulary';
@@ -38,7 +38,7 @@ export function SignIn({
   origin?: string;
 }) {
   const [pending, setPending] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState<ErrorMessage>('');
   // Sign-in only works at the configured address. Known only in the browser,
   // so it is compared after mounting rather than during rendering.
   const [openedAt, setOpenedAt] = useState('');
@@ -65,7 +65,7 @@ export function SignIn({
         setError(
           `Passdown is set up for ${origin}. Open it at that address, or ask the operator to set PASSDOWN_URL to ${window.location.origin}.`,
         );
-      else setError(e instanceof Error ? e.message : 'Sign in failed.');
+      else setError(errorMessage(e, 'Sign in failed.'));
       setPending(false);
     }
   }
@@ -208,7 +208,7 @@ export function WorkspacePage({ workspaceId }: { workspaceId: string }) {
 }
 function GuideList({ workspace }: { workspace: StudioWorkspace }) {
   const [guides, setGuides] = useState<DraftSummary[]>();
-  const [error, setError] = useState('');
+  const [error, setError] = useState<ErrorMessage>('');
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('all');
   const [attempt, setAttempt] = useState(0);
@@ -227,7 +227,7 @@ function GuideList({ workspace }: { workspace: StudioWorkspace }) {
             );
             return;
           }
-          setError(e.message);
+          setError(errorMessage(e, 'Your guides could not be loaded.'));
         }
       });
     return () => {
@@ -529,7 +529,7 @@ function CreateGuide({ workspace }: { workspace: StudioWorkspace }) {
   );
   const created = useRef(false);
   const [pending, setPending] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState<ErrorMessage>('');
   useEffect(() => setDocument(newDocument()), []);
   useEffect(() => {
     let live = true;
@@ -618,7 +618,7 @@ function CreateGuide({ workspace }: { workspace: StudioWorkspace }) {
       created.current = true;
       window.location.assign(`/studio/${workspace.id}/${data.guide.id}`);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Unable to create guide.');
+      setError(errorMessage(e, 'Unable to create guide.'));
       setPending(false);
     }
   }

@@ -378,3 +378,58 @@ test('publication failure retains the dialog and license, then retry closes it a
   await expect(page.getByRole('button', { name: 'Publish…', exact: true })).toBeDisabled();
   expect(attempts).toBe(2);
 });
+
+test('an unexpected save failure shows a reference matching the request ID, and a refusal does not', async ({
+  page,
+}) => {
+  const requestId = crypto.randomUUID();
+  let status = 503;
+  await page.route('**/api/studio/session', (route) =>
+    route.fulfill({
+      json: {
+        user: { id: 'u', name: 'Owner', email: 'owner@test.local' },
+        workspaces: [workspace],
+      },
+    }),
+  );
+  await page.route(`**/api/studio/${workspace.id}/guides/${guideId}`, (route) => {
+    if (route.request().method() === 'GET') return route.fulfill({ json: { guide: initial } });
+    return route.fulfill({
+      status,
+      headers: { 'X-Request-ID': requestId },
+      json: {
+        error:
+          status === 503
+            ? {
+                code: 'SERVICE_UNAVAILABLE',
+                message:
+                  'The service is unavailable. Your unsaved changes are still here. Please try again.',
+                requestId,
+              }
+            : { code: 'FORBIDDEN', message: 'You cannot change this guide.', requestId },
+      },
+    });
+  });
+  await page.goto(`/studio/${workspace.id}/${guideId}`);
+  await page.getByRole('textbox', { name: 'Instructions', exact: true }).fill('Keep this text');
+  const [response] = await Promise.all([
+    page.waitForResponse((r) => r.request().method() === 'PUT'),
+    page.getByRole('button', { name: 'Save draft', exact: true }).click(),
+  ]);
+  const short = response.headers()['x-request-id']!.slice(0, 8);
+  const alert = page.getByRole('alert').filter({ hasText: 'The service is unavailable' });
+  // The reference is part of the alert's own text, so screen readers announce it too.
+  await expect(alert).toContainText(`Reference: ${short}`);
+  const reference = alert.locator('code');
+  await expect(reference).toHaveText(short);
+  expect(await reference.evaluate((node) => getComputedStyle(node).userSelect)).toBe('all');
+  await expect(page.getByRole('textbox', { name: 'Instructions', exact: true })).toHaveText(
+    'Keep this text',
+  );
+
+  status = 403;
+  await page.getByRole('button', { name: 'Save draft', exact: true }).click();
+  const refusal = page.getByRole('alert').filter({ hasText: 'You cannot change this guide.' });
+  await expect(refusal).toBeVisible();
+  await expect(refusal).not.toContainText('Reference');
+});

@@ -1,11 +1,47 @@
+/**
+ * A failed studio request.
+ *
+ * `requestId` is the ID the server answered with (every API response carries
+ * one). `reference` is its short form, offered only for a failure the person
+ * cannot fix themselves: a server-side error (5xx). Those are exactly the
+ * failures the server logs, as one `request.failed` line under the full ID,
+ * so an operator can find the line from the first eight characters alone. An
+ * input, permission or conflict refusal is not logged and gets no reference —
+ * its message already says what to do.
+ */
 export class StudioError extends Error {
   constructor(
     message: string,
     public status: number,
     public code: string,
+    public requestId?: string,
   ) {
     super(message);
   }
+  get reference(): string | undefined {
+    return this.status >= 500 && this.requestId ? this.requestId.slice(0, 8) : undefined;
+  }
+}
+
+/** What an error notice shows: a message, with a reference when there is one. */
+export type ErrorMessage = string | { message: string; reference: string };
+
+/**
+ * The notice for a caught error: its message, or `fallback` when it has none,
+ * with the operator reference attached for a failure that carries one.
+ */
+export function errorMessage(error: unknown, fallback: string): ErrorMessage {
+  const message = (error instanceof Error && error.message) || fallback;
+  const reference = error instanceof StudioError ? error.reference : undefined;
+  return reference ? { message, reference } : message;
+}
+
+/** Only a plausible ID is kept; anything else is not worth showing someone. */
+function requestIdFrom(...candidates: unknown[]) {
+  return candidates.find(
+    (candidate): candidate is string =>
+      typeof candidate === 'string' && /^[A-Za-z0-9-]{8,64}$/.test(candidate),
+  );
 }
 export async function studioFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
@@ -27,6 +63,7 @@ export async function studioFetch<T>(path: string, init?: RequestInit): Promise<
           : 'The request could not be completed. Try again.'),
       response.status,
       detail?.code || 'REQUEST_FAILED',
+      requestIdFrom(detail?.requestId, response.headers.get('X-Request-ID')),
     );
   }
   return result as T;
@@ -62,7 +99,7 @@ export function studioUpload<T>(
       const result = (() => {
         try {
           return JSON.parse(request.responseText) as {
-            error?: { message?: string; code?: string };
+            error?: { message?: string; code?: string; requestId?: unknown };
           };
         } catch {
           return null;
@@ -78,6 +115,7 @@ export function studioUpload<T>(
           result?.error?.message ?? 'That picture could not be added. Try again.',
           request.status,
           result?.error?.code ?? 'REQUEST_FAILED',
+          requestIdFrom(result?.error?.requestId, request.getResponseHeader('X-Request-ID')),
         ),
       );
     });

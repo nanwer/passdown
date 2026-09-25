@@ -8,7 +8,10 @@ import type { GuideDocumentV5 } from '@guide/content';
 import { GuideRequirements, requirementFromCatalog } from './guide-requirements';
 import { StepRequirements } from './step-requirements';
 const mocks = vi.hoisted(() => ({ fetch: vi.fn(), item: undefined as CatalogItem | undefined }));
-vi.mock('./transport', () => ({ studioFetch: mocks.fetch }));
+vi.mock('./transport', async (actual) => ({
+  ...(await actual<typeof import('./transport')>()),
+  studioFetch: mocks.fetch,
+}));
 vi.mock('../structured', () => ({
   CatalogPicker: ({
     label = 'Pick item',

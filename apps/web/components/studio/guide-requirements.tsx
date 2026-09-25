@@ -24,7 +24,8 @@ import {
 import { ChevronDown, MessageSquare, Package, RefreshCw, Trash2, Wrench } from 'lucide-react';
 import { CatalogPicker } from '../structured';
 import { AuthoringSection } from './authoring-section';
-import { studioFetch } from './transport';
+import { ErrorReference, messageOf, referenceOf } from './error-notice';
+import { studioFetch, errorMessage, type ErrorMessage } from './transport';
 
 /**
  * Which list you added it to is the answer. That is the whole model: an item
@@ -139,7 +140,7 @@ export function GuideRequirements({
   const guideAudience = audience ?? (workspace.audience === 'public' ? 'public' : 'members');
   const [items, setItems] = useState<CatalogItem[]>([]);
   const [catalogState, setCatalogState] = useState<'loading' | 'ready' | 'error'>('loading');
-  const [catalogError, setCatalogError] = useState('');
+  const [catalogError, setCatalogError] = useState<ErrorMessage>('');
   const [notice, setNotice] = useState('');
   const [review, setReview] = useState<string | null>(null);
   const refresh = useCallback(async () => {
@@ -152,7 +153,7 @@ export function GuideRequirements({
       setCatalogError('');
     } catch (error) {
       setCatalogState('error');
-      setCatalogError(error instanceof Error ? error.message : 'Catalog status is unavailable.');
+      setCatalogError(errorMessage(error, 'Catalog status is unavailable.'));
     }
   }, [workspace.id]);
   useEffect(() => {
@@ -230,7 +231,10 @@ export function GuideRequirements({
       </p>
       {catalogState === 'error' && (
         <div className={feedback} role="status">
-          <p>{catalogError} Your selected details are preserved.</p>
+          <p>
+            {messageOf(catalogError)} Your selected details are preserved.
+            {referenceOf(catalogError) && <ErrorReference reference={referenceOf(catalogError)!} />}
+          </p>
           <button
             className={buttonVariants({ variant: 'secondary' })}
             type="button"

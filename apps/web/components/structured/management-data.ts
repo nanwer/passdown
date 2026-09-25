@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { CategoryManagementPage, CatalogManagementPage } from '@guide/contracts';
-import { studioFetch } from '../studio/transport';
+import { studioFetch, errorMessage, type ErrorMessage } from '../studio/transport';
 import type { Sort, Status } from './data-table';
 
 export type ManagementFilters = {
@@ -40,7 +40,7 @@ export function useManagementPage<T extends CategoryManagementPage | CatalogMana
   if (filters.collapsed?.size) params.set('collapsed', [...filters.collapsed].join(','));
   const key = `${workspaceId}/${resource}?${params}`;
   const [result, setResult] = useState<{ key: string; data: T }>();
-  const [error, setError] = useState('');
+  const [error, setError] = useState<ErrorMessage>('');
   const [pending, setPending] = useState(true);
   const [revision, setRevision] = useState(0);
   const refresh = () => setRevision((value) => value + 1);
@@ -64,8 +64,8 @@ export function useManagementPage<T extends CategoryManagementPage | CatalogMana
         .then((data) => {
           if (active) setResult({ key, data });
         })
-        .catch((error: Error) => {
-          if (active) setError(error.message);
+        .catch((error: unknown) => {
+          if (active) setError(errorMessage(error, 'This list could not be loaded.'));
         })
         .finally(() => {
           if (active) setPending(false);

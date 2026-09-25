@@ -5,7 +5,7 @@ import { ChevronDown, FolderPlus, Search, ArrowLeft, FolderTree } from 'lucide-r
 import { Button, Dialog } from '@guide/ui';
 import type { Category, StudioWorkspace } from '@guide/contracts';
 import { words } from '../../lib/vocabulary';
-import { studioFetch } from '../studio/transport';
+import { studioFetch, errorMessage, type ErrorMessage } from '../studio/transport';
 import { ErrorNotice } from '../studio/frame';
 import { useCategories, announceStructuredChange } from './data';
 import { categoryPath, eligibleCategories } from './tree-model';
@@ -239,7 +239,7 @@ export function CategoryForm({
   );
   const [sortOrder, setSortOrder] = useState(initial?.sortOrder ?? 0);
   const [pending, setPending] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState<ErrorMessage>('');
   const request = useFormRequest();
   const parent = categories.find((category) => category.id === parentId);
   async function save() {
@@ -272,9 +272,7 @@ export function CategoryForm({
     } catch (error) {
       if (!isCurrent()) return;
       setError(
-        error instanceof Error
-          ? error.message
-          : `Unable to save this ${words.thing}. Your changes are still here.`,
+        errorMessage(error, `Unable to save this ${words.thing}. Your changes are still here.`),
       );
     } finally {
       if (isCurrent()) setPending(false);
