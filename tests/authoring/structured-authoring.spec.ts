@@ -2772,6 +2772,12 @@ test('removing a prerequisite step explains affected steps without recovery cont
   const dialog = page.getByRole('dialog', { name: 'Remove this step?' });
   await expect(dialog).toBeVisible();
   await expect(dialog).toContainText('Check the arrangement');
+  await expect(dialog).toContainText(
+    'This step will stay, but will no longer require the step you remove.',
+  );
+  await expect(
+    dialog.getByRole('button', { name: 'Review step 2: Check the arrangement' }),
+  ).toHaveText('Review');
   await expect(page.getByRole('button', { name: 'Copy recovery draft' })).toHaveCount(0);
   await expect(page.getByText('Sign in in a new tab')).toHaveCount(0);
   await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
@@ -2790,9 +2796,7 @@ test('removing a prerequisite step explains affected steps without recovery cont
     .getByRole('button', { name: /Prepare the items/ })
     .click();
   await remove.click();
-  await dialog
-    .getByRole('button', { name: 'Remove step and prerequisite links', exact: true })
-    .click();
+  await dialog.getByRole('button', { name: 'Remove step', exact: true }).click();
   await expect(dialog).toHaveCount(0);
   await expect(page.getByRole('textbox', { name: 'Step title', exact: true })).toBeFocused();
   await expect(page.getByRole('textbox', { name: 'Step title', exact: true })).toHaveValue(

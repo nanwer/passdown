@@ -6,14 +6,23 @@ Start the local app and sign in at [Studio](http://127.0.0.1:3100/studio) using 
 
 Use **Studio → a guide → step editor**, preferably a test draft with two or more steps.
 
-1. Make step 2 depend on step 1 using its earlier-step prerequisites. Select step 1 and click **Remove**. Expect an in-app confirmation naming the affected step, with **Cancel**, a review action and **Remove step and prerequisite links**. No recovery JSON or sign-in controls should appear.
+1. Make step 2 depend on step 1 using its earlier-step prerequisites. Select step 1 and click **Remove**. Expect a compact confirmation showing the step to remove, an explanation that affected steps will stay, visible **Review** buttons, **Cancel** and a red **Remove step** action. No recovery JSON or sign-in controls should appear.
 2. Choose **Cancel**, then repeat using Escape. Expect both steps and their links unchanged, with keyboard focus returned to **Remove**.
 3. Open the confirmation and choose the affected step's review action. Expect the dialog to close, that step to open and its title field to receive focus. Nothing is deleted.
-4. Return to step 1, choose **Remove**, then **Remove step and prerequisite links**. Expect the step removed from the draft, its links removed from dependent steps, and focus on the next remaining step's title. Other prerequisites and instructions remain intact.
+4. Return to step 1, choose **Remove**, then **Remove step**. Expect the step removed from the draft, its links removed from dependent steps, and focus on the next remaining step's title. Other prerequisites and instructions remain intact.
 5. Choose **Save draft**, reload, and confirm the change persists. A previously published release must stay unchanged until you publish again. With one step left, **Remove** is unavailable. A step without dependents uses a simple **Remove step** confirmation.
 6. Repeat the confirmation at a narrow phone width. Content and actions should fit without horizontal scrolling; the affected-step list can scroll inside the dialog if necessary.
 
 This fixes step removal, not whole-guide deletion. Draft saving remains manual.
+
+## Upgrading a running installation
+
+Use a separate evaluation installation, never your own data.
+
+1. With the evaluation stack running and setup complete, create a guide with a picture. From `deploy`, run `sh upgrade.sh --build`. Expect a backup in `deploy/backups`, a build, "Applying migrations with the new version…", the new version and status, and **Upgrade complete.** The guide and picture remain, and health is `ready`.
+2. Run `docker compose run --rm -T ops version`. Expect the revision of your checkout (`git rev-parse --short=12 HEAD`).
+3. Simulate a failing migration: in a copy of the settings file, change `GUIDE_DB_RUNTIME_PASSWORD`, then run `sh upgrade.sh --env-file <that copy> --build --skip-backup`. Expect exit 1 and "Migrations failed; the site is still running the previous version." While it runs, reload the site: it keeps working. Afterwards `docker compose ps` shows the same web container, and `upgrade.log` records the failure.
+4. Stop the stack with `docker compose stop web` and run `sh upgrade.sh --build`. Expect a refusal telling you to use `docker compose up -d`, and no backup or build.
 
 ## Health and startup summary
 

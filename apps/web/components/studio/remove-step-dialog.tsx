@@ -1,6 +1,6 @@
 'use client';
 import { useRef, useState } from 'react';
-import { ArrowRight, Trash2 } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import { Button, Dialog } from '@guide/ui';
 
 type StepLink = { id: string; title: string; earlierStepIds?: string[] };
@@ -27,7 +27,7 @@ export function RemoveStepDialog({
       open={open}
       onOpenChange={setOpen}
       title="Remove this step?"
-      description={`“${step.title}” will be removed from this draft. The published release stays unchanged until you publish again.`}
+      description="This removes the step from your draft."
       trigger={
         <Button variant="quiet" size="tool" disabled={steps.length <= 1}>
           <Trash2 size={16} />
@@ -43,21 +43,44 @@ export function RemoveStepDialog({
       }}
     >
       <div className="grid gap-5 text-ink">
-        {dependents.length > 0 && (
-          <div className="grid gap-3 rounded-lg border border-warning-line bg-warning-surface p-4 text-warning">
-            <p className="m-0 font-semibold">Other steps depend on this one</p>
-            <p className="m-0 text-sm">
-              Removing it also removes its prerequisite links from the steps below. Review them
-              first if this changes the order or safety of the work.
+        <div className="flex items-start gap-3 rounded-lg border border-line bg-sunken p-4">
+          <Trash2 size={20} className="mt-0.5 shrink-0 text-error" />
+          <div className="min-w-0">
+            <p className="m-0 text-xs text-muted">
+              Step {steps.findIndex((item) => item.id === step.id) + 1}
             </p>
+            <p className="mt-1 mb-0 font-semibold wrap-anywhere">{step.title}</p>
+          </div>
+        </div>
+        {dependents.length > 0 && (
+          <div className="grid gap-3">
+            <div>
+              <p className="m-0 text-sm font-semibold">
+                {dependents.length === 1
+                  ? '1 step will be updated'
+                  : `${dependents.length} steps will be updated`}
+              </p>
+              <p className="mt-1 mb-0 text-sm text-muted">
+                {dependents.length === 1
+                  ? 'This step will stay, but will no longer require the step you remove.'
+                  : 'These steps will stay, but will no longer require the step you remove.'}
+              </p>
+            </div>
             <ul className="m-0 grid list-none gap-2 p-0">
               {dependents.map((item) => {
                 const number = steps.findIndex((candidate) => candidate.id === item.id) + 1;
                 return (
-                  <li key={item.id}>
+                  <li
+                    key={item.id}
+                    className="flex items-center justify-between gap-3 rounded-lg border border-line px-3 py-2"
+                  >
+                    <span className="min-w-0 text-sm wrap-anywhere">
+                      <span className="text-muted">Step {number} · </span>
+                      {item.title}
+                    </span>
                     <Button
-                      variant="secondary"
-                      className="h-auto w-full justify-between whitespace-normal text-left"
+                      variant="ghost"
+                      size="sm"
                       aria-label={`Review step ${number}: ${item.title}`}
                       onClick={() => {
                         moved.current = true;
@@ -65,10 +88,7 @@ export function RemoveStepDialog({
                         setOpen(false);
                       }}
                     >
-                      <span>
-                        Step {number}: {item.title}
-                      </span>
-                      <ArrowRight size={16} className="shrink-0" />
+                      Review
                     </Button>
                   </li>
                 );
@@ -76,15 +96,15 @@ export function RemoveStepDialog({
             </ul>
           </div>
         )}
-        <p className="m-0 text-sm text-muted">
-          Save the draft to keep this change. Cancel keeps the step and all its links.
+        <p className="m-0 text-xs text-muted">
+          Published versions won’t change. Save your draft when you’re done editing.
         </p>
         <div className="flex flex-wrap justify-end gap-3">
           <Button variant="secondary" onClick={() => setOpen(false)}>
             Cancel
           </Button>
           <Button
-            className="whitespace-normal"
+            variant="destructive"
             onClick={() => {
               moved.current = true;
               onRemove();
@@ -92,7 +112,7 @@ export function RemoveStepDialog({
             }}
           >
             <Trash2 size={16} className="shrink-0" />
-            {dependents.length ? 'Remove step and prerequisite links' : 'Remove step'}
+            Remove step
           </Button>
         </div>
       </div>

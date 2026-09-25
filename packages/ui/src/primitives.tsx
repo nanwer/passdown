@@ -91,6 +91,11 @@ export const buttonVariants = cva(
           'hover:bg-[var(--gp-component-button-hover)]',
           filledWhenDisabled,
         ),
+        destructive: cn(
+          'border-transparent bg-[var(--gp-semantic-action-destructive-background)] text-[var(--gp-semantic-action-destructive-foreground)]',
+          'hover:opacity-90',
+          filledWhenDisabled,
+        ),
         secondary: cn(
           'border-[var(--gp-semantic-border-control)] bg-[var(--gp-semantic-surface-raised)]',
           'hover:bg-[var(--gp-semantic-surface-sunken)]',
