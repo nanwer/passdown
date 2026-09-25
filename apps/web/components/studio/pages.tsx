@@ -106,13 +106,6 @@ export function Workspaces() {
             <p>Choose a workspace to continue a draft or start something useful.</p>
           </div>
           <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,310px),1fr))] gap-6">
-            {session.isAdministrator && (
-              <div className={X.card}>
-                <h2>This installation</h2>
-                <a href="/admin/accounts">Administration → Accounts</a>
-                <p>Create password reset links for people who are locked out.</p>
-              </div>
-            )}
             {session.workspaces.map((workspace) => (
               /* Not a single link any more. The card used to be one <a>, which
                  meant the only thing you could do from here was enter the
