@@ -77,6 +77,13 @@ export function managementStore(transaction: Transaction) {
           ? categorySort.tree
           : `${categorySort[query.sort]} ${direction(query.direction)}${query.sort === 'name' ? '' : ', app.management_sort_key(name) ASC'}`;
       return transaction(actor, workspaceId, async (client) => {
+        // The planner cannot estimate the recursive tree below: it prices a
+        // workspace of three things in the millions, far past PostgreSQL's
+        // default jit_above_cost. Compiling the query then took about 0.75 s
+        // on every request, for a statement that runs in under 20 ms, and a
+        // table refreshes this page after every change. Scoped to this
+        // transaction, which holds only this statement.
+        await client.query('SET LOCAL jit = off');
         const result = (
           await client.query(
             `
