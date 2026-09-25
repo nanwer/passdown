@@ -18,16 +18,16 @@ Please don't report security problems in public issues, discussions or pull requ
 Include what you can of:
 
 - the Passdown version (`docker compose run --rm -T ops version`, or the commit you built from);
-- how the installation is set up: Caddy or nginx, published images or built from source;
+- how the installation is set up: Portainer or `docker compose`, the bundled proxy alone or another proxy in front, published images or built from source;
 - what an attacker needs, such as no account, a member account, or an administrator account;
 - the steps to reproduce, and what happens compared with what should happen;
-- any logs, with passwords, reset or invitation links, setup codes and personal data removed.
+- any logs, with passwords, reset or invitation links and personal data removed.
 
 You'll get an acknowledgement when the report has been read. Fixes are released as a new alpha, and the changelog describes them without exploit details. Reporters are credited in the advisory unless they prefer not to be.
 
 ## Scope
 
-In scope: the Passdown application, the operator command, the container images and the deployment files in this repository (Compose files, `init.sh`, `upgrade.sh`, `backup.sh` and the proxy configurations).
+In scope: the Passdown application, the operator command, the container images and the deployment files in this repository (Compose files, `upgrade.sh`, `backup.sh` and the proxy configuration).
 
 Out of scope: problems that need an attacker who already controls the server, its Docker engine, or the settings file; vulnerabilities in third-party software that Passdown uses unchanged (report those upstream); and denial of service by sheer traffic volume.
 

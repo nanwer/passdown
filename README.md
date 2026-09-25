@@ -20,20 +20,20 @@ An installation brings together a **public library** and a **members-only librar
 - **Work with a team.** Share invitation links and assign view or manage access. Keep internal procedures alongside public guides.
 - **Take a guide back.** Withdraw a published guide so readers see a short notice instead of its instructions, then reinstate it or publish a new version.
 - **Recover accounts without email.** Installation administrators create single-use reset links for people who can't sign in, and everyone can change their own password under **Your account**.
-- **Set up in the browser.** A new installation asks for the one-time setup code printed during installation, then creates your account and workspace.
+- **Set up in the browser.** Sign in to a new installation with the default login; Passdown asks for your own name, email address and password and your first workspace, and the default login stops working.
 
 Saves are manual. Open signup, email delivery, self-service password recovery, non-image attachments, approval workflows, and collaborative editing are not available yet. See the [development status](docs/development/status.md) for the detailed feature inventory and the [roadmap](ROADMAP.md) for upcoming work.
 
 ## Install with Docker
 
-Passdown runs on a Linux server with Docker Compose. Linux amd64 is tested; arm64 is expected to work. In short:
+Passdown runs on a Linux server with Docker, from one compose file. Linux amd64 is tested; arm64 is expected to work. In short:
 
-1. Download `compose.yaml`, `init.sh`, `upgrade.sh`, `backup.sh` and `SHA256SUMS` from the [latest release](https://github.com/nanwer/passdown/releases) into an empty directory, and check them with `sha256sum --check SHA256SUMS`.
-2. Create your private settings, which also prints a one-time setup code: `sh init.sh --domain guides.example.org --acme-email you@example.org`
-3. Start Passdown: `docker compose up -d`
-4. Open `https://guides.example.org/setup`, enter the setup code, and create your account and workspace.
+1. Copy `compose.yaml` from the [latest release](https://github.com/nanwer/passdown/releases) or the [install guide](docs/self-hosting/install.md#the-compose-file) into **Portainer → Stacks → Add stack → Web editor**, or save it and run `docker compose up -d`.
+2. Set `PASSDOWN_URL` to the address people will use, for example `https://192.168.1.20:8443`, as a stack environment variable or in the file. Nothing else needs changing; the secrets are generated on first start.
+3. Open that address. The browser warns about the certificate the first time, as with Portainer.
+4. Sign in with `admin@example.com` and `changeme`, then finish setting up: your name, email address, a new password and your first workspace. The default login stops working.
 
-HTTPS comes from Caddy, which obtains certificates automatically, or from nginx with certificates you provide. Backups, restore and upgrades have their own commands. The [self-hosting guide](docs/self-hosting/install.md) covers every step, and the [configuration reference](docs/self-hosting/configuration.md) and [troubleshooting guide](docs/self-hosting/troubleshooting.md) cover the details. Until the release's images are published, the guide's [building from source](docs/self-hosting/install.md#building-from-source) section installs the same way from this repository.
+HTTPS comes from the bundled Caddy on port 8443 with a certificate it makes itself; for a public address, put your own proxy such as Nginx Proxy Manager in front. Upgrading is changing the version in the file and redeploying. The [self-hosting guide](docs/self-hosting/install.md) covers every step, including backups and operator commands, and the [configuration reference](docs/self-hosting/configuration.md) and [troubleshooting guide](docs/self-hosting/troubleshooting.md) cover the details. Until the release's images are published, the guide's [build from source](docs/self-hosting/install.md#build-from-source) section installs the same way from this repository.
 
 ## Run locally
 

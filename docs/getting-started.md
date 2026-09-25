@@ -151,6 +151,6 @@ See [Contributing](../CONTRIBUTING.md#validate-the-behavior) for the database an
 
 ## First-run browser setup and production status
 
-Local setup creates development accounts and examples. A server installation instead starts empty and opens **Set up Passdown** on every page until someone enters the one-time setup code and creates the first account and workspace. To install Passdown on a server, follow the [self-hosting guide](self-hosting/install.md); its settings step creates the setup code and everything else a production installation needs.
+Local setup creates development accounts and examples, and never the default login. A server installation instead starts with one default login, `admin@example.com` / `changeme`, created by `passdown migrate` in its empty database; signing in with it shows only **Finish setting up Passdown**, which creates the first account and workspace and retires it. To install Passdown on a server, follow the [self-hosting guide](self-hosting/install.md).
 
 Production builds refuse sample guides and preview identities, and require valid database and identity settings; the [configuration reference](self-hosting/configuration.md) lists them. Running `pnpm start` without those settings shows an installation page and a 503 `not-configured` health response.

@@ -13,8 +13,8 @@ Open Alpha 0.1.0-alpha.1 can be installed on one server with Docker Compose:
 - Shared things and catalog items, guide preparation lists, and per-step requirements.
 - Manual draft saves, preview, and published releases that preserve their instructions and item details.
 - Invitation links, view/manage permissions, and sortable management tables with server-side paging, combined filters, and column preferences.
-- Browser setup for a new installation, protected by a setup code, with the first account and workspace created together.
-- Installation with Docker Compose behind Caddy or nginx, verified backups, staged restore, and upgrades that keep the previous version serving until migrations succeed, with an installation guide, configuration reference and troubleshooting guide.
+- A new installation's default login, which can only finish setting up: the first account and workspace are created together and the default login stops working.
+- Installation from one compose file in Portainer or with `docker compose`, HTTPS on one port with a generated certificate, verified backups, staged restore, and upgrades that start the new version only after its migrations succeed, with an installation guide, configuration reference and troubleshooting guide.
 - Withdrawing and reinstating published guides, reset links issued by installation administrators, and changing your own password.
 
 Photo upload progress and retry controls are already implemented. Non-image attachments, cross-guide prerequisites, self-service account recovery, approvals, and community contributions are still upcoming.

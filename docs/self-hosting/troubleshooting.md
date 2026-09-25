@@ -1,25 +1,25 @@
 # Troubleshooting
 
-Run the commands here from your installation directory. Most problems are named in two places: the answer from `/api/health`, and the web service's log.
+Run the commands here from your installation's folder. For a Portainer stack, read the logs in Portainer (**Containers → the container → Logs**), or add `-p STACK -f compose.yaml` as described in [operator commands](install.md#operator-commands). Most problems are named in two places: the answer from `/api/health`, and the web service's log.
 
 ```bash
-curl https://guides.example.org/api/health
+curl -k https://localhost:8443/api/health
 docker compose logs web | grep '"level":"error"'
 docker compose run --rm -T ops status
 ```
 
-Log lines are JSON, one per event. They never contain passwords, setup codes, tokens, cookies, connection strings or guide content.
+Log lines are JSON, one per event. They never contain passwords, tokens, cookies, connection strings or guide content.
 
 ## Health answers
 
-| `status`            | HTTP | Meaning                                                                                    | What to do                                              |
-| ------------------- | ---- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------- |
-| `ready`             | 200  | Everything works.                                                                          | Nothing.                                                |
-| `setup-required`    | 200  | Running, but nobody has completed setup.                                                   | [Finish setup](install.md#finish-setup-in-the-browser). |
-| `not-configured`    | 503  | A required setting is missing or invalid.                                                  | See [not configured](#not-configured).                  |
-| `unavailable`       | 503  | The database can't be reached, has no schema yet, or its runtime role is unsafe.           | See [database unavailable](#database-unavailable).      |
-| `schema-behind`     | 503  | The database is missing migrations this version needs, or applied migrations were changed. | See [schema behind](#schema-behind).                    |
-| `media-unavailable` | 503  | The picture directory is missing or can't be read and written.                             | See [pictures unavailable](#pictures-unavailable).      |
+| `status`            | HTTP | Meaning                                                                                    | What to do                                                     |
+| ------------------- | ---- | ------------------------------------------------------------------------------------------ | -------------------------------------------------------------- |
+| `ready`             | 200  | Everything works.                                                                          | Nothing.                                                       |
+| `setup-required`    | 200  | Running, but nobody has finished setting up: the default login still works.                | [Finish setting up](install.md#sign-in-and-finish-setting-up). |
+| `not-configured`    | 503  | A required setting is missing or invalid.                                                  | See [not configured](#not-configured).                         |
+| `unavailable`       | 503  | The database can't be reached, has no schema yet, or its runtime role is unsafe.           | See [database unavailable](#database-unavailable).             |
+| `schema-behind`     | 503  | The database is missing migrations this version needs, or applied migrations were changed. | See [schema behind](#schema-behind).                           |
+| `media-unavailable` | 503  | The picture directory is missing or can't be read and written.                             | See [pictures unavailable](#pictures-unavailable).             |
 
 A `ready` answer with `"schema":"ahead"` means an older version is serving a database that a newer version has already upgraded. Start the newer version.
 
@@ -27,17 +27,18 @@ A `ready` answer with `"schema":"ahead"` means an older version is serving a dat
 
 Every page says **This installation is not configured yet. Ask the operator to check its settings.** The log has one `config.invalid` line per problem, naming the variable:
 
-- `BETTER_AUTH_URL: must be a bare origin and use https:// unless it is a loopback address.` Use `https://your.domain`, adding `:PORT` only for a non-standard HTTPS port, with no path or trailing text.
-- `BETTER_AUTH_SECRET: Identity secret must be at least 32 characters.` Restore the value from your password manager, or generate a new one (everyone is signed out).
-- `GUIDE_DATABASE_URL: …` Compose builds this from `GUIDE_DB_RUNTIME_PASSWORD`; check that the password line in `.env` is intact.
+- `PASSDOWN_URL: must be a bare origin and use https:// unless it is a loopback address.` Use `https://` and the address, adding `:PORT` unless it is 443, with no path, for example `https://192.168.1.20:8443`.
+- `GUIDE_DB_RUNTIME_PASSWORD_FILE: names a file that cannot be read …` (or the owner or session file): the `app-secrets` or `owner-secrets` volume isn't mounted, or the `init` service didn't complete. Check `docker compose ps --all init` and `docker compose logs init`.
+- `… must name a file holding one value on one line.` A secret file was edited or emptied. Restore it from a copy of the volume; a new value would not match the database.
+- `… cannot be combined with …` Two settings give the same value, for example `GUIDE_DATABASE_URL` alongside `GUIDE_DB_RUNTIME_PASSWORD_FILE`. Remove one.
 
-After fixing `.env`, run `docker compose up -d --force-recreate web`.
+After fixing the setting, redeploy (**Update the stack** in Portainer, or `docker compose up -d`).
 
-## Compose says a variable is missing
+## Secrets
 
-`required variable COMPOSE_PROJECT_NAME is missing a value: Run init.sh to choose an installation project`, or the same message for another variable ending in `Run init.sh`, means Compose couldn't find your settings. Run Compose from the installation directory. If your settings file isn't called `.env`, pass `--env-file FILE`, or use the full command `init.sh` printed. If the file is lost, restore it from your password manager. Don't run `init.sh` again for an existing installation: new passwords can't open your existing database, and `init.sh` refuses when it finds the installation's data.
+**`init` exited with an error.** Its log says which: **The secrets volume at … is not mounted.** means the compose file was changed; restore it. **… is not a regular file.** or **… is empty.** means something replaced a secret. `init` never overwrites a secret, because the database was set up with it. Restore the volume from a copy, or, for a new installation with no data, remove the stack's volumes and start again.
 
-For nginx, `PASSDOWN_TLS_DIR` missing means the settings weren't created with `--proxy nginx --tls-dir DIR`.
+**Migrate or web can't sign in to the database after the secrets volumes were lost** (`password authentication failed`, `Runtime role check failed: password`). New secrets were generated for an existing database. If only `app-secrets` was lost, run `docker compose run --rm -T ops runtime-password`, then redeploy: the runtime role takes the new password. Everyone has to sign in again, because the session secret is new too. If `owner-secrets` was lost, the database can't be opened with the new password: restore the volume, or restore a backup into a new installation.
 
 ## Database unavailable
 
@@ -65,35 +66,41 @@ The log line `schema.behind` says which case applies:
 
 `The picture directory is missing or cannot be read and written.` The `media` volume must be mounted at `/var/lib/passdown/media` and writable by the web container. Check that `docker compose config` still lists the volume for `web`, and that the host has free disk space.
 
-## Setup
+## First sign-in
 
-**Every page shows setup, or health says `setup-required`.** Nobody has finished setup. Open `/setup` and complete it.
+**The sign-in page doesn't mention admin@example.com.** Setup is already finished: sign in with the address and password chosen then. If nobody knows them, use [account recovery](#someone-cant-sign-in).
 
-**"That setup code isn't right."** Hyphens, spaces and letter case don't matter, and `I`, `L` and `O` are read as `1`, `1` and `0`. The code isn't stored, so a lost code can't be looked up: renew it. After 30 wrong attempts in a minute across the installation, setup answers **Too many attempts. Wait a minute and try again.**
+**admin@example.com and changeme are refused on a new installation.** Check `docker compose logs migrate`: it prints **Created the default login admin@example.com.** the first time. The default login is created only in an empty database; a database that already has an account or a workspace never gets one.
 
-**Lost setup code.** Before setup is complete, run `sh init.sh --renew-setup-code`, then the `docker compose … up -d --no-deps --force-recreate web` command it prints. The old code stops working when web is recreated. After setup, renewal refuses with **Setup is already complete; there is nothing to renew.** Use [account recovery](#someone-cant-sign-in) instead.
+**Every page says "Passdown has no account yet", or health says `setup-required` and nobody can sign in.** The database has no accounts: `migrate` hasn't run, or the database holds a workspace but no accounts, typically from a partial restore. Run `docker compose run --rm -T migrate`, or restore a complete backup. `ops setup-state` answers `no-account` in this state.
 
-**"Setup may have finished. Reload this page."** The connection dropped while setup was saving. Reload `/setup`. If it's gone, sign in with the email address and password you chose. Otherwise, try again: setup never creates a second account.
+**"Use your own email address, not admin@example.com."** Finish setting up needs your real address; the default one is retired.
 
-**"This installation has no setup code yet."** `PASSDOWN_SETUP_CODE_SHA256` is missing from `.env`, or it's malformed (the log says `The setup code hash is invalid, so browser setup is unavailable.`), or web wasn't recreated after renewal. The `startup` log line shows `"setupCode":"missing"`. Renew the code.
+**"Another account already uses that email address."** Choose another address.
 
-**"This database contains a workspace but no accounts."** The database is incomplete, typically from a partial restore. Restore a complete backup or start with empty volumes. Setup doesn't delete the existing data.
+**The connection was lost while finishing.** Reload the page. If it still shows **Finish setting up Passdown**, nothing was changed; send the form again. Otherwise setup finished: sign in with the address and password you chose.
+
+**"This database already contains a workspace."** The database is incomplete. Restore a complete backup or start with empty volumes. Nothing was changed.
+
+**`ops reset-password` refuses admin@example.com.** The default login's password changes only by finishing setting up. Sign in with `changeme` instead.
 
 ## Requests refused or sessions lost
 
-**"This request came from an untrusted origin. Reload this page and try again."** The page was opened at an address other than `BETTER_AUTH_URL`: another host name, `http://`, or a different port. Open the site at exactly that address, or correct `BETTER_AUTH_URL` and recreate web.
+**"Passdown is set up for https://…. Open it at that address, or ask the operator to set PASSDOWN_URL to …"** The page was opened at another address than `PASSDOWN_URL`: another host name, an IP address instead of a name, `http://`, or a different port. Open it at the first address, or set `PASSDOWN_URL` to the second (the one you are using) and redeploy. Behind your own proxy, `PASSDOWN_URL` is the proxy's public address.
 
-**Signed out immediately after signing in.** Session cookies are sent only over HTTPS. Use the `https://` address, and make sure no other proxy in front of Passdown serves it over plain HTTP.
+**Signed out immediately after signing in.** Session cookies are sent only over HTTPS. Use the `https://` address, and make sure no proxy in front of Passdown serves it over plain HTTP.
 
 **A picture won't upload.** The studio accepts JPEG, PNG and WebP up to 20 MB and 40 megapixels, and explains which limit was hit. **That picture could not be added. Try again.** with no other explanation usually means the proxy refused a body over 22 MB.
 
-**Too many requests.** The proxy allows 300 requests a minute per client on sign-in, links and administration. Separately, sign-in allows 10 failed attempts a minute per address (**Too many failed sign-in attempts. Please wait a minute and try again.**) and 500 across the installation. If many people are refused at once, the proxy may be seeing every visitor as one address; see [HTTPS and the proxy](install.md#https-and-the-proxy). Raise `PASSDOWN_SIGN_IN_LIMIT`, `PASSDOWN_LINK_LIMIT` or `PASSDOWN_ADMIN_LIMIT` only after checking that.
+**Too many requests.** The proxy allows 300 requests a minute per client on sign-in, links and administration. Separately, sign-in allows 10 failed attempts a minute per address (**Too many failed sign-in attempts. Please wait a minute and try again.**) and 500 across the installation. If many people are refused at once, the proxy may be seeing every visitor as one address: always the case behind your own proxy, and also with Docker Desktop or rootless Docker; see [using your own proxy](install.md#using-your-own-proxy-nginx-proxy-manager). Raise `PASSDOWN_SIGN_IN_LIMIT`, `PASSDOWN_LINK_LIMIT` or `PASSDOWN_ADMIN_LIMIT` only after checking that.
 
 ## Certificates
 
-**Caddy doesn't obtain a certificate.** DNS for your domain must point at this host, ports 80 and 443 must be reachable from the internet, and `PASSDOWN_TLS` must be your email address. Read `docker compose logs proxy`. Certificate authorities limit repeated failures, so fix the cause before restarting repeatedly.
+**The browser warns that the certificate isn't trusted.** Expected: the bundled proxy makes its own certificate. Continue past the warning, trust the local authority on your computer, or put a proxy with a trusted certificate in front. See [HTTPS](install.md#https).
 
-**nginx doesn't start.** Its log names the problem, for example `The certificate file /etc/passdown/tls/privkey.pem is missing.` Check that `PASSDOWN_TLS_DIR` holds `fullchain.pem` and `privkey.pem`. After replacing certificates, run `docker compose exec proxy nginx -s reload`. See [using nginx](nginx.md) for renewal with certbot.
+**The browser refuses to continue (no option to proceed).** The browser has been told to insist on a trusted certificate for that host name, usually because another site on the same name sent HSTS. Open Passdown by IP address or another name and set `PASSDOWN_URL` to match, or put a proxy with a trusted certificate in front.
+
+**Port 8443 is already in use.** Set `PASSDOWN_PORT` to a free port and use it in `PASSDOWN_URL` too.
 
 ## Someone can't sign in
 
@@ -109,7 +116,7 @@ It prints the link alone on standard output and its expiry on standard error. To
 
 ## Tracing an error someone reports
 
-A page that fails to load says **If this keeps happening, give the operator of this installation this reference:** followed by a code. The setup page shows **Reference:** with a request ID. Find it in the log:
+A page that fails to load says **If this keeps happening, give the operator of this installation this reference:** followed by a code. The Finish setting up form shows **Reference:** with a request ID. Find it in the log:
 
 ```bash
 docker compose logs web | grep 'REFERENCE'
@@ -124,6 +131,8 @@ Check with `docker system df -v`. The `database` and `media` volumes grow with y
 ## Migrations fail
 
 `migrate` and `upgrade.sh` stop on the first problem, and a failed migration is rolled back.
+
+**After Update the stack or `docker compose up -d`, the site answers 502.** The new version's migrations failed, so Compose didn't start the new web. The old web was already stopped: Compose replaces it before migrations run. The database is as it was. Read `docker compose logs migrate`, then put the previous version back in the compose file and redeploy to serve the previous version again. `upgrade.sh` avoids the outage by migrating first.
 
 - `Applied migration changed: NAME`: the images don't match the migrations recorded in the database. Use the images of the release this database was last upgraded with.
 - `Migration NAME failed and was rolled back: PostgreSQL error CODE`: nothing was changed. Keep the log and report the problem.

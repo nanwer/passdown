@@ -137,28 +137,32 @@ requires green runs in all three engines.
   authentication errors from an unavailable database.
 - **Creating or changing the runtime role sends its password in the SQL text,**
   which can reach the database log if the statement fails. Send a verifier.
-- **Studio error messages don't show the request ID.** Only the setup page
-  displays it; elsewhere the transport drops it, so people can't quote it to
+- **Studio error messages don't show the request ID.** Only the Finish setting
+  up form displays it; elsewhere the transport drops it, so people can't quote it to
   the operator. Show it as a reference in studio error messages.
-- **The setup code accepts any length after normalisation.** Require exactly 20
-  characters.
 
 ### Deployment and security hardening
 
-- **The Caddy and nginx images run as root,** and no service drops capabilities or uses a
+- **The Caddy image runs as root,** and no service drops capabilities or uses a
   read-only filesystem. Web can reach the internet through the proxy network.
-- **nginx certificates come only as a folder.** Separate certificate and key
-  paths, and an ACME webroot so certbot can renew without stopping the proxy
-  for a few seconds, are not offered yet.
+  The one-shot init service runs as root only to hand the secret files over.
 - **The database owner is the PostgreSQL superuser** in the default deployment.
   A non-superuser owner would limit what a crafted backup could do.
-- **A used setup code works again** if the database is ever empty again, for
-  example after an empty restore.
+- **The default login returns if the database is ever empty again,** for
+  example after deleting every account and workspace by hand: `migrate`
+  creates it in any database with no account and no workspace.
+- **A redeploy stops the old web before migrations run.** Compose recreates
+  web first, so a failed migration during Update the stack leaves the site
+  down until the previous version is put back. `upgrade.sh` avoids this on
+  the command line; a Portainer-friendly equivalent (for example a web
+  container that waits for its own schema) is not offered yet.
+- **The bundled certificate names only localhost.** Browsers warn about the
+  name as well as the issuer; including `PASSDOWN_URL`'s host would need the
+  proxy to know it.
 - **Supply chain:** the build installs pnpm without an integrity check, system
   packages aren't version-pinned, and unused package-manager shims stay in the
   runtime image.
-- **Non-standard HTTPS ports:** the HTTP redirect assumes port 443 on both proxies, automatic
-  certificates can't be issued, and HTTP/3 is advertised without UDP.
+- **HTTP/3** is advertised without UDP being published.
 - **Installation-wide request counters** for invitation lookups and failed
   sign-ins let a few clients slow everyone down. There is no Content Security
   Policy yet. Both belong to the release security review.
@@ -182,7 +186,7 @@ each needs operator-controlled input.
   operator actions.
 - **Sign-in and links:** parallel requests can exceed the per-address failure
   limit; `get-session` and the sign-in response return the session token;
-  setup-code attempts are throttled only after a wrong code; an interrupted
+  an interrupted
   invitation can leave an unverified account that blocks its address;
   passwords over 128 characters are refused with a misleading message;
   reset-link and invitation counters are installation-wide.
@@ -190,10 +194,8 @@ each needs operator-controlled input.
   every image decoder runs before the type check; resized copies aren't
   written atomically; log redaction misses 32-character tokens, and the
   framework's own error output isn't redacted.
-- **Deployment:** nginx serves any host name; the nginx entrypoint's domain
-  check accepts a multi-line value (startup then fails); Caddy doesn't
-  validate the limit and HSTS settings; `backup.sh` doesn't clear Compose
-  settings exported in the shell; Caddy has no explicit request timeouts;
+- **Deployment:** Caddy doesn't validate the limit settings; Caddy has no
+  explicit request timeouts;
   the archive reader lacks tests for link and extended-header members.
 
 ### Interface
