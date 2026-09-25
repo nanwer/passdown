@@ -15,6 +15,12 @@ Use **Studio → a guide → step editor**, preferably a test draft with two or 
 
 This fixes step removal, not whole-guide deletion. Draft saving remains manual.
 
+## Health and startup summary
+
+1. With the evaluation stack running, request `/api/health` (see the evaluation guide for the certificate). Expect `status`, `mode`, `schema`, `media` and `version`, and no migration names or settings.
+2. Run `docker compose logs web | grep '"event":"startup"'`. Expect one line per start with the version, mode `production`, the origin, `schema`, `media`, `setup` and `setupCode: configured`. It must not contain the setup code or a long hexadecimal hash.
+3. Recreate web with the picture volume made read-only (for example, add `:ro` to the media volume in a copy of the compose file). Expect health 503 `media-unavailable` and a `media.unavailable` log line. Restore the volume afterwards.
+
 ## Tracing a failure by its request ID
 
 1. With the evaluation stack running, stop the database for a moment: `docker compose stop postgres`. In Studio, open **Things**. Expect "The service is unavailable…" with a request ID.

@@ -3,7 +3,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { mediaFileName } from '@guide/contracts';
 import { servedImageWidths } from '@guide/content';
 import { readFile, rm } from 'node:fs/promises';
-import { discardStoredAsset, readStoredAsset } from './media';
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { discardStoredAsset, mediaStatus, readStoredAsset } from './media';
 vi.mock('server-only', () => ({}));
 vi.mock('node:fs/promises', async (importOriginal) => ({
   ...(await importOriginal<typeof import('node:fs/promises')>()),
@@ -38,4 +40,24 @@ describe('web storage and shared backup filename parity', () => {
       ]);
     },
   );
+});
+
+describe('picture storage readiness', () => {
+  const temp = () => mkdtempSync(join(tmpdir(), 'passdown-media-ready-'));
+  it('is usable when the configured directory exists and can be written', async () => {
+    vi.stubEnv('GUIDE_MEDIA_ROOT', temp());
+    expect(await mediaStatus({ production: true })).toBe('ok');
+  });
+  it('is unusable in production when the directory is missing or not a directory', async () => {
+    vi.stubEnv('GUIDE_MEDIA_ROOT', join(temp(), 'missing'));
+    expect(await mediaStatus({ production: true })).toBe('unavailable');
+    const file = join(temp(), 'file');
+    writeFileSync(file, '');
+    vi.stubEnv('GUIDE_MEDIA_ROOT', file);
+    expect(await mediaStatus({ production: true })).toBe('unavailable');
+  });
+  it('lets development create the directory on first upload', async () => {
+    vi.stubEnv('GUIDE_MEDIA_ROOT', join(temp(), 'created-later'));
+    expect(await mediaStatus({ production: false })).toBe('ok');
+  });
 });

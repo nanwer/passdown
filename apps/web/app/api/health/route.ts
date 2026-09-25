@@ -2,35 +2,29 @@ import { setupRequired } from '../../../lib/setup';
 import { deploymentStatus, sampleLibraryEnabled } from '../../../lib/deployment';
 import { describeSchemaDrift, describeSchemaState } from '@guide/database';
 import { getApplication, isConfigured } from '../../../lib/application';
+import { healthReport } from '../../../lib/health';
 import { apiResponse } from '../../../lib/http';
+import { mediaStatus } from '../../../lib/media';
 export const dynamic = 'force-dynamic';
 export function GET() {
   return apiResponse({ route: '/api/health', method: 'GET' }, async () => {
-    if (sampleLibraryEnabled()) return Response.json({ status: 'ready', mode: 'sample' });
-    if (!isConfigured()) return Response.json({ status: 'not-configured' }, { status: 503 });
-    const store = getApplication().store;
-    const healthy = await store.health();
-    if (!healthy)
-      return Response.json({ status: 'unavailable', mode: 'persistent' }, { status: 503 });
     // A reachable database that does not match this build is not ready. Saying
     // so here means an operator or a container healthcheck learns it without
-    // waiting for a request that happens to need the missing object.
-    const state = await store.schemaState();
-    const schema = describeSchemaState(
-      state,
-      deploymentStatus().production ? 'deployment' : 'local',
-    );
-    // Being ahead of this build is reported but still served: during a rolling
-    // deploy the new version migrates while old instances are still answering.
-    const drift = describeSchemaDrift(state);
-    return Response.json(
-      {
-        status: schema ? 'schema-behind' : (await setupRequired()) ? 'setup-required' : 'ready',
-        mode: 'persistent',
-        ...(schema && { schema }),
-        ...(drift && { warning: drift }),
+    // waiting for a request that happens to need the missing object. The
+    // details of a mismatch are in the startup log, not this public answer.
+    const { status, body } = await healthReport({
+      sample: sampleLibraryEnabled,
+      configured: isConfigured,
+      database: () => getApplication().store.health(),
+      schema: async () => {
+        const state = await getApplication().store.schemaState();
+        if (describeSchemaState(state, deploymentStatus().production ? 'deployment' : 'local'))
+          return 'behind';
+        return describeSchemaDrift(state) ? 'ahead' : 'current';
       },
-      { status: schema ? 503 : 200 },
-    );
+      media: () => mediaStatus({ production: deploymentStatus().production }),
+      setupRequired,
+    });
+    return Response.json(body, { status });
   });
 }

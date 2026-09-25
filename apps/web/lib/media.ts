@@ -1,6 +1,7 @@
 import 'server-only';
 import { createHash } from 'node:crypto';
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { constants } from 'node:fs';
+import { access, mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import sharp, { type Metadata, type Sharp } from 'sharp';
 import {
@@ -45,6 +46,22 @@ function mediaRoot() {
   // against cwd; resolving an unknown environment value here instead makes
   // Next's file tracer treat the whole application directory as media.
   return process.env.GUIDE_MEDIA_ROOT ?? '.media';
+}
+
+/**
+ * Whether pictures can be stored and served. A production installation must
+ * have its volume mounted; development creates the directory on first upload.
+ */
+export async function mediaStatus({ production }: { production: boolean }) {
+  try {
+    const root = mediaRoot();
+    if (!(await stat(root)).isDirectory()) return 'unavailable' as const;
+    await access(root, constants.R_OK | constants.W_OK);
+    return 'ok' as const;
+  } catch (error) {
+    const missing = (error as NodeJS.ErrnoException).code === 'ENOENT';
+    return missing && !production ? ('ok' as const) : ('unavailable' as const);
+  }
 }
 
 /**
