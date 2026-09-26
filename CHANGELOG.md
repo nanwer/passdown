@@ -2,6 +2,20 @@
 
 Each alpha release is listed here. Passdown uses [semantic versioning](https://semver.org/) with alpha pre-release labels; while it is in alpha, any release may change behaviour.
 
+## Unreleased
+
+### Changed
+
+- A redeploy whose database migrations fail no longer leaves a bare connection error: the bundled proxy shows a Passdown page saying the upgrade failed and whether any data was changed, with how to go back, and `/api/health` reports it. The proxy also shows a short "back in a moment" page while Passdown starts. `upgrade.sh` still keeps the previous version serving.
+- Studio messages for failures on the server's side end with a short reference, such as "Reference: 7f3a2c1b", that finds the matching line in the web service's log.
+- The browser tab icon uses the current blue mark.
+
+### Security
+
+- An installation administrator can no longer create a reset link for another administrator; that is done from the server with `ops reset-password`.
+- A suspended account's correct password is refused like a wrong one, and no session is created.
+- Page scripts can no longer read the session token: the session endpoint answers 404 and the sign-in response no longer includes the token.
+
 ## 0.1.0-alpha.1 (26 September 2026)
 
 The first version you can install on your own server.
